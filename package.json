@@ -6,8 +6,8 @@
   "scripts": {
     "start": "node server.js",
     "dev": "nodemon server.js",
-    "build": "cd client && npm install && npm run build",
-    "install:all": "npm install && cd client && npm install"
+    "build": "cd client && npm install --include=dev && npm run build",
+    "install:all": "npm install && cd client && npm install --include=dev"
   },
   "dependencies": {
     "better-sqlite3": "^9.4.3",
