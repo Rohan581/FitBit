@@ -1,0 +1,71 @@
+const BASE = '/api';
+
+async function req(method, path, body) {
+  const res = await fetch(`${BASE}${path}`, {
+    method,
+    headers: body ? { 'Content-Type': 'application/json' } : {},
+    body: body ? JSON.stringify(body) : undefined,
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ error: res.statusText }));
+    throw new Error(err.error || 'Request failed');
+  }
+  return res.json();
+}
+
+export const api = {
+  // Dashboard
+  getDashboard: () => req('GET', '/dashboard'),
+
+  // Foods
+  searchFoods: (q, category) => req('GET', `/foods?${new URLSearchParams({ ...(q && { q }), ...(category && { category }) })}`),
+  addCustomFood: (food) => req('POST', '/foods', food),
+  updateFood: (id, food) => req('PUT', `/foods/${id}`, food),
+  deleteFood: (id) => req('DELETE', `/foods/${id}`),
+
+  // Saved meals
+  getSavedMeals: () => req('GET', '/saved-meals'),
+  createSavedMeal: (meal) => req('POST', '/saved-meals', meal),
+  deleteSavedMeal: (id) => req('DELETE', `/saved-meals/${id}`),
+
+  // Food logs
+  getFoodLogs: (date) => req('GET', `/food-logs?${new URLSearchParams({ ...(date && { date }) })}`),
+  logFood: (entry) => req('POST', '/food-logs', entry),
+  deleteFoodLog: (id) => req('DELETE', `/food-logs/${id}`),
+
+  // Exercise logs
+  getExerciseLogs: (date) => req('GET', `/exercise-logs?${new URLSearchParams({ ...(date && { date }) })}`),
+  logExercise: (entry) => req('POST', '/exercise-logs', entry),
+  deleteExerciseLog: (id) => req('DELETE', `/exercise-logs/${id}`),
+
+  // Sleep logs
+  getSleepLog: (date) => req('GET', `/sleep-logs?${new URLSearchParams({ ...(date && { date }) })}`),
+  logSleep: (entry) => req('POST', '/sleep-logs', entry),
+  deleteSleepLog: (id) => req('DELETE', `/sleep-logs/${id}`),
+
+  // Weight logs
+  getWeightLogs: (limit) => req('GET', `/weight-logs?${new URLSearchParams({ ...(limit && { limit }) })}`),
+  getWeightToday: () => req('GET', '/weight-logs/today'),
+  getRollingAvg: () => req('GET', '/weight-logs/rolling-average'),
+  logWeight: (entry) => req('POST', '/weight-logs', entry),
+  deleteWeightLog: (id) => req('DELETE', `/weight-logs/${id}`),
+
+  // Points
+  getDailyPoints: (date) => req('GET', `/points/daily?${new URLSearchParams({ ...(date && { date }) })}`),
+  getWeeklyPoints: (weekStart) => req('GET', `/points/weekly?${new URLSearchParams({ ...(weekStart && { weekStart }) })}`),
+
+  // Weekly summary
+  getWeeklySummary: (weekStart) => req('GET', `/weekly-summary?${new URLSearchParams({ ...(weekStart && { weekStart }) })}`),
+  redeemTreat: (weekStart) => req('POST', '/weekly-summary/redeem', { weekStart }),
+
+  // Goal
+  getGoal: () => req('GET', '/goal'),
+  updateGoal: (data) => req('PUT', '/goal', data),
+  recalculateMacros: () => req('POST', '/goal/recalculate'),
+
+  // Trends
+  getWeightTrend: (days) => req('GET', `/trends/weight?${new URLSearchParams({ ...(days && { days }) })}`),
+  getMacroTrend: (days) => req('GET', `/trends/macros?${new URLSearchParams({ ...(days && { days }) })}`),
+  getPointsTrend: (weeks) => req('GET', `/trends/points?${new URLSearchParams({ ...(weeks && { weeks }) })}`),
+  getHistoryDay: (date) => req('GET', `/trends/history/${date}`),
+};
