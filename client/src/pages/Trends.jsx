@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { api } from '../api';
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
-  ReferenceLine, BarChart, Bar, Legend
+  ReferenceLine, BarChart, Bar,
 } from 'recharts';
 
 export default function Trends() {
@@ -35,14 +35,14 @@ export default function Trends() {
   }, [tab, weightRange]);
 
   return (
-    <div className="pb-4">
-      <div className="px-5 pt-6 pb-4">
-        <h1 className="text-2xl font-bold text-warm-800">Trends</h1>
+    <div className="px-4 pb-4 tab-fade-enter">
+      <div className="pt-5 pb-5">
+        <h1 className="text-[22px] font-medium text-warm-800">Trends</h1>
       </div>
 
       {/* Tab bar */}
-      <div className="px-4 mb-4">
-        <div className="flex bg-warm-100 rounded-xl p-1 gap-1">
+      <div className="mb-4">
+        <div className="flex bg-warm-100 rounded-card p-1 gap-1">
           {[
             { id: 'weight', label: 'Weight' },
             { id: 'macros', label: 'Macros' },
@@ -51,8 +51,8 @@ export default function Trends() {
             <button
               key={t.id}
               onClick={() => setTab(t.id)}
-              className={`flex-1 py-1.5 rounded-lg text-sm font-medium transition-all ${
-                tab === t.id ? 'bg-white text-warm-800 shadow-sm' : 'text-warm-500'
+              className={`flex-1 py-1.5 rounded-[12px] text-sm transition-colors ${
+                tab === t.id ? 'bg-white text-warm-800 shadow-subtle' : 'text-warm-500'
               }`}
             >
               {t.label}
@@ -63,10 +63,10 @@ export default function Trends() {
 
       {loading ? (
         <div className="flex justify-center items-center h-40">
-          <div className="w-8 h-8 border-2 border-amber-300 border-t-amber-600 rounded-full animate-spin" />
+          <div className="w-7 h-7 border-2 border-warm-200 border-t-accent rounded-full animate-spin" />
         </div>
       ) : (
-        <div className="px-4">
+        <div className="tab-fade-enter">
           {tab === 'weight' && weightData && <WeightChart data={weightData} range={weightRange} onRangeChange={setWeightRange} />}
           {tab === 'macros' && macroData && <MacrosChart data={macroData} />}
           {tab === 'points' && pointsData && <PointsChart data={pointsData} />}
@@ -74,8 +74,8 @@ export default function Trends() {
             (tab === 'macros' && !macroData?.length) ||
             (tab === 'points' && !pointsData?.length)) && (
             <div className="text-center py-12 text-warm-400">
-              <p className="text-base">No data yet</p>
-              <p className="text-sm mt-1">Start logging to see trends here</p>
+              <p className="text-sm">No data yet</p>
+              <p className="text-xs mt-1">Start logging to see trends here</p>
             </div>
           )}
         </div>
@@ -85,7 +85,7 @@ export default function Trends() {
 }
 
 function WeightChart({ data, range, onRangeChange }) {
-  const { weights, trajectory, milestones, goal } = data;
+  const { weights, milestones, goal } = data;
 
   const chartData = weights.map(w => ({
     date: w.date,
@@ -93,12 +93,6 @@ function WeightChart({ data, range, onRangeChange }) {
     actual: w.weight_kg,
     avg: w.rolling_avg,
   }));
-
-  // Add trajectory points
-  const allDates = [...new Set([
-    ...chartData.map(d => d.date),
-    ...(trajectory || []).map(t => t.date),
-  ])].sort();
 
   const yMin = weights.length > 0
     ? Math.min(...weights.map(w => w.weight_kg)) - 1
@@ -112,37 +106,36 @@ function WeightChart({ data, range, onRangeChange }) {
   const startWeight = goal?.start_weight_kg;
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3">
       {/* Stats row */}
       {latestAvg && (
-        <div className="bg-white rounded-2xl shadow-card p-4">
+        <div className="bg-warm-100 rounded-card p-4 stagger-enter">
           <div className="grid grid-cols-3 gap-4 text-center">
             <div>
-              <div className="text-xl font-bold text-warm-800">{latestAvg}kg</div>
-              <div className="text-xs text-warm-400">7-day avg</div>
+              <div className="text-lg font-medium text-warm-800">{latestAvg} kg</div>
+              <div className="text-[11px] text-warm-400">7-day avg</div>
             </div>
             {startWeight && (
               <div>
-                <div className="text-xl font-bold text-amber-600">
-                  {latestAvg < startWeight ? '-' : '+'}{Math.abs(Math.round((latestAvg - startWeight) * 10) / 10)}kg
+                <div className="text-lg font-medium text-accent">
+                  {latestAvg < startWeight ? '-' : '+'}{Math.abs(Math.round((latestAvg - startWeight) * 10) / 10)} kg
                 </div>
-                <div className="text-xs text-warm-400">from start</div>
+                <div className="text-[11px] text-warm-400">from start</div>
               </div>
             )}
             {goalWeight && (
               <div>
-                <div className="text-xl font-bold text-warm-800">
-                  {Math.round((latestAvg - goalWeight) * 10) / 10}kg
+                <div className="text-lg font-medium text-warm-800">
+                  {Math.round((latestAvg - goalWeight) * 10) / 10} kg
                 </div>
-                <div className="text-xs text-warm-400">to goal</div>
+                <div className="text-[11px] text-warm-400">to goal</div>
               </div>
             )}
           </div>
 
-          {/* Goal info */}
           {goal?.target_date && (
-            <div className="mt-3 pt-3 border-t border-warm-100 text-xs text-warm-500 text-center">
-              Goal: {goalWeight}kg by {new Date(goal.target_date + 'T12:00:00Z').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+            <div className="mt-3 pt-3 border-t border-warm-200 text-xs text-warm-400 text-center">
+              Goal: {goalWeight} kg by {new Date(goal.target_date + 'T12:00:00Z').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
             </div>
           )}
         </div>
@@ -150,12 +143,12 @@ function WeightChart({ data, range, onRangeChange }) {
 
       {/* Milestones */}
       {milestones?.some(m => m.achieved_date) && (
-        <div className="bg-white rounded-2xl shadow-card p-4">
-          <p className="text-xs font-medium text-warm-500 mb-2">Milestones</p>
+        <div className="bg-warm-100 rounded-card p-4 stagger-enter">
+          <p className="text-xs text-warm-500 mb-2">Milestones</p>
           <div className="space-y-1.5">
             {milestones.map(m => (
               <div key={m.id} className={`flex items-center justify-between text-sm ${m.achieved_date ? 'text-warm-700' : 'text-warm-300'}`}>
-                <span>{m.achieved_date ? '✓' : '○'} {m.weight_kg_threshold}kg</span>
+                <span>{m.achieved_date ? '✓' : '○'} {m.weight_kg_threshold} kg</span>
                 {m.achieved_date && <span className="text-xs text-warm-400">{formatDate(m.achieved_date)}</span>}
               </div>
             ))}
@@ -164,13 +157,13 @@ function WeightChart({ data, range, onRangeChange }) {
       )}
 
       {/* Range selector */}
-      <div className="flex gap-2">
+      <div className="flex gap-2 stagger-enter">
         {[30, 60, 90].map(d => (
           <button
             key={d}
             onClick={() => onRangeChange(d)}
-            className={`flex-1 py-1.5 rounded-lg text-sm font-medium border transition-all ${
-              range === d ? 'border-amber-400 bg-amber-50 text-amber-700' : 'border-warm-200 bg-white text-warm-500'
+            className={`flex-1 py-1.5 rounded-card text-sm border transition-colors press-scale ${
+              range === d ? 'border-accent bg-accent-tint text-accent' : 'border-warm-200 bg-white text-warm-500'
             }`}
           >
             {d}d
@@ -180,27 +173,27 @@ function WeightChart({ data, range, onRangeChange }) {
 
       {/* Chart */}
       {chartData.length > 0 ? (
-        <div className="bg-white rounded-2xl shadow-card p-4">
+        <div className="bg-warm-100 rounded-card p-4 stagger-enter">
           <ResponsiveContainer width="100%" height={220}>
             <LineChart data={chartData} margin={{ top: 5, right: 5, left: -20, bottom: 5 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#ECEAE4" />
+              <CartesianGrid strokeDasharray="3 3" stroke="#E8E4DE" />
               <XAxis dataKey="label" tick={{ fontSize: 10, fill: '#78746C' }} tickLine={false} interval="preserveStartEnd" />
               <YAxis tick={{ fontSize: 10, fill: '#78746C' }} tickLine={false} domain={[yMin, yMax]} />
               <Tooltip
-                contentStyle={{ background: 'white', border: '1px solid #ECEAE4', borderRadius: 8, fontSize: 12 }}
-                formatter={(val, name) => [val ? `${val}kg` : '—', name === 'avg' ? '7-day avg' : 'Daily']}
+                contentStyle={{ background: 'white', border: '1px solid #E8E4DE', borderRadius: 12, fontSize: 12 }}
+                formatter={(val, name) => [val ? `${val} kg` : '-', name === 'avg' ? '7-day avg' : 'Daily']}
               />
               {goalWeight && (
-                <ReferenceLine y={goalWeight} stroke="#D97706" strokeDasharray="4 2" label={{ value: `Goal ${goalWeight}kg`, position: 'insideTopRight', fontSize: 10, fill: '#D97706' }} />
+                <ReferenceLine y={goalWeight} stroke="#D85A30" strokeDasharray="4 2" label={{ value: `Goal ${goalWeight} kg`, position: 'insideTopRight', fontSize: 10, fill: '#D85A30' }} />
               )}
               <Line type="monotone" dataKey="actual" stroke="#D8D4CC" strokeWidth={1} dot={{ r: 2, fill: '#D8D4CC' }} name="daily" />
-              <Line type="monotone" dataKey="avg" stroke="#D97706" strokeWidth={2.5} dot={false} name="avg" />
+              <Line type="monotone" dataKey="avg" stroke="#D85A30" strokeWidth={2.5} dot={false} name="avg" />
             </LineChart>
           </ResponsiveContainer>
-          <p className="text-[10px] text-warm-400 text-center mt-1">Amber line = 7-day rolling average · Gray dots = daily</p>
+          <p className="text-[10px] text-warm-400 text-center mt-2">Orange line = 7-day rolling average</p>
         </div>
       ) : (
-        <div className="bg-white rounded-2xl shadow-card p-8 text-center text-warm-400 text-sm">
+        <div className="bg-warm-100 rounded-card p-8 text-center text-warm-400 text-sm">
           Log your weight to see the trend
         </div>
       )}
@@ -218,29 +211,29 @@ function MacrosChart({ data }) {
   }));
 
   return (
-    <div className="space-y-4">
-      <div className="bg-white rounded-2xl shadow-card p-4">
-        <p className="text-xs font-medium text-warm-500 mb-3">Calories (60 days)</p>
+    <div className="space-y-3">
+      <div className="bg-warm-100 rounded-card p-4 stagger-enter">
+        <p className="text-xs text-warm-500 mb-3">Calories (60 days)</p>
         <ResponsiveContainer width="100%" height={180}>
           <BarChart data={chartData} margin={{ top: 5, right: 5, left: -25, bottom: 5 }}>
-            <CartesianGrid strokeDasharray="3 3" stroke="#ECEAE4" />
+            <CartesianGrid strokeDasharray="3 3" stroke="#E8E4DE" />
             <XAxis dataKey="date" tick={{ fontSize: 9, fill: '#78746C' }} tickLine={false} interval="preserveStartEnd" />
             <YAxis tick={{ fontSize: 10, fill: '#78746C' }} tickLine={false} />
-            <Tooltip contentStyle={{ background: 'white', border: '1px solid #ECEAE4', borderRadius: 8, fontSize: 12 }} />
-            <Bar dataKey="Calories" fill="#D97706" radius={[3, 3, 0, 0]} />
+            <Tooltip contentStyle={{ background: 'white', border: '1px solid #E8E4DE', borderRadius: 12, fontSize: 12 }} />
+            <Bar dataKey="Calories" fill="#D85A30" radius={[3, 3, 0, 0]} />
           </BarChart>
         </ResponsiveContainer>
       </div>
 
-      <div className="bg-white rounded-2xl shadow-card p-4">
-        <p className="text-xs font-medium text-warm-500 mb-3">Protein (g)</p>
+      <div className="bg-warm-100 rounded-card p-4 stagger-enter">
+        <p className="text-xs text-warm-500 mb-3">Protein (g)</p>
         <ResponsiveContainer width="100%" height={180}>
           <BarChart data={chartData} margin={{ top: 5, right: 5, left: -25, bottom: 5 }}>
-            <CartesianGrid strokeDasharray="3 3" stroke="#ECEAE4" />
+            <CartesianGrid strokeDasharray="3 3" stroke="#E8E4DE" />
             <XAxis dataKey="date" tick={{ fontSize: 9, fill: '#78746C' }} tickLine={false} interval="preserveStartEnd" />
             <YAxis tick={{ fontSize: 10, fill: '#78746C' }} tickLine={false} />
-            <Tooltip contentStyle={{ background: 'white', border: '1px solid #ECEAE4', borderRadius: 8, fontSize: 12 }} />
-            <Bar dataKey="Protein" fill="#60A5FA" radius={[3, 3, 0, 0]} />
+            <Tooltip contentStyle={{ background: 'white', border: '1px solid #E8E4DE', borderRadius: 12, fontSize: 12 }} />
+            <Bar dataKey="Protein" fill="#1D9E75" radius={[3, 3, 0, 0]} />
           </BarChart>
         </ResponsiveContainer>
       </div>
@@ -255,20 +248,19 @@ function PointsChart({ data }) {
     week: formatDate(d.week_start),
     Points: Math.round(d.total_points),
     Threshold: d.threshold,
-    earned: d.treat_earned,
   }));
 
   return (
-    <div className="bg-white rounded-2xl shadow-card p-4">
-      <p className="text-xs font-medium text-warm-500 mb-3">Weekly points (12 weeks)</p>
+    <div className="bg-warm-100 rounded-card p-4 stagger-enter">
+      <p className="text-xs text-warm-500 mb-3">Weekly points (12 weeks)</p>
       <ResponsiveContainer width="100%" height={220}>
         <BarChart data={chartData} margin={{ top: 5, right: 5, left: -25, bottom: 5 }}>
-          <CartesianGrid strokeDasharray="3 3" stroke="#ECEAE4" />
+          <CartesianGrid strokeDasharray="3 3" stroke="#E8E4DE" />
           <XAxis dataKey="week" tick={{ fontSize: 9, fill: '#78746C' }} tickLine={false} />
           <YAxis tick={{ fontSize: 10, fill: '#78746C' }} tickLine={false} />
-          <Tooltip contentStyle={{ background: 'white', border: '1px solid #ECEAE4', borderRadius: 8, fontSize: 12 }} />
-          <ReferenceLine y={chartData[0]?.Threshold} stroke="#D97706" strokeDasharray="4 2" label={{ value: 'Threshold', position: 'insideTopRight', fontSize: 10, fill: '#D97706' }} />
-          <Bar dataKey="Points" fill="#D97706" radius={[3, 3, 0, 0]} />
+          <Tooltip contentStyle={{ background: 'white', border: '1px solid #E8E4DE', borderRadius: 12, fontSize: 12 }} />
+          <ReferenceLine y={chartData[0]?.Threshold} stroke="#D85A30" strokeDasharray="4 2" label={{ value: 'Threshold', position: 'insideTopRight', fontSize: 10, fill: '#D85A30' }} />
+          <Bar dataKey="Points" fill="#D85A30" radius={[3, 3, 0, 0]} />
         </BarChart>
       </ResponsiveContainer>
     </div>
@@ -283,6 +275,6 @@ function formatDate(dateStr) {
 
 function EmptyState({ msg }) {
   return (
-    <div className="bg-white rounded-2xl shadow-card p-8 text-center text-warm-400 text-sm">{msg}</div>
+    <div className="bg-warm-100 rounded-card p-8 text-center text-warm-400 text-sm">{msg}</div>
   );
 }

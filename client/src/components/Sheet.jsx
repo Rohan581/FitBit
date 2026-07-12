@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react';
 
 export default function Sheet({ open, onClose, title, children, height = 'auto' }) {
   const sheetRef = useRef(null);
+  const startY = useRef(null);
 
   useEffect(() => {
     if (open) {
@@ -11,6 +12,17 @@ export default function Sheet({ open, onClose, title, children, height = 'auto' 
     }
     return () => { document.body.style.overflow = ''; };
   }, [open]);
+
+  function handleTouchStart(e) {
+    startY.current = e.touches[0].clientY;
+  }
+
+  function handleTouchEnd(e) {
+    if (startY.current === null) return;
+    const diff = e.changedTouches[0].clientY - startY.current;
+    if (diff > 80) onClose();
+    startY.current = null;
+  }
 
   if (!open) return null;
 
@@ -24,7 +36,7 @@ export default function Sheet({ open, onClose, title, children, height = 'auto' 
     <div className="fixed inset-0 z-50 flex flex-col justify-end" role="dialog" aria-modal="true">
       {/* Backdrop */}
       <div
-        className="absolute inset-0 bg-black/40 overlay-enter"
+        className="absolute inset-0 bg-black/40 backdrop-enter"
         onClick={onClose}
         aria-hidden="true"
       />
@@ -32,20 +44,23 @@ export default function Sheet({ open, onClose, title, children, height = 'auto' 
       {/* Sheet */}
       <div
         ref={sheetRef}
-        className={`relative bg-white rounded-t-2xl shadow-sheet sheet-enter flex flex-col ${heightClass} safe-bottom`}
+        onTouchStart={handleTouchStart}
+        onTouchEnd={handleTouchEnd}
+        className={`relative bg-white rounded-t-[20px] sheet-enter flex flex-col ${heightClass}`}
+        style={{ paddingBottom: 'calc(16px + env(safe-area-inset-bottom))' }}
       >
         {/* Handle */}
         <div className="flex justify-center pt-3 pb-1 flex-shrink-0">
-          <div className="w-9 h-1 bg-warm-200 rounded-full" />
+          <div className="w-9 h-1 bg-warm-300 rounded-full" />
         </div>
 
         {/* Header */}
         {title && (
           <div className="flex items-center justify-between px-5 pb-3 flex-shrink-0">
-            <h2 className="text-lg font-semibold text-warm-800">{title}</h2>
+            <h2 className="text-lg font-medium text-warm-800">{title}</h2>
             <button
               onClick={onClose}
-              className="w-8 h-8 flex items-center justify-center rounded-full bg-warm-100 text-warm-500"
+              className="w-8 h-8 flex items-center justify-center rounded-full bg-warm-100 text-warm-500 press-scale"
               aria-label="Close"
             >
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>

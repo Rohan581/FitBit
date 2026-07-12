@@ -4,18 +4,20 @@ import Dashboard from './pages/Dashboard';
 import FoodLog from './pages/FoodLog';
 import Points from './pages/Points';
 import Trends from './pages/Trends';
+import History from './pages/History';
 import Settings from './pages/Settings';
 
 export default function App() {
   return (
     <BrowserRouter>
-      <div className="flex flex-col h-full bg-warm-50 max-w-lg mx-auto">
+      <div className="flex flex-col h-full bg-warm-50">
         <div className="flex-1 overflow-y-auto page-content">
           <Routes>
             <Route path="/" element={<Dashboard />} />
             <Route path="/food" element={<FoodLog />} />
-            <Route path="/points" element={<Points />} />
             <Route path="/trends" element={<Trends />} />
+            <Route path="/rewards" element={<Points />} />
+            <Route path="/history" element={<History />} />
             <Route path="/settings" element={<Settings />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>

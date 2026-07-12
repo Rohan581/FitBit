@@ -1,53 +1,125 @@
-export function MacroBar({ label, current, target, color = 'bg-amber-500', unit = 'g' }) {
+import { useState, useEffect, useRef } from 'react';
+
+export function MacroBar({ label, current, target, variant = 'calories' }) {
   const pct = target > 0 ? Math.min((current / target) * 100, 100) : 0;
-  const isOver = current > target;
+  const [animPct, setAnimPct] = useState(0);
+  const mounted = useRef(false);
+
+  useEffect(() => {
+    if (!mounted.current) {
+      mounted.current = true;
+      requestAnimationFrame(() => setAnimPct(pct));
+    } else {
+      setAnimPct(pct);
+    }
+  }, [pct]);
+
+  const barColor = variant === 'protein' ? 'bg-success' : 'bg-accent';
+  const unit = variant === 'calories' ? '' : ' g';
+  const displayLabel = variant === 'calories' ? 'Calories' : 'Protein';
 
   return (
-    <div className="space-y-1">
-      <div className="flex justify-between text-xs">
-        <span className="text-warm-500 font-medium">{label}</span>
-        <span className={`font-semibold ${isOver ? 'text-amber-600' : 'text-warm-700'}`}>
-          {Math.round(current)}{unit} <span className="text-warm-400 font-normal">/ {Math.round(target)}{unit}</span>
+    <div className="space-y-1.5">
+      <div className="flex justify-between items-baseline">
+        <span className="text-xs text-warm-500">{label || displayLabel}</span>
+        <span className="text-sm text-warm-700">
+          <CountUp value={current} />{unit}
+          <span className="text-warm-400 text-xs"> / {Math.round(target)}{unit}</span>
         </span>
       </div>
-      <div className="h-1.5 bg-warm-100 rounded-full overflow-hidden">
+      <div className="h-2 bg-warm-100 rounded-full overflow-hidden">
         <div
-          className={`h-full rounded-full progress-fill ${isOver ? 'bg-amber-400' : color}`}
-          style={{ width: `${pct}%` }}
+          className={`h-full rounded-full progress-fill ${barColor}`}
+          style={{ width: `${animPct}%` }}
         />
       </div>
     </div>
   );
 }
 
-export function CalorieRing({ current, target, size = 80 }) {
-  const pct = target > 0 ? Math.min((current / target), 1) : 0;
-  const r = (size - 8) / 2;
+export function PointsRing({ current, target, size = 92 }) {
+  const pct = target > 0 ? Math.min(current / target, 1) : 0;
+  const r = (size - 10) / 2;
   const circ = 2 * Math.PI * r;
-  const stroke = circ * (1 - pct);
-  const isOver = current > target;
+  const [animOffset, setAnimOffset] = useState(circ);
+  const [celebrate, setCelebrate] = useState(false);
+  const prevPctRef = useRef(0);
+
+  useEffect(() => {
+    const targetOffset = circ * (1 - pct);
+    requestAnimationFrame(() => setAnimOffset(targetOffset));
+
+    if (pct >= 1 && prevPctRef.current < 1) {
+      setCelebrate(true);
+      setTimeout(() => setCelebrate(false), 600);
+    }
+    prevPctRef.current = pct;
+  }, [pct, circ]);
 
   return (
-    <div className="relative flex items-center justify-center" style={{ width: size, height: size }}>
+    <div
+      className={`relative flex items-center justify-center ${celebrate ? 'ring-celebrate' : ''}`}
+      style={{ width: size, height: size }}
+    >
       <svg width={size} height={size} className="-rotate-90">
-        <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="#ECEAE4" strokeWidth={6} />
+        <circle
+          cx={size / 2} cy={size / 2} r={r}
+          fill="none" stroke="#E8E4DE" strokeWidth={7}
+        />
         <circle
           cx={size / 2} cy={size / 2} r={r}
           fill="none"
-          stroke={isOver ? '#FBBF24' : '#D97706'}
-          strokeWidth={6}
+          stroke={pct >= 1 ? '#B84D28' : '#D85A30'}
+          strokeWidth={7}
           strokeDasharray={circ}
-          strokeDashoffset={stroke}
+          strokeDashoffset={animOffset}
           strokeLinecap="round"
-          className="transition-all duration-500"
+          className="ring-animate"
         />
       </svg>
       <div className="absolute text-center">
-        <div className={`text-base font-bold leading-tight ${isOver ? 'text-amber-500' : 'text-warm-800'}`}>
-          {Math.round(current)}
+        <div className="text-xl font-medium text-warm-800 leading-tight">
+          <CountUp value={Math.round(current)} />
         </div>
-        <div className="text-[10px] text-warm-400">kcal</div>
+        <div className="text-[11px] text-warm-400">of {target} pts</div>
       </div>
     </div>
   );
+}
+
+export function CountUp({ value }) {
+  const [display, setDisplay] = useState(0);
+  const frameRef = useRef(null);
+  const startRef = useRef(null);
+  const reducedMotion = useRef(
+    typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
+  );
+
+  useEffect(() => {
+    if (reducedMotion.current) {
+      setDisplay(Math.round(value));
+      return;
+    }
+
+    const duration = 1100;
+    const start = performance.now();
+    startRef.current = start;
+
+    function tick(now) {
+      if (startRef.current !== start) return;
+      const elapsed = now - start;
+      const progress = Math.min(elapsed / duration, 1);
+      // ease-out cubic
+      const eased = 1 - Math.pow(1 - progress, 3);
+      setDisplay(Math.round(eased * value));
+      if (progress < 1) {
+        frameRef.current = requestAnimationFrame(tick);
+      }
+    }
+
+    frameRef.current = requestAnimationFrame(tick);
+    return () => { if (frameRef.current) cancelAnimationFrame(frameRef.current); };
+  }, [value]);
+
+  return <>{display}</>;
 }

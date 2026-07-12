@@ -3,13 +3,13 @@ import Sheet from './Sheet';
 import { api } from '../api';
 
 const EXERCISE_TYPES = [
-  { id: 'gym', label: 'Gym / Weights', emoji: '🏋️' },
-  { id: 'running', label: 'Running', emoji: '🏃' },
-  { id: 'swimming', label: 'Swimming', emoji: '🏊' },
-  { id: 'cycling', label: 'Cycling', emoji: '🚴' },
-  { id: 'walking', label: 'Walking', emoji: '🚶' },
-  { id: 'hiking', label: 'Hiking', emoji: '🥾' },
-  { id: 'other', label: 'Other', emoji: '⚡' },
+  { id: 'gym', label: 'Gym / weights' },
+  { id: 'running', label: 'Running' },
+  { id: 'swimming', label: 'Swimming' },
+  { id: 'cycling', label: 'Cycling' },
+  { id: 'walking', label: 'Walking' },
+  { id: 'hiking', label: 'Hiking' },
+  { id: 'other', label: 'Other' },
 ];
 
 const INTENSITIES = [
@@ -40,23 +40,22 @@ export default function ExerciseSheet({ open, onClose, onLogged }) {
   }
 
   return (
-    <Sheet open={open} onClose={onClose} title="Log Exercise">
+    <Sheet open={open} onClose={onClose} title="Log workout">
       <div className="px-5 pb-6 space-y-5">
         {/* Type */}
         <div>
-          <p className="text-xs font-medium text-warm-500 mb-2">Type</p>
+          <p className="text-xs text-warm-500 mb-2">Type</p>
           <div className="grid grid-cols-2 gap-2">
             {EXERCISE_TYPES.map(t => (
               <button
                 key={t.id}
                 onClick={() => setType(t.id)}
-                className={`flex items-center gap-2.5 px-3 py-2.5 rounded-xl border text-sm font-medium transition-all ${
+                className={`px-3 py-2.5 rounded-card border text-sm transition-colors press-scale ${
                   type === t.id
-                    ? 'border-amber-400 bg-amber-50 text-amber-700'
+                    ? 'border-accent bg-accent-tint text-accent'
                     : 'border-warm-200 bg-white text-warm-600'
                 }`}
               >
-                <span className="text-lg">{t.emoji}</span>
                 {t.label}
               </button>
             ))}
@@ -65,15 +64,15 @@ export default function ExerciseSheet({ open, onClose, onLogged }) {
 
         {/* Duration */}
         <div>
-          <label className="text-xs font-medium text-warm-500 block mb-2">Duration (minutes)</label>
-          <div className="flex items-center gap-3">
+          <label className="text-xs text-warm-500 block mb-2">Duration (minutes)</label>
+          <div className="flex items-center gap-2">
             {[15, 30, 45, 60, 90].map(d => (
               <button
                 key={d}
                 onClick={() => setDuration(String(d))}
-                className={`flex-1 py-2 rounded-lg text-sm font-medium border transition-all ${
+                className={`flex-1 py-2 rounded-card text-sm border transition-colors press-scale ${
                   duration === String(d)
-                    ? 'border-amber-400 bg-amber-50 text-amber-700'
+                    ? 'border-accent bg-accent-tint text-accent'
                     : 'border-warm-200 bg-white text-warm-600'
                 }`}
               >
@@ -86,7 +85,7 @@ export default function ExerciseSheet({ open, onClose, onLogged }) {
             value={duration}
             onChange={e => setDuration(e.target.value)}
             placeholder="Or type custom"
-            className="mt-2 w-full px-3 py-2.5 rounded-xl border border-warm-200 text-sm text-warm-800 focus:outline-none focus:border-amber-400 bg-white"
+            className="mt-2 w-full px-3 py-2.5 rounded-card border border-warm-200 text-sm text-warm-800 focus:outline-none focus:border-accent bg-white"
             min="1"
             max="300"
           />
@@ -94,15 +93,15 @@ export default function ExerciseSheet({ open, onClose, onLogged }) {
 
         {/* Intensity */}
         <div>
-          <p className="text-xs font-medium text-warm-500 mb-2">Intensity</p>
+          <p className="text-xs text-warm-500 mb-2">Intensity</p>
           <div className="flex gap-2">
             {INTENSITIES.map(i => (
               <button
                 key={i.id}
                 onClick={() => setIntensity(i.id)}
-                className={`flex-1 py-2 rounded-lg text-sm font-medium border transition-all ${
+                className={`flex-1 py-2 rounded-card text-sm border transition-colors press-scale ${
                   intensity === i.id
-                    ? 'border-amber-400 bg-amber-50 text-amber-700'
+                    ? 'border-accent bg-accent-tint text-accent'
                     : 'border-warm-200 bg-white text-warm-600'
                 }`}
               >
@@ -115,9 +114,9 @@ export default function ExerciseSheet({ open, onClose, onLogged }) {
         <button
           onClick={handleSave}
           disabled={!duration || saving}
-          className="w-full py-3.5 bg-amber-500 text-white rounded-xl font-semibold text-sm disabled:opacity-40 active:bg-amber-600 transition-colors"
+          className="w-full py-3.5 bg-accent text-white rounded-card text-sm disabled:opacity-40 press-scale"
         >
-          {saving ? 'Saving...' : 'Log Exercise'}
+          {saving ? 'Saving...' : 'Log workout'}
         </button>
       </div>
     </Sheet>

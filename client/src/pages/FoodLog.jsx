@@ -11,7 +11,6 @@ export default function FoodLog() {
   const [showLog, setShowLog] = useState(false);
   const [selectedMeal, setSelectedMeal] = useState('breakfast');
   const [showCustomFood, setShowCustomFood] = useState(false);
-  const [showSaveMeal, setShowSaveMeal] = useState(false);
   const [loading, setLoading] = useState(true);
 
   const load = useCallback(async () => {
@@ -34,17 +33,17 @@ export default function FoodLog() {
   const { totals } = logs;
 
   return (
-    <div className="pb-4">
+    <div className="px-4 pb-4">
       {/* Header */}
-      <div className="px-5 pt-6 pb-4">
-        <h1 className="text-2xl font-bold text-warm-800">Food Log</h1>
-        <p className="text-sm text-warm-400 mt-0.5">
+      <div className="pt-5 pb-5">
+        <h1 className="text-[22px] font-medium text-warm-800">Food log</h1>
+        <p className="text-xs text-warm-400 mt-0.5">
           {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })}
         </p>
       </div>
 
       {/* Daily totals */}
-      <div className="mx-4 bg-white rounded-2xl shadow-card p-4 mb-4">
+      <div className="bg-warm-100 rounded-card p-4 mb-3 stagger-enter">
         <div className="grid grid-cols-4 gap-2 text-center">
           <MacroStat label="Calories" value={Math.round(totals.calories)} unit="kcal" />
           <MacroStat label="Protein" value={Math.round(totals.protein_g)} unit="g" accent />
@@ -55,9 +54,9 @@ export default function FoodLog() {
 
       {/* Saved meals quick-log */}
       {savedMeals.length > 0 && (
-        <div className="mb-4">
-          <p className="text-xs font-medium text-warm-400 uppercase tracking-wide px-5 mb-2">Saved Meals</p>
-          <div className="px-4 flex gap-2 overflow-x-auto pb-1 scrollbar-none">
+        <div className="mb-3 stagger-enter">
+          <p className="text-xs text-warm-400 mb-2">Saved meals</p>
+          <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none">
             {savedMeals.map(meal => (
               <SavedMealChip key={meal.id} meal={meal} onLog={load} />
             ))}
@@ -66,24 +65,25 @@ export default function FoodLog() {
       )}
 
       {/* Meal sections */}
-      <div className="px-4 space-y-3">
+      <div className="space-y-2">
         {MEAL_TYPES.map(mealType => (
-          <MealSection
-            key={mealType}
-            type={mealType}
-            label={MEAL_LABELS[mealType]}
-            entries={logs.grouped?.[mealType] || []}
-            onAdd={() => openLog(mealType)}
-            onDelete={async (id) => { await api.deleteFoodLog(id); load(); }}
-          />
+          <div key={mealType} className="stagger-enter">
+            <MealSection
+              type={mealType}
+              label={MEAL_LABELS[mealType]}
+              entries={logs.grouped?.[mealType] || []}
+              onAdd={() => openLog(mealType)}
+              onDelete={async (id) => { await api.deleteFoodLog(id); load(); }}
+            />
+          </div>
         ))}
       </div>
 
       {/* Add custom food button */}
-      <div className="mx-4 mt-4">
+      <div className="mt-3 stagger-enter">
         <button
           onClick={() => setShowCustomFood(true)}
-          className="w-full py-3 border border-dashed border-warm-300 rounded-xl text-sm text-warm-500 font-medium"
+          className="w-full py-3 border border-dashed border-warm-300 rounded-card text-sm text-warm-500 press-scale"
         >
           + Add custom food to database
         </button>
@@ -110,16 +110,15 @@ export default function FoodLog() {
 function MacroStat({ label, value, unit, accent }) {
   return (
     <div>
-      <div className={`text-lg font-bold ${accent ? 'text-amber-600' : 'text-warm-800'}`}>{value}</div>
+      <div className={`text-lg font-medium ${accent ? 'text-success' : 'text-warm-800'}`}>{value}</div>
       <div className="text-[10px] text-warm-400">{unit}</div>
-      <div className="text-[10px] text-warm-500 font-medium">{label}</div>
+      <div className="text-[10px] text-warm-500">{label}</div>
     </div>
   );
 }
 
 function SavedMealChip({ meal, onLog }) {
   const [logging, setLogging] = useState(false);
-  const [mealType, setMealType] = useState('breakfast');
   const [showPicker, setShowPicker] = useState(false);
 
   async function handleLog(type) {
@@ -137,10 +136,10 @@ function SavedMealChip({ meal, onLog }) {
     <div className="flex-shrink-0">
       <button
         onClick={() => setShowPicker(true)}
-        className="flex flex-col items-start bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 min-w-[140px]"
+        className="flex flex-col items-start bg-accent-tint border border-accent/20 rounded-card px-4 py-3 min-w-[140px] press-scale"
       >
-        <span className="text-sm font-semibold text-amber-800">{meal.name}</span>
-        <span className="text-xs text-amber-600 mt-0.5">{Math.round(meal.total_calories)} kcal · {Math.round(meal.total_protein_g)}g protein</span>
+        <span className="text-sm text-warm-800">{meal.name}</span>
+        <span className="text-xs text-warm-500 mt-0.5">{Math.round(meal.total_calories)} kcal · {Math.round(meal.total_protein_g)}g protein</span>
       </button>
 
       {showPicker && (
@@ -149,14 +148,14 @@ function SavedMealChip({ meal, onLog }) {
             <p className="text-sm text-warm-500">
               {Math.round(meal.total_calories)} kcal · {Math.round(meal.total_protein_g)}g protein · {Math.round(meal.total_carbs_g)}g carbs · {Math.round(meal.total_fat_g)}g fat
             </p>
-            <p className="text-xs font-medium text-warm-500">Which meal?</p>
+            <p className="text-xs text-warm-500">Which meal?</p>
             <div className="grid grid-cols-2 gap-2">
               {MEAL_TYPES.map(t => (
                 <button
                   key={t}
                   onClick={() => handleLog(t)}
                   disabled={logging}
-                  className="py-3 rounded-xl border border-warm-200 bg-white text-sm font-medium text-warm-700 active:bg-warm-50 disabled:opacity-40"
+                  className="py-3 rounded-card border border-warm-200 bg-white text-sm text-warm-700 press-scale disabled:opacity-40"
                 >
                   {MEAL_LABELS[t]}
                 </button>
@@ -173,17 +172,17 @@ function MealSection({ type, label, entries, onAdd, onDelete }) {
   const total = entries.reduce((s, e) => ({ cal: s.cal + e.calories, pro: s.pro + e.protein_g }), { cal: 0, pro: 0 });
 
   return (
-    <div className="bg-white rounded-2xl shadow-card overflow-hidden">
-      <div className="flex items-center justify-between px-4 py-3 border-b border-warm-50">
+    <div className="bg-warm-100 rounded-card overflow-hidden">
+      <div className="flex items-center justify-between px-4 py-3 border-b border-warm-200/50">
         <div>
-          <span className="text-sm font-semibold text-warm-700">{label}</span>
+          <span className="text-sm text-warm-700">{label}</span>
           {entries.length > 0 && (
             <span className="text-xs text-warm-400 ml-2">{Math.round(total.cal)} kcal · {Math.round(total.pro)}g protein</span>
           )}
         </div>
         <button
           onClick={onAdd}
-          className="w-7 h-7 flex items-center justify-center rounded-full bg-amber-100 text-amber-600 text-lg font-bold leading-none"
+          className="w-7 h-7 flex items-center justify-center rounded-full bg-accent/10 text-accent text-lg leading-none press-scale"
         >
           +
         </button>
@@ -192,12 +191,12 @@ function MealSection({ type, label, entries, onAdd, onDelete }) {
       {entries.length === 0 ? (
         <div className="px-4 py-3 text-sm text-warm-300 italic">Nothing logged yet</div>
       ) : (
-        <div className="divide-y divide-warm-50">
+        <div className="divide-y divide-warm-200/50">
           {entries.map(entry => (
             <div key={entry.id} className="flex items-center px-4 py-2.5">
               <div className="flex-1 min-w-0">
-                <p className="text-sm text-warm-700 font-medium truncate">
-                  {entry.quantity !== 1 ? `${entry.quantity}× ` : ''}{entry.food_name}
+                <p className="text-sm text-warm-700 truncate">
+                  {entry.quantity !== 1 ? `${entry.quantity}x ` : ''}{entry.food_name}
                 </p>
                 <p className="text-xs text-warm-400">{Math.round(entry.calories)} kcal · {Math.round(entry.protein_g)}g protein</p>
               </div>
@@ -228,7 +227,6 @@ function FoodSearchSheet({ open, onClose, mealType, onLogged }) {
   useEffect(() => {
     if (open) {
       setTimeout(() => inputRef.current?.focus(), 100);
-      // Load all foods initially
       api.searchFoods('').then(setResults);
     } else {
       setQuery('');
@@ -280,43 +278,43 @@ function FoodSearchSheet({ open, onClose, mealType, onLogged }) {
               value={query}
               onChange={e => setQuery(e.target.value)}
               placeholder="Search foods..."
-              className="w-full pl-9 pr-4 py-2.5 rounded-xl border border-warm-200 text-sm text-warm-800 focus:outline-none focus:border-amber-400 bg-white"
+              className="w-full pl-9 pr-4 py-2.5 rounded-card border border-warm-200 text-sm text-warm-800 focus:outline-none focus:border-accent bg-white"
             />
           </div>
         </div>
 
         {/* Selected food editor */}
         {selected && (
-          <div className="mx-4 mb-3 bg-amber-50 border border-amber-200 rounded-xl p-3 flex-shrink-0">
+          <div className="mx-4 mb-3 bg-accent-tint border border-accent/20 rounded-card p-3 flex-shrink-0">
             <div className="flex items-start justify-between">
               <div>
-                <p className="text-sm font-semibold text-amber-800">{selected.name}</p>
-                <p className="text-xs text-amber-600">{selected.serving_unit}</p>
+                <p className="text-sm font-medium text-warm-800">{selected.name}</p>
+                <p className="text-xs text-warm-500">{selected.serving_unit}</p>
               </div>
-              <button onClick={() => setSelected(null)} className="text-amber-400 text-lg">×</button>
+              <button onClick={() => setSelected(null)} className="text-warm-400 text-lg">×</button>
             </div>
             <div className="flex items-center gap-3 mt-2">
-              <label className="text-xs text-amber-700">Servings:</label>
+              <label className="text-xs text-warm-500">Servings:</label>
               <div className="flex items-center gap-2">
-                <button onClick={() => setQty(q => String(Math.max(0.25, (parseFloat(q) || 1) - 0.25)))} className="w-7 h-7 rounded-lg bg-amber-100 text-amber-700 font-bold text-sm">−</button>
+                <button onClick={() => setQty(q => String(Math.max(0.25, (parseFloat(q) || 1) - 0.25)))} className="w-7 h-7 rounded-lg bg-warm-100 text-warm-700 text-sm press-scale">-</button>
                 <input
                   type="number"
                   value={qty}
                   onChange={e => setQty(e.target.value)}
-                  className="w-14 text-center px-1 py-1 rounded-lg border border-amber-200 text-sm font-semibold text-amber-800 bg-white focus:outline-none"
+                  className="w-14 text-center px-1 py-1 rounded-lg border border-warm-200 text-sm text-warm-800 bg-white focus:outline-none"
                   step="0.25"
                   min="0.25"
                 />
-                <button onClick={() => setQty(q => String((parseFloat(q) || 1) + 0.25))} className="w-7 h-7 rounded-lg bg-amber-100 text-amber-700 font-bold text-sm">+</button>
+                <button onClick={() => setQty(q => String((parseFloat(q) || 1) + 0.25))} className="w-7 h-7 rounded-lg bg-warm-100 text-warm-700 text-sm press-scale">+</button>
               </div>
               {multiplied && (
-                <span className="text-xs text-amber-600 ml-auto">{multiplied.cal} kcal · {multiplied.pro}g protein</span>
+                <span className="text-xs text-warm-500 ml-auto">{multiplied.cal} kcal · {multiplied.pro}g protein</span>
               )}
             </div>
             <button
               onClick={handleLog}
               disabled={saving}
-              className="w-full mt-3 py-2.5 bg-amber-500 text-white rounded-xl text-sm font-semibold disabled:opacity-40"
+              className="w-full mt-3 py-2.5 bg-accent text-white rounded-card text-sm disabled:opacity-40 press-scale"
             >
               {saving ? 'Adding...' : `Add to ${MEAL_LABELS[mealType]}`}
             </button>
@@ -334,16 +332,16 @@ function FoodSearchSheet({ open, onClose, mealType, onLogged }) {
               <button
                 key={food.id}
                 onClick={() => { setSelected(food); setQty('1'); }}
-                className={`w-full flex items-center justify-between px-4 py-3 rounded-xl text-left transition-all ${
-                  selected?.id === food.id ? 'bg-amber-50 border border-amber-200' : 'bg-warm-50 border border-transparent'
+                className={`w-full flex items-center justify-between px-4 py-3 rounded-card text-left transition-colors ${
+                  selected?.id === food.id ? 'bg-accent-tint border border-accent/20' : 'bg-warm-100 border border-transparent'
                 }`}
               >
                 <div className="min-w-0">
-                  <p className="text-sm font-medium text-warm-800 truncate">{food.name}</p>
+                  <p className="text-sm text-warm-800 truncate">{food.name}</p>
                   <p className="text-xs text-warm-400">{food.serving_unit}</p>
                 </div>
                 <div className="text-right ml-3 flex-shrink-0">
-                  <p className="text-sm font-semibold text-warm-700">{Math.round(food.calories)}</p>
+                  <p className="text-sm text-warm-700">{Math.round(food.calories)}</p>
                   <p className="text-xs text-warm-400">kcal</p>
                 </div>
               </button>
@@ -386,12 +384,12 @@ function CustomFoodSheet({ open, onClose, onSaved }) {
   }
 
   return (
-    <Sheet open={open} onClose={onClose} title="Add Custom Food">
+    <Sheet open={open} onClose={onClose} title="Add custom food">
       <div className="px-5 pb-6 space-y-4">
-        <Field label="Food name *" value={form.name} onChange={v => set('name', v)} placeholder="e.g. Mum's dal tadka" />
+        <Field label="Food name" value={form.name} onChange={v => set('name', v)} placeholder="e.g. Mum's dal tadka" />
         <Field label="Serving unit" value={form.serving_unit} onChange={v => set('serving_unit', v)} placeholder="1 cup, 100g, 1 piece..." />
         <div className="grid grid-cols-2 gap-3">
-          <Field label="Calories *" value={form.calories} onChange={v => set('calories', v)} type="number" placeholder="kcal" />
+          <Field label="Calories" value={form.calories} onChange={v => set('calories', v)} type="number" placeholder="kcal" />
           <Field label="Protein (g)" value={form.protein_g} onChange={v => set('protein_g', v)} type="number" placeholder="0" />
           <Field label="Carbs (g)" value={form.carbs_g} onChange={v => set('carbs_g', v)} type="number" placeholder="0" />
           <Field label="Fat (g)" value={form.fat_g} onChange={v => set('fat_g', v)} type="number" placeholder="0" />
@@ -400,9 +398,9 @@ function CustomFoodSheet({ open, onClose, onSaved }) {
         <button
           onClick={handleSave}
           disabled={saving}
-          className="w-full py-3.5 bg-amber-500 text-white rounded-xl font-semibold text-sm disabled:opacity-40"
+          className="w-full py-3.5 bg-accent text-white rounded-card text-sm disabled:opacity-40 press-scale"
         >
-          {saving ? 'Saving...' : 'Save to Food Database'}
+          {saving ? 'Saving...' : 'Save to food database'}
         </button>
       </div>
     </Sheet>
@@ -412,13 +410,13 @@ function CustomFoodSheet({ open, onClose, onSaved }) {
 function Field({ label, value, onChange, placeholder, type = 'text' }) {
   return (
     <div>
-      <label className="text-xs font-medium text-warm-500 block mb-1">{label}</label>
+      <label className="text-xs text-warm-500 block mb-1">{label}</label>
       <input
         type={type}
         value={value}
         onChange={e => onChange(e.target.value)}
         placeholder={placeholder}
-        className="w-full px-3 py-2.5 rounded-xl border border-warm-200 text-sm text-warm-800 focus:outline-none focus:border-amber-400 bg-white"
+        className="w-full px-3 py-2.5 rounded-card border border-warm-200 text-sm text-warm-800 focus:outline-none focus:border-accent bg-white"
       />
     </div>
   );
