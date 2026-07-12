@@ -60,6 +60,7 @@ router.put('/', (req, res) => {
       start_weight_kg=?, goal_weight_kg=?, start_date=?, target_date=?,
       height_cm=?, age=?, activity_multiplier=?,
       current_calorie_target=?, current_protein_target_g=?, current_fat_target_g=?, current_carb_target_g=?,
+      current_fiber_target_g=?, current_sugar_limit_g=?, water_target_ml=?,
       calorie_override=?, protein_override=?, fat_override=?, carb_override=?,
       weekly_point_threshold=?
     WHERE id=1
@@ -67,6 +68,7 @@ router.put('/', (req, res) => {
     updates.start_weight_kg, updates.goal_weight_kg, updates.start_date, updates.target_date,
     updates.height_cm, updates.age, updates.activity_multiplier,
     updates.current_calorie_target, updates.current_protein_target_g, updates.current_fat_target_g, updates.current_carb_target_g,
+    updates.current_fiber_target_g || 32, updates.current_sugar_limit_g || 50, updates.water_target_ml || 3000,
     updates.calorie_override ? 1 : 0, updates.protein_override ? 1 : 0,
     updates.fat_override ? 1 : 0, updates.carb_override ? 1 : 0,
     updates.weekly_point_threshold || 350

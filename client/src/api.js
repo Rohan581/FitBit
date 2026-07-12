@@ -19,18 +19,23 @@ export const api = {
 
   // Foods
   searchFoods: (q, category) => req('GET', `/foods?${new URLSearchParams({ ...(q && { q }), ...(category && { category }) })}`),
+  getRecents: () => req('GET', '/foods/recents'),
+  getFavorites: () => req('GET', '/foods/favorites'),
   addCustomFood: (food) => req('POST', '/foods', food),
   updateFood: (id, food) => req('PUT', `/foods/${id}`, food),
+  toggleFavorite: (id) => req('PATCH', `/foods/${id}/favorite`),
   deleteFood: (id) => req('DELETE', `/foods/${id}`),
 
   // Saved meals
   getSavedMeals: () => req('GET', '/saved-meals'),
   createSavedMeal: (meal) => req('POST', '/saved-meals', meal),
+  recomputeSavedMeal: (id) => req('PUT', `/saved-meals/${id}/recompute`),
   deleteSavedMeal: (id) => req('DELETE', `/saved-meals/${id}`),
 
   // Food logs
   getFoodLogs: (date) => req('GET', `/food-logs?${new URLSearchParams({ ...(date && { date }) })}`),
   logFood: (entry) => req('POST', '/food-logs', entry),
+  copyYesterday: (meal_type, date) => req('POST', '/food-logs/copy-yesterday', { meal_type, ...(date && { date }) }),
   deleteFoodLog: (id) => req('DELETE', `/food-logs/${id}`),
 
   // Exercise logs
@@ -50,6 +55,11 @@ export const api = {
   logWeight: (entry) => req('POST', '/weight-logs', entry),
   deleteWeightLog: (id) => req('DELETE', `/weight-logs/${id}`),
 
+  // Water
+  getWater: (date) => req('GET', `/water?${new URLSearchParams({ ...(date && { date }) })}`),
+  addWater: (date) => req('POST', '/water/add', { ...(date && { date }) }),
+  removeWater: (date) => req('POST', '/water/remove', { ...(date && { date }) }),
+
   // Points
   getDailyPoints: (date) => req('GET', `/points/daily?${new URLSearchParams({ ...(date && { date }) })}`),
   getWeeklyPoints: (weekStart) => req('GET', `/points/weekly?${new URLSearchParams({ ...(weekStart && { weekStart }) })}`),
@@ -62,6 +72,9 @@ export const api = {
   getGoal: () => req('GET', '/goal'),
   updateGoal: (data) => req('PUT', '/goal', data),
   recalculateMacros: () => req('POST', '/goal/recalculate'),
+
+  // Suggestions
+  getSuggestions: (date, force) => req('GET', `/suggestions?${new URLSearchParams({ ...(date && { date }), ...(force && { force: 'true' }) })}`),
 
   // Trends
   getWeightTrend: (days) => req('GET', `/trends/weight?${new URLSearchParams({ ...(days && { days }) })}`),

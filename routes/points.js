@@ -9,6 +9,7 @@ function calculateDailyPoints(db, date) {
   const exerciseLogs = db.prepare('SELECT * FROM exercise_logs WHERE date = ?').all(date);
   const sleepLog = db.prepare('SELECT * FROM sleep_logs WHERE date = ? ORDER BY logged_at DESC LIMIT 1').get(date);
   const weightLog = db.prepare('SELECT * FROM weight_logs WHERE date = ? ORDER BY logged_at DESC LIMIT 1').get(date);
+  const waterLog = db.prepare('SELECT * FROM water_logs WHERE date = ?').get(date);
 
   const breakdown = [];
   let total = 0;
@@ -50,6 +51,21 @@ function calculateDailyPoints(db, date) {
     }
   }
 
+  // ── Fiber ──────────────────────────────────────────────────────
+  if (foodLogs.length > 0) {
+    const totalFiber = foodLogs.reduce((s, f) => s + (f.fiber_g || 0), 0);
+    const fiberTarget = goal?.current_fiber_target_g || 32;
+    const pct = totalFiber / fiberTarget;
+
+    if (pct >= 1.0) {
+      breakdown.push({ category: 'fiber', points: 12, reason: `${Math.round(totalFiber)}g fiber — target hit!` });
+      total += 12;
+    } else if (pct >= 0.8) {
+      breakdown.push({ category: 'fiber', points: 6, reason: `${Math.round(totalFiber)}g fiber — 80%+ of target` });
+      total += 6;
+    }
+  }
+
   // ── Exercise ───────────────────────────────────────────────────
   for (const ex of exerciseLogs) {
     const type = (ex.type || '').toLowerCase();
@@ -81,6 +97,16 @@ function calculateDailyPoints(db, date) {
     } else if ((h >= 6.5 && h < 7) || (h > 8.5 && h <= 9)) {
       breakdown.push({ category: 'sleep', points: 8, reason: `${h}h sleep — close to ideal` });
       total += 8;
+    }
+  }
+
+  // ── Water ──────────────────────────────────────────────────────
+  if (waterLog && waterLog.glasses > 0) {
+    const waterTarget = goal?.water_target_ml || 3000;
+    const targetGlasses = Math.round(waterTarget / 250);
+    if (waterLog.glasses >= targetGlasses) {
+      breakdown.push({ category: 'water', points: 5, reason: `${waterLog.glasses} glasses — water target hit` });
+      total += 5;
     }
   }
 

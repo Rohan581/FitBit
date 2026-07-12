@@ -105,6 +105,7 @@ router.get('/history/:date', (req, res) => {
   const exerciseLogs = db.prepare('SELECT * FROM exercise_logs WHERE date = ? ORDER BY logged_at').all(date);
   const sleepLog = db.prepare('SELECT * FROM sleep_logs WHERE date = ? ORDER BY logged_at DESC LIMIT 1').get(date);
   const weightLog = db.prepare('SELECT * FROM weight_logs WHERE date = ? ORDER BY logged_at DESC LIMIT 1').get(date);
+  const waterLog = db.prepare('SELECT * FROM water_logs WHERE date = ?').get(date);
   const points = calculateDailyPoints(db, date);
 
   const foodTotals = foodLogs.reduce((acc, l) => ({
@@ -112,9 +113,11 @@ router.get('/history/:date', (req, res) => {
     protein_g: acc.protein_g + l.protein_g,
     carbs_g: acc.carbs_g + l.carbs_g,
     fat_g: acc.fat_g + l.fat_g,
-  }), { calories: 0, protein_g: 0, carbs_g: 0, fat_g: 0 });
+    fiber_g: acc.fiber_g + (l.fiber_g || 0),
+    sugar_g: acc.sugar_g + (l.sugar_g || 0),
+  }), { calories: 0, protein_g: 0, carbs_g: 0, fat_g: 0, fiber_g: 0, sugar_g: 0 });
 
-  res.json({ date, foodLogs, exerciseLogs, sleepLog, weightLog, points, foodTotals });
+  res.json({ date, foodLogs, exerciseLogs, sleepLog, weightLog, waterLog, points, foodTotals });
 });
 
 module.exports = router;

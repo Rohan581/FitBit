@@ -14,7 +14,7 @@ function getMealTypeByTime() {
 }
 
 export default function FoodLog() {
-  const [logs, setLogs] = useState({ grouped: {}, totals: { calories: 0, protein_g: 0, carbs_g: 0, fat_g: 0 } });
+  const [logs, setLogs] = useState({ grouped: {}, totals: { calories: 0, protein_g: 0, carbs_g: 0, fat_g: 0, fiber_g: 0, sugar_g: 0 } });
   const [savedMeals, setSavedMeals] = useState([]);
   const [showLog, setShowLog] = useState(false);
   const [selectedMeal, setSelectedMeal] = useState('breakfast');
@@ -23,12 +23,17 @@ export default function FoodLog() {
   const [savedMealPicker, setSavedMealPicker] = useState(null);
   const [savedMealType, setSavedMealType] = useState(getMealTypeByTime);
   const [loggingSavedMeal, setLoggingSavedMeal] = useState(false);
+  const [suggestions, setSuggestions] = useState(null);
+  const [goal, setGoal] = useState(null);
 
   const load = useCallback(async () => {
     try {
-      const [l, m] = await Promise.all([api.getFoodLogs(), api.getSavedMeals()]);
+      const [l, m, g] = await Promise.all([api.getFoodLogs(), api.getSavedMeals(), api.getGoal()]);
       setLogs(l);
       setSavedMeals(m);
+      setGoal(g);
+      // Load suggestions
+      api.getSuggestions().then(setSuggestions).catch(() => {});
     } finally {
       setLoading(false);
     }
@@ -58,7 +63,26 @@ export default function FoodLog() {
     }
   }
 
+  async function handleCopyYesterday(mealType) {
+    try {
+      await api.copyYesterday(mealType);
+      load();
+    } catch (e) {
+      // No entries to copy — ignore
+    }
+  }
+
+  async function handleAddSuggestion(suggestion) {
+    const mealType = suggestions?.default_meal_type || getMealTypeByTime();
+    await api.logFood({ food_id: suggestion.food_id, quantity: 1, meal_type: mealType });
+    load();
+  }
+
   const { totals } = logs;
+  const calTarget = goal?.current_calorie_target || 2240;
+  const proTarget = goal?.current_protein_target_g || 180;
+  const fiberTarget = goal?.current_fiber_target_g || 32;
+  const sugarLimit = goal?.current_sugar_limit_g || 50;
 
   return (
     <div className="px-4 pb-4">
@@ -70,15 +94,46 @@ export default function FoodLog() {
         </p>
       </div>
 
-      {/* Daily totals */}
+      {/* 2×2 Macro progress grid */}
       <div className="bg-warm-100 rounded-card p-4 mb-3 stagger-enter">
-        <div className="grid grid-cols-4 gap-2 text-center">
-          <MacroStat label="Calories" value={Math.round(totals.calories)} unit="kcal" />
-          <MacroStat label="Protein" value={Math.round(totals.protein_g)} unit="g" accent />
-          <MacroStat label="Carbs" value={Math.round(totals.carbs_g)} unit="g" />
-          <MacroStat label="Fat" value={Math.round(totals.fat_g)} unit="g" />
+        <div className="grid grid-cols-2 gap-3">
+          <MacroProgress label="Calories" current={totals.calories} target={calTarget} unit="kcal" color="var(--chart-accent)" />
+          <MacroProgress label="Protein" current={totals.protein_g} target={proTarget} unit="g" color="var(--chart-success)" />
+          <MacroProgress label="Fiber" current={totals.fiber_g} target={fiberTarget} unit="g" color="var(--fiber)" direction="reach" />
+          <MacroProgress label="Sugar" current={totals.sugar_g} target={sugarLimit} unit="g" color="var(--sugar)" direction="limit" />
         </div>
       </div>
+
+      {/* Suggestions card */}
+      {suggestions?.suggestions?.length > 0 && (
+        <div className="bg-warm-100 rounded-card p-4 mb-3 stagger-enter">
+          <p className="text-xs text-warm-500 mb-2">
+            Close the gap — {suggestions.primary_gap === 'protein' ? 'protein' : 'fiber'} ({suggestions.gap_amount}g remaining)
+          </p>
+          <div className="space-y-2">
+            {suggestions.suggestions.map(s => (
+              <div key={s.food_id} className="flex items-center justify-between bg-warm-200/50 rounded-xl px-3 py-2.5">
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm text-warm-700 truncate">{s.food_name}</p>
+                  <p className="text-xs text-warm-400">{s.description}</p>
+                </div>
+                <button
+                  onClick={() => handleAddSuggestion(s)}
+                  className="ml-2 px-3 py-1.5 bg-accent/10 text-accent text-xs rounded-lg press-scale flex-shrink-0"
+                >
+                  Add
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {suggestions?.reason === 'low_calories' && (
+        <div className="bg-warm-100 rounded-card px-4 py-3 mb-3 stagger-enter">
+          <p className="text-xs text-warm-500">{suggestions.message}</p>
+        </div>
+      )}
 
       {/* Saved meals quick-log */}
       {savedMeals.length > 0 && (
@@ -111,18 +166,25 @@ export default function FoodLog() {
               entries={logs.grouped?.[mealType] || []}
               onAdd={() => openLog(mealType)}
               onDelete={async (id) => { await api.deleteFoodLog(id); load(); }}
+              onCopyYesterday={() => handleCopyYesterday(mealType)}
             />
           </div>
         ))}
       </div>
 
-      {/* Add custom food button */}
-      <div className="mt-3 stagger-enter">
+      {/* Suggest button */}
+      <div className="mt-3 flex gap-2 stagger-enter">
+        <button
+          onClick={() => api.getSuggestions(null, true).then(setSuggestions)}
+          className="flex-1 py-3 border border-warm-300 rounded-card text-sm text-warm-500 press-scale"
+        >
+          Suggest foods
+        </button>
         <button
           onClick={() => setShowCustomFood(true)}
-          className="w-full py-3 border border-dashed border-warm-300 rounded-card text-sm text-warm-500 press-scale"
+          className="flex-1 py-3 border border-dashed border-warm-300 rounded-card text-sm text-warm-500 press-scale"
         >
-          + Add custom food to database
+          + Custom food
         </button>
       </div>
 
@@ -141,7 +203,7 @@ export default function FoodLog() {
         onSaved={load}
       />
 
-      {/* Saved meal picker sheet — rendered at top level to avoid overflow clipping */}
+      {/* Saved meal picker sheet */}
       <Sheet open={!!savedMealPicker} onClose={() => setSavedMealPicker(null)} title={savedMealPicker ? `Log "${savedMealPicker.name}"` : ''}>
         {savedMealPicker && (
           <div className="px-5 pb-6 space-y-4">
@@ -180,18 +242,36 @@ export default function FoodLog() {
   );
 }
 
-function MacroStat({ label, value, unit, accent }) {
+function MacroProgress({ label, current, target, unit, color, direction }) {
+  const pct = target > 0 ? Math.min((current / target) * 100, 100) : 0;
+  const isLimit = direction === 'limit';
+  const overLimit = isLimit && current > target;
+  const nearLimit = isLimit && pct >= 80 && pct < 100;
+
+  let barColor = color;
+  if (isLimit && overLimit) barColor = 'var(--danger)';
+  else if (isLimit && nearLimit) barColor = 'var(--warning)';
+
   return (
     <div>
-      <div className={`text-lg font-medium ${accent ? 'text-success' : 'text-warm-800'}`}>{value}</div>
-      <div className="text-[10px] text-warm-400">{unit}</div>
-      <div className="text-[10px] text-warm-500">{label}</div>
+      <div className="flex justify-between items-baseline mb-1">
+        <span className="text-[11px] text-warm-500">{label}</span>
+        <span className="text-xs text-warm-700">
+          {Math.round(current)}<span className="text-warm-400">/{Math.round(target)} {unit}</span>
+        </span>
+      </div>
+      <div className="h-2 bg-warm-200/60 rounded-full overflow-hidden">
+        <div
+          className="h-full rounded-full progress-fill"
+          style={{ width: `${Math.min(pct, 100)}%`, backgroundColor: barColor }}
+        />
+      </div>
     </div>
   );
 }
 
 
-function MealSection({ type, label, entries, onAdd, onDelete }) {
+function MealSection({ type, label, entries, onAdd, onDelete, onCopyYesterday }) {
   const total = entries.reduce((s, e) => ({ cal: s.cal + e.calories, pro: s.pro + e.protein_g }), { cal: 0, pro: 0 });
 
   return (
@@ -203,12 +283,23 @@ function MealSection({ type, label, entries, onAdd, onDelete }) {
             <span className="text-xs text-warm-400 ml-2">{Math.round(total.cal)} kcal · {Math.round(total.pro)}g protein</span>
           )}
         </div>
-        <button
-          onClick={onAdd}
-          className="w-7 h-7 flex items-center justify-center rounded-full bg-accent/10 text-accent text-lg leading-none press-scale"
-        >
-          +
-        </button>
+        <div className="flex items-center gap-1.5">
+          <button
+            onClick={onCopyYesterday}
+            className="w-7 h-7 flex items-center justify-center rounded-full bg-warm-200/60 text-warm-400 text-xs press-scale"
+            title="Copy yesterday"
+          >
+            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M8 7v8a2 2 0 002 2h6M8 7V5a2 2 0 012-2h4.586a1 1 0 01.707.293l4.414 4.414a1 1 0 01.293.707V15a2 2 0 01-2 2h-2M8 7H6a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2v-2" />
+            </svg>
+          </button>
+          <button
+            onClick={onAdd}
+            className="w-7 h-7 flex items-center justify-center rounded-full bg-accent/10 text-accent text-lg leading-none press-scale"
+          >
+            +
+          </button>
+        </div>
       </div>
 
       {entries.length === 0 ? (
@@ -241,20 +332,32 @@ function MealSection({ type, label, entries, onAdd, onDelete }) {
 function FoodSearchSheet({ open, onClose, mealType, onLogged }) {
   const [query, setQuery] = useState('');
   const [results, setResults] = useState([]);
+  const [favorites, setFavorites] = useState([]);
+  const [recents, setRecents] = useState([]);
   const [searching, setSearching] = useState(false);
   const [selected, setSelected] = useState(null);
   const [qty, setQty] = useState('1');
+  const [selectedUnit, setSelectedUnit] = useState(null);
   const [saving, setSaving] = useState(false);
   const inputRef = useRef(null);
 
   useEffect(() => {
     if (open) {
       setTimeout(() => inputRef.current?.focus(), 100);
-      api.searchFoods('').then(setResults);
+      Promise.all([
+        api.searchFoods(''),
+        api.getFavorites(),
+        api.getRecents(),
+      ]).then(([all, favs, rec]) => {
+        setResults(all);
+        setFavorites(favs);
+        setRecents(rec);
+      });
     } else {
       setQuery('');
       setSelected(null);
       setQty('1');
+      setSelectedUnit(null);
     }
   }, [open]);
 
@@ -273,7 +376,12 @@ function FoodSearchSheet({ open, onClose, mealType, onLogged }) {
     if (!selected) return;
     setSaving(true);
     try {
-      await api.logFood({ food_id: selected.id, quantity: parseFloat(qty) || 1, meal_type: mealType });
+      await api.logFood({
+        food_id: selected.id,
+        quantity: parseFloat(qty) || 1,
+        meal_type: mealType,
+        unit_used: selectedUnit,
+      });
       onLogged?.();
       onClose();
     } finally {
@@ -281,10 +389,36 @@ function FoodSearchSheet({ open, onClose, mealType, onLogged }) {
     }
   }
 
+  async function handleToggleFavorite(food, e) {
+    e.stopPropagation();
+    await api.toggleFavorite(food.id);
+    const [favs, all] = await Promise.all([api.getFavorites(), api.searchFoods(query)]);
+    setFavorites(favs);
+    setResults(all);
+  }
+
+  function selectFood(food) {
+    setSelected(food);
+    setQty('1');
+    // Use default_unit or first unit if available
+    const units = food.units ? JSON.parse(food.units) : null;
+    setSelectedUnit(food.default_unit || (units ? units[0]?.unit : null));
+  }
+
+  const units = selected?.units ? JSON.parse(selected.units) : null;
+  const unitMultiplier = selectedUnit && units
+    ? (units.find(u => u.unit === selectedUnit)?.multiplier || 1)
+    : 1;
+  const effectiveQty = (parseFloat(qty) || 1) * unitMultiplier;
+
   const multiplied = selected ? {
-    cal: Math.round(selected.calories * (parseFloat(qty) || 1)),
-    pro: Math.round(selected.protein_g * (parseFloat(qty) || 1) * 10) / 10,
+    cal: Math.round(selected.calories * effectiveQty),
+    pro: Math.round(selected.protein_g * effectiveQty * 10) / 10,
+    fiber: Math.round((selected.fiber_g || 0) * effectiveQty * 10) / 10,
   } : null;
+
+  // Show favorites and recents when no query
+  const showFavsRecents = !query && (favorites.length > 0 || recents.length > 0);
 
   return (
     <Sheet open={open} onClose={onClose} title={`Add to ${MEAL_LABELS[mealType]}`} height="full">
@@ -316,8 +450,28 @@ function FoodSearchSheet({ open, onClose, mealType, onLogged }) {
               </div>
               <button onClick={() => setSelected(null)} className="text-warm-400 text-lg">×</button>
             </div>
+
+            {/* Unit selector */}
+            {units && units.length > 1 && (
+              <div className="flex gap-1.5 mt-2 overflow-x-auto scrollbar-none">
+                {units.map(u => (
+                  <button
+                    key={u.unit}
+                    onClick={() => setSelectedUnit(u.unit)}
+                    className={`px-2.5 py-1 rounded-lg text-xs whitespace-nowrap border transition-colors ${
+                      selectedUnit === u.unit
+                        ? 'border-accent bg-accent/10 text-accent'
+                        : 'border-warm-200 text-warm-500'
+                    }`}
+                  >
+                    {u.unit}
+                  </button>
+                ))}
+              </div>
+            )}
+
             <div className="flex items-center gap-3 mt-2">
-              <label className="text-xs text-warm-500">Servings:</label>
+              <label className="text-xs text-warm-500">Qty:</label>
               <div className="flex items-center gap-2">
                 <button onClick={() => setQty(q => String(Math.max(0.25, (parseFloat(q) || 1) - 0.25)))} className="w-7 h-7 rounded-lg bg-warm-100 text-warm-700 text-sm press-scale">-</button>
                 <input
@@ -331,7 +485,7 @@ function FoodSearchSheet({ open, onClose, mealType, onLogged }) {
                 <button onClick={() => setQty(q => String((parseFloat(q) || 1) + 0.25))} className="w-7 h-7 rounded-lg bg-warm-100 text-warm-700 text-sm press-scale">+</button>
               </div>
               {multiplied && (
-                <span className="text-xs text-warm-500 ml-auto">{multiplied.cal} kcal · {multiplied.pro}g protein</span>
+                <span className="text-xs text-warm-500 ml-auto">{multiplied.cal} kcal · {multiplied.pro}g pro</span>
               )}
             </div>
             <button
@@ -346,28 +500,39 @@ function FoodSearchSheet({ open, onClose, mealType, onLogged }) {
 
         {/* Results list */}
         <div className="flex-1 overflow-y-auto px-4 pb-4">
+          {/* Favorites row */}
+          {showFavsRecents && favorites.length > 0 && (
+            <div className="mb-3">
+              <p className="text-[11px] text-warm-400 mb-1.5 px-1">Favorites</p>
+              <div className="space-y-1">
+                {favorites.map(food => (
+                  <FoodRow key={food.id} food={food} selected={selected} onSelect={selectFood} onToggleFavorite={handleToggleFavorite} />
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Recents row */}
+          {showFavsRecents && recents.length > 0 && (
+            <div className="mb-3">
+              <p className="text-[11px] text-warm-400 mb-1.5 px-1">Recent</p>
+              <div className="space-y-1">
+                {recents.filter(r => !favorites.find(f => f.id === r.id)).slice(0, 10).map(food => (
+                  <FoodRow key={food.id} food={food} selected={selected} onSelect={selectFood} onToggleFavorite={handleToggleFavorite} />
+                ))}
+              </div>
+            </div>
+          )}
+
+          {showFavsRecents && <div className="border-t border-warm-200/50 my-3" />}
+
           {searching && <p className="text-sm text-warm-400 text-center py-4">Searching...</p>}
           {!searching && results.length === 0 && (
             <p className="text-sm text-warm-400 text-center py-4">No foods found. Try a different search.</p>
           )}
           <div className="space-y-1">
             {results.map(food => (
-              <button
-                key={food.id}
-                onClick={() => { setSelected(food); setQty('1'); }}
-                className={`w-full flex items-center justify-between px-4 py-3 rounded-card text-left transition-colors ${
-                  selected?.id === food.id ? 'bg-accent-tint border border-accent/20' : 'bg-warm-100 border border-transparent'
-                }`}
-              >
-                <div className="min-w-0">
-                  <p className="text-sm text-warm-800 truncate">{food.name}</p>
-                  <p className="text-xs text-warm-400">{food.serving_unit}</p>
-                </div>
-                <div className="text-right ml-3 flex-shrink-0">
-                  <p className="text-sm text-warm-700">{Math.round(food.calories)}</p>
-                  <p className="text-xs text-warm-400">kcal</p>
-                </div>
-              </button>
+              <FoodRow key={food.id} food={food} selected={selected} onSelect={selectFood} onToggleFavorite={handleToggleFavorite} />
             ))}
           </div>
         </div>
@@ -376,8 +541,39 @@ function FoodSearchSheet({ open, onClose, mealType, onLogged }) {
   );
 }
 
+function FoodRow({ food, selected, onSelect, onToggleFavorite }) {
+  return (
+    <button
+      onClick={() => onSelect(food)}
+      className={`w-full flex items-center justify-between px-4 py-3 rounded-card text-left transition-colors ${
+        selected?.id === food.id ? 'bg-accent-tint border border-accent/20' : 'bg-warm-100 border border-transparent'
+      }`}
+    >
+      <div className="min-w-0 flex-1">
+        <p className="text-sm text-warm-800 truncate">{food.name}</p>
+        <p className="text-xs text-warm-400">{food.serving_unit}</p>
+      </div>
+      <div className="flex items-center gap-2 ml-3 flex-shrink-0">
+        <button
+          onClick={(e) => onToggleFavorite(food, e)}
+          className="text-sm"
+          aria-label={food.is_favorite ? 'Unfavorite' : 'Favorite'}
+        >
+          <span style={{ color: food.is_favorite ? 'var(--star)' : 'var(--chart-grid)' }}>
+            {food.is_favorite ? '★' : '☆'}
+          </span>
+        </button>
+        <div className="text-right">
+          <p className="text-sm text-warm-700">{Math.round(food.calories)}</p>
+          <p className="text-xs text-warm-400">kcal</p>
+        </div>
+      </div>
+    </button>
+  );
+}
+
 function CustomFoodSheet({ open, onClose, onSaved }) {
-  const [form, setForm] = useState({ name: '', serving_unit: '1 serving', calories: '', protein_g: '', carbs_g: '', fat_g: '' });
+  const [form, setForm] = useState({ name: '', serving_unit: '1 serving', calories: '', protein_g: '', carbs_g: '', fat_g: '', fiber_g: '', sugar_g: '' });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
 
@@ -395,10 +591,12 @@ function CustomFoodSheet({ open, onClose, onSaved }) {
         protein_g: parseFloat(form.protein_g) || 0,
         carbs_g: parseFloat(form.carbs_g) || 0,
         fat_g: parseFloat(form.fat_g) || 0,
+        fiber_g: parseFloat(form.fiber_g) || 0,
+        sugar_g: parseFloat(form.sugar_g) || 0,
       });
       onSaved?.();
       onClose();
-      setForm({ name: '', serving_unit: '1 serving', calories: '', protein_g: '', carbs_g: '', fat_g: '' });
+      setForm({ name: '', serving_unit: '1 serving', calories: '', protein_g: '', carbs_g: '', fat_g: '', fiber_g: '', sugar_g: '' });
     } catch (e) {
       setError(e.message);
     } finally {
@@ -416,6 +614,8 @@ function CustomFoodSheet({ open, onClose, onSaved }) {
           <Field label="Protein (g)" value={form.protein_g} onChange={v => set('protein_g', v)} type="number" placeholder="0" />
           <Field label="Carbs (g)" value={form.carbs_g} onChange={v => set('carbs_g', v)} type="number" placeholder="0" />
           <Field label="Fat (g)" value={form.fat_g} onChange={v => set('fat_g', v)} type="number" placeholder="0" />
+          <Field label="Fiber (g)" value={form.fiber_g} onChange={v => set('fiber_g', v)} type="number" placeholder="0" />
+          <Field label="Sugar (g)" value={form.sugar_g} onChange={v => set('sugar_g', v)} type="number" placeholder="0" />
         </div>
         {error && <p className="text-sm text-red-500">{error}</p>}
         <button

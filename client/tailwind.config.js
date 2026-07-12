@@ -26,6 +26,12 @@ export default {
           tint: 'var(--success-tint)',
         },
         surface: 'rgb(var(--surface) / <alpha-value>)',
+        fiber: 'var(--fiber)',
+        sugar: 'var(--sugar)',
+        water: 'var(--water)',
+        warning: 'var(--warning)',
+        danger: 'var(--danger)',
+        star: 'var(--star)',
       },
       fontFamily: {
         sans: ['-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'sans-serif'],

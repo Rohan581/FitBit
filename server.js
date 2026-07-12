@@ -24,10 +24,12 @@ app.use('/api/food-logs', require('./routes/foodLogs'));
 app.use('/api/exercise-logs', require('./routes/exerciseLogs'));
 app.use('/api/sleep-logs', require('./routes/sleepLogs'));
 app.use('/api/weight-logs', require('./routes/weightLogs'));
+app.use('/api/water', require('./routes/water'));
 app.use('/api/points', require('./routes/points'));
 app.use('/api/goal', require('./routes/goal'));
 app.use('/api/weekly-summary', require('./routes/weeklySummary'));
 app.use('/api/trends', require('./routes/trends'));
+app.use('/api/suggestions', require('./routes/suggestions'));
 app.use('/api/dashboard', require('./routes/dashboard'));
 
 // Serve React app in production

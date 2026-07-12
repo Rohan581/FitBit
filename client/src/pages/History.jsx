@@ -96,8 +96,8 @@ function DayDetail({ data }) {
   if (!data) return <p className="text-xs text-warm-400">Loading...</p>;
   if (data.error) return <p className="text-xs text-warm-400">Couldn't load this day</p>;
 
-  const { food_logs, exercise_logs, sleep_log, weight_log, points } = data;
-  const hasAnything = food_logs?.length > 0 || exercise_logs?.length > 0 || sleep_log || weight_log;
+  const { food_logs, exercise_logs, sleep_log, weight_log, waterLog, points } = data;
+  const hasAnything = food_logs?.length > 0 || exercise_logs?.length > 0 || sleep_log || weight_log || (waterLog?.glasses > 0);
 
   if (!hasAnything) return <p className="text-xs text-warm-400">Nothing logged this day</p>;
 
@@ -141,6 +141,14 @@ function DayDetail({ data }) {
         <div>
           <p className="text-[11px] text-warm-400 mb-1">Weight</p>
           <p className="text-xs text-warm-600">{weight_log.weight_kg} kg</p>
+        </div>
+      )}
+
+      {/* Water */}
+      {waterLog?.glasses > 0 && (
+        <div>
+          <p className="text-[11px] text-warm-400 mb-1">Water</p>
+          <p className="text-xs text-warm-600">{waterLog.glasses} glasses ({waterLog.glasses * 250} ml)</p>
         </div>
       )}
 

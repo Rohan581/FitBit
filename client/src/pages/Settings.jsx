@@ -25,6 +25,9 @@ export default function Settings() {
         current_protein_target_g: g.current_protein_target_g,
         current_fat_target_g: g.current_fat_target_g,
         current_carb_target_g: g.current_carb_target_g,
+        current_fiber_target_g: g.current_fiber_target_g || 32,
+        current_sugar_limit_g: g.current_sugar_limit_g || 50,
+        water_target_ml: g.water_target_ml || 3000,
         weekly_point_threshold: g.weekly_point_threshold || 350,
         calorie_override: g.calorie_override,
         protein_override: g.protein_override,
@@ -51,6 +54,9 @@ export default function Settings() {
         current_protein_target_g: parseFloat(form.current_protein_target_g),
         current_fat_target_g: parseFloat(form.current_fat_target_g),
         current_carb_target_g: parseFloat(form.current_carb_target_g),
+        current_fiber_target_g: parseFloat(form.current_fiber_target_g),
+        current_sugar_limit_g: parseFloat(form.current_sugar_limit_g),
+        water_target_ml: parseInt(form.water_target_ml),
         weekly_point_threshold: parseInt(form.weekly_point_threshold),
       });
       setGoal(updated);
@@ -176,6 +182,20 @@ export default function Settings() {
               onOverride={v => set('carb_override', v)}
             />
           </div>
+        </Section>
+
+        {/* Fiber & Sugar */}
+        <Section title="Fiber & Sugar">
+          <Row label="Fiber target (g/day)" value={form.current_fiber_target_g} onChange={v => set('current_fiber_target_g', v)} type="number" />
+          <p className="text-xs text-warm-400 px-1">Reach target = earn points. Default: 32g</p>
+          <Row label="Sugar limit (g/day)" value={form.current_sugar_limit_g} onChange={v => set('current_sugar_limit_g', v)} type="number" />
+          <p className="text-xs text-warm-400 px-1">Informational only — no penalty. Default: 50g</p>
+        </Section>
+
+        {/* Water */}
+        <Section title="Water">
+          <Row label="Daily target (ml)" value={form.water_target_ml} onChange={v => set('water_target_ml', v)} type="number" step="250" />
+          <p className="text-xs text-warm-400 px-1">1 glass = 250 ml. Default: 3000 ml (12 glasses)</p>
         </Section>
 
         {/* Points */}

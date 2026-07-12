@@ -40,6 +40,14 @@
   --chart-tooltip-border: #E8E4DE;
   --chart-ring-track: #E8E4DE;
 
+  /* Nutrient colors */
+  --fiber: #5856D6;
+  --sugar: #AF52DE;
+  --water: #007AFF;
+  --warning: #FF9500;
+  --danger: #FF3B30;
+  --star: #FFCC00;
+
   /* Shadows */
   --shadow-subtle: 0 1px 2px rgba(0,0,0,0.04);
   --shadow-sheet: 0 -4px 24px rgba(0,0,0,0.12);
@@ -58,40 +66,49 @@
 [data-theme="dark"] {
   color-scheme: dark;
 
-  --warm-50: 26 24 21;
-  --warm-100: 38 34 29;
-  --warm-200: 45 40 34;
-  --warm-300: 55 50 44;
-  --warm-400: 107 101 92;
-  --warm-500: 163 157 147;
-  --warm-600: 163 157 147;
-  --warm-700: 240 237 232;
-  --warm-800: 240 237 232;
-  --warm-900: 240 237 232;
+  /* True neutral dark palette (Apple Health / iOS system dark) */
+  --warm-50: 0 0 0;
+  --warm-100: 28 28 30;
+  --warm-200: 44 44 46;
+  --warm-300: 58 58 60;
+  --warm-400: 142 142 147;
+  --warm-500: 142 142 147;
+  --warm-600: 174 174 178;
+  --warm-700: 229 229 234;
+  --warm-800: 255 255 255;
+  --warm-900: 255 255 255;
 
-  --accent: 232 115 74;
-  --accent-hover: 255 140 100;
-  --accent-tint: rgba(232, 115, 74, 0.14);
+  --accent: 255 107 61;
+  --accent-hover: 216 90 48;
+  --accent-tint: rgba(255, 107, 61, 0.14);
 
-  --success: 52 192 143;
-  --success-tint: rgba(52, 192, 143, 0.14);
+  --success: 48 209 88;
+  --success-tint: rgba(48, 209, 88, 0.14);
 
-  --surface: 45 40 34;
+  --surface: 28 28 30;
 
-  --chart-grid: #3A3632;
-  --chart-text: #A39D93;
-  --chart-accent: #E8734A;
-  --chart-accent-complete: #C4613A;
-  --chart-success: #34C08F;
-  --chart-dot: #6B655C;
-  --chart-tooltip-bg: #2D2822;
-  --chart-tooltip-border: #3A3632;
-  --chart-ring-track: #3A3632;
+  --chart-grid: #2C2C2E;
+  --chart-text: #8E8E93;
+  --chart-accent: #FF6B3D;
+  --chart-accent-complete: #D85A30;
+  --chart-success: #30D158;
+  --chart-dot: #636366;
+  --chart-tooltip-bg: #1C1C1E;
+  --chart-tooltip-border: #2C2C2E;
+  --chart-ring-track: #2C2C2E;
 
-  --shadow-subtle: 0 1px 2px rgba(0,0,0,0.2);
-  --shadow-sheet: 0 -4px 24px rgba(0,0,0,0.4);
+  /* Nutrient colors (dark mode — brighter for contrast on black) */
+  --fiber: #64D2FF;
+  --sugar: #BF5AF2;
+  --water: #0A84FF;
+  --warning: #FF9F0A;
+  --danger: #FF453A;
+  --star: #FFD60A;
 
-  --theme-color: #1A1815;
+  --shadow-subtle: 0 1px 2px rgba(0,0,0,0.3);
+  --shadow-sheet: 0 -4px 24px rgba(0,0,0,0.6);
+
+  --theme-color: #000000;
 }
 
 * {

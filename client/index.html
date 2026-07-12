@@ -15,7 +15,7 @@
       // Apply theme before first paint to avoid FOUC
       (function() {
         var LIGHT_META = '#FAF8F5';
-        var DARK_META = '#1A1815';
+        var DARK_META = '#000000';
         var stored = localStorage.getItem('theme') || 'system';
         var dark = stored === 'dark' ||
           (stored === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);

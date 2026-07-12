@@ -16,6 +16,7 @@ router.get('/', (req, res) => {
   const exerciseLogs = db.prepare('SELECT * FROM exercise_logs WHERE date = ? ORDER BY logged_at').all(today);
   const sleepLog = db.prepare('SELECT * FROM sleep_logs WHERE date = ? ORDER BY logged_at DESC LIMIT 1').get(today);
   const weightLog = db.prepare('SELECT * FROM weight_logs WHERE date = ? ORDER BY logged_at DESC LIMIT 1').get(today);
+  const waterLog = db.prepare('SELECT * FROM water_logs WHERE date = ?').get(today);
 
   // Goal & targets
   const goal = db.prepare('SELECT * FROM goal WHERE id = 1').get();
@@ -26,7 +27,9 @@ router.get('/', (req, res) => {
     protein_g: acc.protein_g + l.protein_g,
     carbs_g: acc.carbs_g + l.carbs_g,
     fat_g: acc.fat_g + l.fat_g,
-  }), { calories: 0, protein_g: 0, carbs_g: 0, fat_g: 0 });
+    fiber_g: acc.fiber_g + (l.fiber_g || 0),
+    sugar_g: acc.sugar_g + (l.sugar_g || 0),
+  }), { calories: 0, protein_g: 0, carbs_g: 0, fat_g: 0, fiber_g: 0, sugar_g: 0 });
 
   // Daily points
   const dailyPoints = calculateDailyPoints(db, today);
@@ -45,10 +48,14 @@ router.get('/', (req, res) => {
     ? Math.round(recentWeights.reduce((s, w) => s + w.weight_kg, 0) / recentWeights.length * 100) / 100
     : null;
 
+  // Water
+  const waterTarget = goal?.water_target_ml || 3000;
+  const waterTargetGlasses = Math.round(waterTarget / 250);
+
   // Notifications
   const notifications = [];
 
-  // Stall detection: rolling avg hasn't moved >0.2kg in 14 days
+  // Stall detection
   if (rolling_avg_weight) {
     const twoWeeksAgo = db.prepare('SELECT weight_kg FROM weight_logs ORDER BY date DESC, logged_at DESC LIMIT 14').all();
     if (twoWeeksAgo.length >= 10) {
@@ -59,12 +66,12 @@ router.get('/', (req, res) => {
       }
     }
 
-    // Too-fast-loss: >1% bodyweight/week
+    // Too-fast-loss
     const twoWeeksWeights = db.prepare('SELECT weight_kg, date FROM weight_logs ORDER BY date ASC LIMIT 14').all();
     if (twoWeeksWeights.length >= 7) {
       const firstAvg = twoWeeksWeights.slice(0, 7).reduce((s, w) => s + w.weight_kg, 0) / 7;
       const weeklyLossRate = (firstAvg - rolling_avg_weight) / firstAvg;
-      if (weeklyLossRate > 0.01 * 2) { // >1%/week over 2 weeks
+      if (weeklyLossRate > 0.01 * 2) {
         notifications.push({ type: 'fast_loss', message: 'You\'re losing weight quickly — great progress, but make sure you\'re hitting your protein target. Fast loss without enough protein can mean muscle loss.' });
       }
     }
@@ -91,6 +98,10 @@ router.get('/', (req, res) => {
     exercise_logs: exerciseLogs,
     sleep_log: sleepLog,
     weight_log: weightLog,
+    water: {
+      glasses: waterLog?.glasses || 0,
+      target_glasses: waterTargetGlasses,
+    },
     daily_points: dailyPoints,
     weekly_points: weeklyPoints,
     threshold,

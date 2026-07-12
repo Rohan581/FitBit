@@ -38,15 +38,30 @@ export default function Dashboard() {
 
   useEffect(() => { load(); }, [load]);
 
+  async function addWater() {
+    await api.addWater();
+    load();
+  }
+
+  async function removeWater() {
+    await api.removeWater();
+    load();
+  }
+
   if (loading) return <LoadingState />;
   if (!data) return <ErrorState onRetry={load} />;
 
-  const { food_totals, goal, daily_points, weekly_points, threshold, treat_earned, rolling_avg_weight, notifications } = data;
+  const { food_totals, goal, daily_points, weekly_points, threshold, treat_earned, rolling_avg_weight, notifications, water } = data;
 
   const calTarget = goal?.current_calorie_target || 2240;
   const proTarget = goal?.current_protein_target_g || 180;
   const remaining = Math.max(0, Math.round(threshold - weekly_points));
   const streak = daily_points?.streak || 0;
+
+  // Water
+  const waterGlasses = water?.glasses || 0;
+  const waterTargetGlasses = water?.target_glasses || 12;
+  const waterPct = Math.min((waterGlasses / waterTargetGlasses) * 100, 100);
 
   // Determine weight trend
   const weightTrendDown = rolling_avg_weight && goal?.goal_weight_kg && rolling_avg_weight > goal.goal_weight_kg;
@@ -128,6 +143,43 @@ export default function Dashboard() {
         </div>
       </div>
 
+      {/* Water card */}
+      <div className="bg-warm-100 rounded-card p-4 mb-3 stagger-enter">
+        <div className="flex items-center justify-between mb-2">
+          <div className="flex items-center gap-2">
+            <WaterIcon />
+            <span className="text-sm text-warm-700">Water</span>
+          </div>
+          <span className="text-xs text-warm-400">{waterGlasses}/{waterTargetGlasses} glasses</span>
+        </div>
+        <div className="h-2 bg-warm-200/60 rounded-full overflow-hidden mb-3">
+          <div
+            className="h-full rounded-full progress-fill"
+            style={{ width: `${waterPct}%`, backgroundColor: 'var(--water)' }}
+          />
+        </div>
+        <div className="flex items-center justify-center gap-4">
+          <button
+            onClick={removeWater}
+            disabled={waterGlasses === 0}
+            className="w-10 h-10 flex items-center justify-center rounded-full bg-warm-200/60 text-warm-500 text-xl disabled:opacity-30 press-scale"
+          >
+            -
+          </button>
+          <div className="text-center">
+            <span className="text-2xl font-medium text-warm-800">{waterGlasses}</span>
+            <span className="text-sm text-warm-400 ml-1">glasses</span>
+          </div>
+          <button
+            onClick={addWater}
+            className="w-10 h-10 flex items-center justify-center rounded-full text-white text-xl press-scale"
+            style={{ backgroundColor: 'var(--water)' }}
+          >
+            +
+          </button>
+        </div>
+      </div>
+
       {/* Quick log grid */}
       <div className="grid grid-cols-2 gap-3 mb-3 stagger-enter">
         <Link
@@ -197,6 +249,14 @@ export default function Dashboard() {
       <SleepSheet open={showSleep} onClose={() => setShowSleep(false)} onLogged={load} existing={data.sleep_log} />
       <WeightSheet open={showWeight} onClose={() => setShowWeight(false)} onLogged={load} existing={data.weight_log} />
     </div>
+  );
+}
+
+function WaterIcon() {
+  return (
+    <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} style={{ color: 'var(--water)' }}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M12 21c4.418 0 8-3.582 8-8 0-4-3.5-8.5-8-13-4.5 4.5-8 9-8 13 0 4.418 3.582 8 8 8z" />
+    </svg>
   );
 }
 
