@@ -53,7 +53,7 @@ export default function ExerciseSheet({ open, onClose, onLogged }) {
                 className={`px-3 py-2.5 rounded-card border text-sm transition-colors press-scale ${
                   type === t.id
                     ? 'border-accent bg-accent-tint text-accent'
-                    : 'border-warm-200 bg-white text-warm-600'
+                    : 'border-warm-200 bg-surface text-warm-600'
                 }`}
               >
                 {t.label}
@@ -73,7 +73,7 @@ export default function ExerciseSheet({ open, onClose, onLogged }) {
                 className={`flex-1 py-2 rounded-card text-sm border transition-colors press-scale ${
                   duration === String(d)
                     ? 'border-accent bg-accent-tint text-accent'
-                    : 'border-warm-200 bg-white text-warm-600'
+                    : 'border-warm-200 bg-surface text-warm-600'
                 }`}
               >
                 {d}
@@ -85,7 +85,7 @@ export default function ExerciseSheet({ open, onClose, onLogged }) {
             value={duration}
             onChange={e => setDuration(e.target.value)}
             placeholder="Or type custom"
-            className="mt-2 w-full px-3 py-2.5 rounded-card border border-warm-200 text-sm text-warm-800 focus:outline-none focus:border-accent bg-white"
+            className="mt-2 w-full px-3 py-2.5 rounded-card border border-warm-200 text-sm text-warm-800 focus:outline-none focus:border-accent bg-surface"
             min="1"
             max="300"
           />
@@ -102,7 +102,7 @@ export default function ExerciseSheet({ open, onClose, onLogged }) {
                 className={`flex-1 py-2 rounded-card text-sm border transition-colors press-scale ${
                   intensity === i.id
                     ? 'border-accent bg-accent-tint text-accent'
-                    : 'border-warm-200 bg-white text-warm-600'
+                    : 'border-warm-200 bg-surface text-warm-600'
                 }`}
               >
                 {i.label}

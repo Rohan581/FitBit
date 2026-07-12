@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { api } from '../api';
 import { Link } from 'react-router-dom';
+import { getThemeSetting, setThemeSetting } from '../theme';
 
 export default function Settings() {
   const [goal, setGoal] = useState(null);
@@ -9,6 +10,7 @@ export default function Settings() {
   const [recalculating, setRecalculating] = useState(false);
   const [recalcResult, setRecalcResult] = useState(null);
   const [saved, setSaved] = useState(false);
+  const [theme, setTheme] = useState(getThemeSetting);
 
   useEffect(() => {
     api.getGoal().then(g => {
@@ -111,7 +113,7 @@ export default function Settings() {
           <button
             onClick={handleRecalculate}
             disabled={recalculating}
-            className="mt-3 text-sm text-accent border border-accent/30 bg-white rounded-card px-3 py-1.5 disabled:opacity-40 press-scale"
+            className="mt-3 text-sm text-accent border border-accent/30 bg-surface rounded-card px-3 py-1.5 disabled:opacity-40 press-scale"
           >
             {recalculating ? 'Recalculating...' : 'Recalculate targets from avg weight'}
           </button>
@@ -182,6 +184,30 @@ export default function Settings() {
           <p className="text-xs text-warm-400 px-1">Default: 350 pts. ~4 solid days to unlock a treat.</p>
         </Section>
 
+        {/* Appearance */}
+        <Section title="Appearance">
+          <p className="text-xs text-warm-500 mb-2">Theme</p>
+          <div className="flex gap-2">
+            {[
+              { id: 'light', label: 'Light' },
+              { id: 'dark', label: 'Dark' },
+              { id: 'system', label: 'System' },
+            ].map(opt => (
+              <button
+                key={opt.id}
+                onClick={() => { setTheme(opt.id); setThemeSetting(opt.id); }}
+                className={`flex-1 py-2 rounded-card text-sm border transition-colors press-scale ${
+                  theme === opt.id
+                    ? 'border-accent bg-accent-tint text-accent'
+                    : 'border-warm-200 bg-surface text-warm-600'
+                }`}
+              >
+                {opt.label}
+              </button>
+            ))}
+          </div>
+        </Section>
+
         <button
           onClick={handleSave}
           disabled={saving}
@@ -216,7 +242,7 @@ function Row({ label, value, onChange, type = 'text', step }) {
         value={value || ''}
         onChange={e => onChange(e.target.value)}
         step={step}
-        className="w-28 px-3 py-1.5 rounded-card border border-warm-200 text-sm text-right text-warm-800 focus:outline-none focus:border-accent bg-white"
+        className="w-28 px-3 py-1.5 rounded-card border border-warm-200 text-sm text-right text-warm-800 focus:outline-none focus:border-accent bg-surface"
       />
     </div>
   );
@@ -238,7 +264,7 @@ function TargetRow({ label, value, onChange, override, onOverride }) {
           type="number"
           value={value || ''}
           onChange={e => { onChange(e.target.value); onOverride(1); }}
-          className="w-24 px-3 py-1.5 rounded-card border border-warm-200 text-sm text-right text-warm-800 focus:outline-none focus:border-accent bg-white"
+          className="w-24 px-3 py-1.5 rounded-card border border-warm-200 text-sm text-right text-warm-800 focus:outline-none focus:border-accent bg-surface"
         />
       </div>
       {override ? (

@@ -5,6 +5,14 @@ import Sheet from '../components/Sheet';
 const MEAL_TYPES = ['breakfast', 'lunch', 'dinner', 'snack'];
 const MEAL_LABELS = { breakfast: 'Breakfast', lunch: 'Lunch', dinner: 'Dinner', snack: 'Snacks' };
 
+function getMealTypeByTime() {
+  const h = new Date().getHours();
+  if (h < 11) return 'breakfast';
+  if (h < 16) return 'lunch';
+  if (h < 19) return 'snack';
+  return 'dinner';
+}
+
 export default function FoodLog() {
   const [logs, setLogs] = useState({ grouped: {}, totals: { calories: 0, protein_g: 0, carbs_g: 0, fat_g: 0 } });
   const [savedMeals, setSavedMeals] = useState([]);
@@ -12,6 +20,9 @@ export default function FoodLog() {
   const [selectedMeal, setSelectedMeal] = useState('breakfast');
   const [showCustomFood, setShowCustomFood] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [savedMealPicker, setSavedMealPicker] = useState(null);
+  const [savedMealType, setSavedMealType] = useState(getMealTypeByTime);
+  const [loggingSavedMeal, setLoggingSavedMeal] = useState(false);
 
   const load = useCallback(async () => {
     try {
@@ -28,6 +39,23 @@ export default function FoodLog() {
   function openLog(mealType) {
     setSelectedMeal(mealType);
     setShowLog(true);
+  }
+
+  function openSavedMealPicker(meal) {
+    setSavedMealPicker(meal);
+    setSavedMealType(getMealTypeByTime());
+  }
+
+  async function handleLogSavedMeal() {
+    if (!savedMealPicker) return;
+    setLoggingSavedMeal(true);
+    try {
+      await api.logFood({ saved_meal_id: savedMealPicker.id, meal_type: savedMealType });
+      load();
+      setSavedMealPicker(null);
+    } finally {
+      setLoggingSavedMeal(false);
+    }
   }
 
   const { totals } = logs;
@@ -55,11 +83,20 @@ export default function FoodLog() {
       {/* Saved meals quick-log */}
       {savedMeals.length > 0 && (
         <div className="mb-3 stagger-enter">
-          <p className="text-xs text-warm-400 mb-2">Saved meals</p>
-          <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none">
-            {savedMeals.map(meal => (
-              <SavedMealChip key={meal.id} meal={meal} onLog={load} />
-            ))}
+          <p className="text-xs text-warm-400 mb-2 px-1">Saved meals</p>
+          <div className="-mx-4 px-4">
+            <div className="flex gap-2 overflow-x-auto py-1 scrollbar-none">
+              {savedMeals.map(meal => (
+                <button
+                  key={meal.id}
+                  onClick={() => openSavedMealPicker(meal)}
+                  className="flex-shrink-0 flex flex-col items-start bg-accent-tint border border-accent/20 rounded-card px-4 py-3 min-w-[140px] press-scale"
+                >
+                  <span className="text-sm text-warm-800">{meal.name}</span>
+                  <span className="text-xs text-warm-500 mt-0.5">{Math.round(meal.total_calories)} kcal · {Math.round(meal.total_protein_g)}g protein</span>
+                </button>
+              ))}
+            </div>
           </div>
         </div>
       )}
@@ -103,6 +140,42 @@ export default function FoodLog() {
         onClose={() => setShowCustomFood(false)}
         onSaved={load}
       />
+
+      {/* Saved meal picker sheet — rendered at top level to avoid overflow clipping */}
+      <Sheet open={!!savedMealPicker} onClose={() => setSavedMealPicker(null)} title={savedMealPicker ? `Log "${savedMealPicker.name}"` : ''}>
+        {savedMealPicker && (
+          <div className="px-5 pb-6 space-y-4">
+            <p className="text-sm text-warm-500">
+              {Math.round(savedMealPicker.total_calories)} kcal · {Math.round(savedMealPicker.total_protein_g)}g protein · {Math.round(savedMealPicker.total_carbs_g)}g carbs · {Math.round(savedMealPicker.total_fat_g)}g fat
+            </p>
+            <div>
+              <p className="text-xs text-warm-500 mb-2">Log as</p>
+              <div className="grid grid-cols-4 gap-2">
+                {MEAL_TYPES.map(t => (
+                  <button
+                    key={t}
+                    onClick={() => setSavedMealType(t)}
+                    className={`py-2.5 rounded-card text-sm border transition-colors press-scale ${
+                      savedMealType === t
+                        ? 'border-accent bg-accent-tint text-accent'
+                        : 'border-warm-200 bg-surface text-warm-600'
+                    }`}
+                  >
+                    {MEAL_LABELS[t]}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <button
+              onClick={handleLogSavedMeal}
+              disabled={loggingSavedMeal}
+              className="w-full py-3.5 bg-accent text-white rounded-card text-sm disabled:opacity-40 press-scale"
+            >
+              {loggingSavedMeal ? 'Logging...' : `Log to ${MEAL_LABELS[savedMealType]}`}
+            </button>
+          </div>
+        )}
+      </Sheet>
     </div>
   );
 }
@@ -117,56 +190,6 @@ function MacroStat({ label, value, unit, accent }) {
   );
 }
 
-function SavedMealChip({ meal, onLog }) {
-  const [logging, setLogging] = useState(false);
-  const [showPicker, setShowPicker] = useState(false);
-
-  async function handleLog(type) {
-    setLogging(true);
-    try {
-      await api.logFood({ saved_meal_id: meal.id, meal_type: type });
-      onLog?.();
-    } finally {
-      setLogging(false);
-      setShowPicker(false);
-    }
-  }
-
-  return (
-    <div className="flex-shrink-0">
-      <button
-        onClick={() => setShowPicker(true)}
-        className="flex flex-col items-start bg-accent-tint border border-accent/20 rounded-card px-4 py-3 min-w-[140px] press-scale"
-      >
-        <span className="text-sm text-warm-800">{meal.name}</span>
-        <span className="text-xs text-warm-500 mt-0.5">{Math.round(meal.total_calories)} kcal · {Math.round(meal.total_protein_g)}g protein</span>
-      </button>
-
-      {showPicker && (
-        <Sheet open={showPicker} onClose={() => setShowPicker(false)} title={`Log "${meal.name}"`}>
-          <div className="px-5 pb-6 space-y-3">
-            <p className="text-sm text-warm-500">
-              {Math.round(meal.total_calories)} kcal · {Math.round(meal.total_protein_g)}g protein · {Math.round(meal.total_carbs_g)}g carbs · {Math.round(meal.total_fat_g)}g fat
-            </p>
-            <p className="text-xs text-warm-500">Which meal?</p>
-            <div className="grid grid-cols-2 gap-2">
-              {MEAL_TYPES.map(t => (
-                <button
-                  key={t}
-                  onClick={() => handleLog(t)}
-                  disabled={logging}
-                  className="py-3 rounded-card border border-warm-200 bg-white text-sm text-warm-700 press-scale disabled:opacity-40"
-                >
-                  {MEAL_LABELS[t]}
-                </button>
-              ))}
-            </div>
-          </div>
-        </Sheet>
-      )}
-    </div>
-  );
-}
 
 function MealSection({ type, label, entries, onAdd, onDelete }) {
   const total = entries.reduce((s, e) => ({ cal: s.cal + e.calories, pro: s.pro + e.protein_g }), { cal: 0, pro: 0 });
@@ -278,7 +301,7 @@ function FoodSearchSheet({ open, onClose, mealType, onLogged }) {
               value={query}
               onChange={e => setQuery(e.target.value)}
               placeholder="Search foods..."
-              className="w-full pl-9 pr-4 py-2.5 rounded-card border border-warm-200 text-sm text-warm-800 focus:outline-none focus:border-accent bg-white"
+              className="w-full pl-9 pr-4 py-2.5 rounded-card border border-warm-200 text-sm text-warm-800 focus:outline-none focus:border-accent bg-surface"
             />
           </div>
         </div>
@@ -301,7 +324,7 @@ function FoodSearchSheet({ open, onClose, mealType, onLogged }) {
                   type="number"
                   value={qty}
                   onChange={e => setQty(e.target.value)}
-                  className="w-14 text-center px-1 py-1 rounded-lg border border-warm-200 text-sm text-warm-800 bg-white focus:outline-none"
+                  className="w-14 text-center px-1 py-1 rounded-lg border border-warm-200 text-sm text-warm-800 bg-surface focus:outline-none"
                   step="0.25"
                   min="0.25"
                 />
@@ -416,7 +439,7 @@ function Field({ label, value, onChange, placeholder, type = 'text' }) {
         value={value}
         onChange={e => onChange(e.target.value)}
         placeholder={placeholder}
-        className="w-full px-3 py-2.5 rounded-card border border-warm-200 text-sm text-warm-800 focus:outline-none focus:border-accent bg-white"
+        className="w-full px-3 py-2.5 rounded-card border border-warm-200 text-sm text-warm-800 focus:outline-none focus:border-accent bg-surface"
       />
     </div>
   );

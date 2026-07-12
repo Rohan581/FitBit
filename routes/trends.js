@@ -1,7 +1,8 @@
 const express = require('express');
 const router = express.Router();
 const { getDB } = require('../db/database');
-const { calculateDailyPoints, getMonday } = require('./points');
+const { calculateDailyPoints } = require('./points');
+const { todayIST, getMondayIST, daysAgoIST } = require('../dateUtils');
 
 // GET /api/trends/weight?days=60
 router.get('/weight', (req, res) => {
@@ -43,9 +44,7 @@ router.get('/macros', (req, res) => {
   const db = getDB();
   const days = parseInt(req.query.days) || 60;
 
-  const cutoff = new Date();
-  cutoff.setDate(cutoff.getDate() - days);
-  const cutoffStr = cutoff.toISOString().split('T')[0];
+  const cutoffStr = daysAgoIST(days);
 
   const logs = db.prepare(`
     SELECT date,
@@ -70,19 +69,16 @@ router.get('/points', (req, res) => {
   const threshold = goal?.weekly_point_threshold || 350;
 
   const results = [];
-  const now = new Date();
 
   for (let w = weeks - 1; w >= 0; w--) {
-    const d = new Date(now);
-    d.setDate(d.getDate() - w * 7);
-    const dateStr = d.toISOString().split('T')[0];
-    const weekStart = getMonday(dateStr);
+    const dateStr = daysAgoIST(w * 7);
+    const weekStart = getMondayIST(dateStr);
 
     const days = [];
     const startDate = new Date(weekStart + 'T12:00:00Z');
     for (let i = 0; i < 7; i++) {
       days.push(startDate.toISOString().split('T')[0]);
-      startDate.setDate(startDate.getDate() + 1);
+      startDate.setUTCDate(startDate.getUTCDate() + 1);
     }
 
     const total = days.reduce((s, day) => s + calculateDailyPoints(db, day).total, 0);

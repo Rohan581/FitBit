@@ -46,7 +46,7 @@ export default function Sheet({ open, onClose, title, children, height = 'auto' 
         ref={sheetRef}
         onTouchStart={handleTouchStart}
         onTouchEnd={handleTouchEnd}
-        className={`relative bg-white rounded-t-[20px] sheet-enter flex flex-col ${heightClass}`}
+        className={`relative bg-surface rounded-t-[20px] sheet-enter flex flex-col ${heightClass}`}
         style={{ paddingBottom: 'calc(16px + env(safe-area-inset-bottom))' }}
       >
         {/* Handle */}

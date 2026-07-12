@@ -9,7 +9,7 @@ const tabs = [
 
 export default function BottomNav() {
   return (
-    <nav className="tab-bar border-t border-warm-200 bg-white flex-shrink-0">
+    <nav className="tab-bar border-t border-warm-200 bg-surface flex-shrink-0">
       <div className="flex">
         {tabs.map(({ to, label, icon: Icon }) => (
           <NavLink

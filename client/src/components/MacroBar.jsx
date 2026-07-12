@@ -64,12 +64,12 @@ export function PointsRing({ current, target, size = 92 }) {
       <svg width={size} height={size} className="-rotate-90">
         <circle
           cx={size / 2} cy={size / 2} r={r}
-          fill="none" stroke="#E8E4DE" strokeWidth={7}
+          fill="none" stroke="var(--chart-ring-track)" strokeWidth={7}
         />
         <circle
           cx={size / 2} cy={size / 2} r={r}
           fill="none"
-          stroke={pct >= 1 ? '#B84D28' : '#D85A30'}
+          stroke={pct >= 1 ? 'var(--chart-accent-complete)' : 'var(--chart-accent)'}
           strokeWidth={7}
           strokeDasharray={circ}
           strokeDashoffset={animOffset}

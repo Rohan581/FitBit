@@ -42,7 +42,7 @@ export default function SleepSheet({ open, onClose, onLogged, existing }) {
                 className={`py-2 rounded-card text-sm border transition-colors press-scale ${
                   hours === String(h)
                     ? 'border-accent bg-accent-tint text-accent'
-                    : 'border-warm-200 bg-white text-warm-600'
+                    : 'border-warm-200 bg-surface text-warm-600'
                 }`}
               >
                 {h}h
@@ -54,7 +54,7 @@ export default function SleepSheet({ open, onClose, onLogged, existing }) {
             value={hours}
             onChange={e => setHours(e.target.value)}
             placeholder="Or type hours (e.g. 7.5)"
-            className="w-full px-3 py-2.5 rounded-card border border-warm-200 text-sm text-warm-800 focus:outline-none focus:border-accent bg-white"
+            className="w-full px-3 py-2.5 rounded-card border border-warm-200 text-sm text-warm-800 focus:outline-none focus:border-accent bg-surface"
             step="0.5"
             min="1"
             max="16"
@@ -72,7 +72,7 @@ export default function SleepSheet({ open, onClose, onLogged, existing }) {
                 className={`flex-1 py-3 rounded-card border text-sm transition-colors press-scale ${
                   quality === q.id
                     ? 'border-accent bg-accent-tint text-accent'
-                    : 'border-warm-200 bg-white text-warm-600'
+                    : 'border-warm-200 bg-surface text-warm-600'
                 }`}
               >
                 {q.label}

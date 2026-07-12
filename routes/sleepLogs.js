@@ -1,14 +1,11 @@
 const express = require('express');
 const router = express.Router();
 const { getDB } = require('../db/database');
-
-function todayStr() {
-  return new Date().toISOString().split('T')[0];
-}
+const { todayIST } = require('../dateUtils');
 
 router.get('/', (req, res) => {
   const db = getDB();
-  const date = req.query.date || todayStr();
+  const date = req.query.date || todayIST();
   const log = db.prepare('SELECT * FROM sleep_logs WHERE date = ? ORDER BY logged_at DESC LIMIT 1').get(date);
   res.json(log || null);
 });
@@ -16,7 +13,7 @@ router.get('/', (req, res) => {
 router.post('/', (req, res) => {
   const db = getDB();
   const { hours, quality = 'ok' } = req.body;
-  const date = req.body.date || todayStr();
+  const date = req.body.date || todayIST();
 
   if (hours == null) return res.status(400).json({ error: 'hours is required' });
 

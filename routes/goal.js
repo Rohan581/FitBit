@@ -1,10 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const { getDB } = require('../db/database');
-
-function todayStr() {
-  return new Date().toISOString().split('T')[0];
-}
+const { todayIST } = require('../dateUtils');
 
 function computeMacros(weight_kg, height_cm, age, activity_multiplier) {
   const bmr = 10 * weight_kg + 6.25 * height_cm - 5 * age + 5;
@@ -88,7 +85,7 @@ router.post('/recalculate', (req, res) => {
 
   const computed = computeMacros(rollingAvg, goal.height_cm, goal.age, goal.activity_multiplier);
   const changes = [];
-  const today = todayStr();
+  const today = todayIST();
 
   if (!goal.calorie_override && goal.current_calorie_target !== computed.calorie_target) {
     changes.push(`Calorie target: ${Math.round(goal.current_calorie_target)} → ${computed.calorie_target} kcal`);

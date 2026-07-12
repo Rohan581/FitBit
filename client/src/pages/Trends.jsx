@@ -52,7 +52,7 @@ export default function Trends() {
               key={t.id}
               onClick={() => setTab(t.id)}
               className={`flex-1 py-1.5 rounded-[12px] text-sm transition-colors ${
-                tab === t.id ? 'bg-white text-warm-800 shadow-subtle' : 'text-warm-500'
+                tab === t.id ? 'bg-surface text-warm-800 shadow-subtle' : 'text-warm-500'
               }`}
             >
               {t.label}
@@ -163,7 +163,7 @@ function WeightChart({ data, range, onRangeChange }) {
             key={d}
             onClick={() => onRangeChange(d)}
             className={`flex-1 py-1.5 rounded-card text-sm border transition-colors press-scale ${
-              range === d ? 'border-accent bg-accent-tint text-accent' : 'border-warm-200 bg-white text-warm-500'
+              range === d ? 'border-accent bg-accent-tint text-accent' : 'border-warm-200 bg-surface text-warm-500'
             }`}
           >
             {d}d
@@ -176,18 +176,18 @@ function WeightChart({ data, range, onRangeChange }) {
         <div className="bg-warm-100 rounded-card p-4 stagger-enter">
           <ResponsiveContainer width="100%" height={220}>
             <LineChart data={chartData} margin={{ top: 5, right: 5, left: -20, bottom: 5 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#E8E4DE" />
-              <XAxis dataKey="label" tick={{ fontSize: 10, fill: '#78746C' }} tickLine={false} interval="preserveStartEnd" />
-              <YAxis tick={{ fontSize: 10, fill: '#78746C' }} tickLine={false} domain={[yMin, yMax]} />
+              <CartesianGrid strokeDasharray="3 3" stroke="var(--chart-grid)" />
+              <XAxis dataKey="label" tick={{ fontSize: 10, fill: 'var(--chart-text)' }} tickLine={false} interval="preserveStartEnd" />
+              <YAxis tick={{ fontSize: 10, fill: 'var(--chart-text)' }} tickLine={false} domain={[yMin, yMax]} />
               <Tooltip
-                contentStyle={{ background: 'white', border: '1px solid #E8E4DE', borderRadius: 12, fontSize: 12 }}
+                contentStyle={{ background: 'var(--chart-tooltip-bg)', border: '1px solid var(--chart-tooltip-border)', borderRadius: 12, fontSize: 12, color: 'var(--chart-text)' }}
                 formatter={(val, name) => [val ? `${val} kg` : '-', name === 'avg' ? '7-day avg' : 'Daily']}
               />
               {goalWeight && (
-                <ReferenceLine y={goalWeight} stroke="#D85A30" strokeDasharray="4 2" label={{ value: `Goal ${goalWeight} kg`, position: 'insideTopRight', fontSize: 10, fill: '#D85A30' }} />
+                <ReferenceLine y={goalWeight} stroke="var(--chart-accent)" strokeDasharray="4 2" label={{ value: `Goal ${goalWeight} kg`, position: 'insideTopRight', fontSize: 10, fill: 'var(--chart-accent)' }} />
               )}
-              <Line type="monotone" dataKey="actual" stroke="#D8D4CC" strokeWidth={1} dot={{ r: 2, fill: '#D8D4CC' }} name="daily" />
-              <Line type="monotone" dataKey="avg" stroke="#D85A30" strokeWidth={2.5} dot={false} name="avg" />
+              <Line type="monotone" dataKey="actual" stroke="var(--chart-dot)" strokeWidth={1} dot={{ r: 2, fill: 'var(--chart-dot)' }} name="daily" />
+              <Line type="monotone" dataKey="avg" stroke="var(--chart-accent)" strokeWidth={2.5} dot={false} name="avg" />
             </LineChart>
           </ResponsiveContainer>
           <p className="text-[10px] text-warm-400 text-center mt-2">Orange line = 7-day rolling average</p>
@@ -216,11 +216,11 @@ function MacrosChart({ data }) {
         <p className="text-xs text-warm-500 mb-3">Calories (60 days)</p>
         <ResponsiveContainer width="100%" height={180}>
           <BarChart data={chartData} margin={{ top: 5, right: 5, left: -25, bottom: 5 }}>
-            <CartesianGrid strokeDasharray="3 3" stroke="#E8E4DE" />
-            <XAxis dataKey="date" tick={{ fontSize: 9, fill: '#78746C' }} tickLine={false} interval="preserveStartEnd" />
-            <YAxis tick={{ fontSize: 10, fill: '#78746C' }} tickLine={false} />
-            <Tooltip contentStyle={{ background: 'white', border: '1px solid #E8E4DE', borderRadius: 12, fontSize: 12 }} />
-            <Bar dataKey="Calories" fill="#D85A30" radius={[3, 3, 0, 0]} />
+            <CartesianGrid strokeDasharray="3 3" stroke="var(--chart-grid)" />
+            <XAxis dataKey="date" tick={{ fontSize: 9, fill: 'var(--chart-text)' }} tickLine={false} interval="preserveStartEnd" />
+            <YAxis tick={{ fontSize: 10, fill: 'var(--chart-text)' }} tickLine={false} />
+            <Tooltip contentStyle={{ background: 'var(--chart-tooltip-bg)', border: '1px solid var(--chart-tooltip-border)', borderRadius: 12, fontSize: 12, color: 'var(--chart-text)' }} />
+            <Bar dataKey="Calories" fill="var(--chart-accent)" radius={[3, 3, 0, 0]} />
           </BarChart>
         </ResponsiveContainer>
       </div>
@@ -229,11 +229,11 @@ function MacrosChart({ data }) {
         <p className="text-xs text-warm-500 mb-3">Protein (g)</p>
         <ResponsiveContainer width="100%" height={180}>
           <BarChart data={chartData} margin={{ top: 5, right: 5, left: -25, bottom: 5 }}>
-            <CartesianGrid strokeDasharray="3 3" stroke="#E8E4DE" />
-            <XAxis dataKey="date" tick={{ fontSize: 9, fill: '#78746C' }} tickLine={false} interval="preserveStartEnd" />
-            <YAxis tick={{ fontSize: 10, fill: '#78746C' }} tickLine={false} />
-            <Tooltip contentStyle={{ background: 'white', border: '1px solid #E8E4DE', borderRadius: 12, fontSize: 12 }} />
-            <Bar dataKey="Protein" fill="#1D9E75" radius={[3, 3, 0, 0]} />
+            <CartesianGrid strokeDasharray="3 3" stroke="var(--chart-grid)" />
+            <XAxis dataKey="date" tick={{ fontSize: 9, fill: 'var(--chart-text)' }} tickLine={false} interval="preserveStartEnd" />
+            <YAxis tick={{ fontSize: 10, fill: 'var(--chart-text)' }} tickLine={false} />
+            <Tooltip contentStyle={{ background: 'var(--chart-tooltip-bg)', border: '1px solid var(--chart-tooltip-border)', borderRadius: 12, fontSize: 12, color: 'var(--chart-text)' }} />
+            <Bar dataKey="Protein" fill="var(--chart-success)" radius={[3, 3, 0, 0]} />
           </BarChart>
         </ResponsiveContainer>
       </div>
@@ -255,12 +255,12 @@ function PointsChart({ data }) {
       <p className="text-xs text-warm-500 mb-3">Weekly points (12 weeks)</p>
       <ResponsiveContainer width="100%" height={220}>
         <BarChart data={chartData} margin={{ top: 5, right: 5, left: -25, bottom: 5 }}>
-          <CartesianGrid strokeDasharray="3 3" stroke="#E8E4DE" />
-          <XAxis dataKey="week" tick={{ fontSize: 9, fill: '#78746C' }} tickLine={false} />
-          <YAxis tick={{ fontSize: 10, fill: '#78746C' }} tickLine={false} />
-          <Tooltip contentStyle={{ background: 'white', border: '1px solid #E8E4DE', borderRadius: 12, fontSize: 12 }} />
-          <ReferenceLine y={chartData[0]?.Threshold} stroke="#D85A30" strokeDasharray="4 2" label={{ value: 'Threshold', position: 'insideTopRight', fontSize: 10, fill: '#D85A30' }} />
-          <Bar dataKey="Points" fill="#D85A30" radius={[3, 3, 0, 0]} />
+          <CartesianGrid strokeDasharray="3 3" stroke="var(--chart-grid)" />
+          <XAxis dataKey="week" tick={{ fontSize: 9, fill: 'var(--chart-text)' }} tickLine={false} />
+          <YAxis tick={{ fontSize: 10, fill: 'var(--chart-text)' }} tickLine={false} />
+          <Tooltip contentStyle={{ background: 'var(--chart-tooltip-bg)', border: '1px solid var(--chart-tooltip-border)', borderRadius: 12, fontSize: 12, color: 'var(--chart-text)' }} />
+          <ReferenceLine y={chartData[0]?.Threshold} stroke="var(--chart-accent)" strokeDasharray="4 2" label={{ value: 'Threshold', position: 'insideTopRight', fontSize: 10, fill: 'var(--chart-accent)' }} />
+          <Bar dataKey="Points" fill="var(--chart-accent)" radius={[3, 3, 0, 0]} />
         </BarChart>
       </ResponsiveContainer>
     </div>

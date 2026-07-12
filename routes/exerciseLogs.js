@@ -1,14 +1,11 @@
 const express = require('express');
 const router = express.Router();
 const { getDB } = require('../db/database');
-
-function todayStr() {
-  return new Date().toISOString().split('T')[0];
-}
+const { todayIST } = require('../dateUtils');
 
 router.get('/', (req, res) => {
   const db = getDB();
-  const date = req.query.date || todayStr();
+  const date = req.query.date || todayIST();
   const logs = db.prepare('SELECT * FROM exercise_logs WHERE date = ? ORDER BY logged_at').all(date);
   res.json(logs);
 });
@@ -16,7 +13,7 @@ router.get('/', (req, res) => {
 router.post('/', (req, res) => {
   const db = getDB();
   const { type, duration_min, intensity = 'moderate', notes = '' } = req.body;
-  const date = req.body.date || todayStr();
+  const date = req.body.date || todayIST();
 
   if (!type || !duration_min) {
     return res.status(400).json({ error: 'type and duration_min are required' });

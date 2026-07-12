@@ -15,7 +15,14 @@
       "Bash(git commit:*)",
       "Bash(railway --version)",
       "Bash(gh auth:*)",
-      "Bash(railway whoami:*)"
+      "Bash(railway whoami:*)",
+      "Bash(lsof -ti:3000)",
+      "Bash(lsof -ti:5173)",
+      "Bash(npx vite:*)",
+      "Read(//dev/fd/**)",
+      "WebFetch(domain:localhost)",
+      "Bash(curl -s http://localhost:5173/)",
+      "Bash(curl -s http://localhost:5173/src/index.css)"
     ]
   }
 }

@@ -1,28 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const { getDB } = require('../db/database');
-
-function todayStr() {
-  return new Date().toISOString().split('T')[0];
-}
-
-function getMonday(dateStr) {
-  const d = new Date(dateStr + 'T12:00:00Z');
-  const day = d.getUTCDay();
-  const diff = day === 0 ? -6 : 1 - day;
-  d.setUTCDate(d.getUTCDate() + diff);
-  return d.toISOString().split('T')[0];
-}
-
-function getDaysOfWeek(mondayStr) {
-  const days = [];
-  const d = new Date(mondayStr + 'T12:00:00Z');
-  for (let i = 0; i < 7; i++) {
-    days.push(d.toISOString().split('T')[0]);
-    d.setUTCDate(d.getUTCDate() + 1);
-  }
-  return days;
-}
+const { todayIST, getMondayIST, getDaysOfWeek } = require('../dateUtils');
 
 function calculateDailyPoints(db, date) {
   const goal = db.prepare('SELECT * FROM goal WHERE id = 1').get();
@@ -117,14 +96,14 @@ function calculateDailyPoints(db, date) {
 // GET /api/points/daily?date=YYYY-MM-DD
 router.get('/daily', (req, res) => {
   const db = getDB();
-  const date = req.query.date || todayStr();
+  const date = req.query.date || todayIST();
   res.json(calculateDailyPoints(db, date));
 });
 
 // GET /api/points/weekly?weekStart=YYYY-MM-DD
 router.get('/weekly', (req, res) => {
   const db = getDB();
-  const weekStart = req.query.weekStart || getMonday(todayStr());
+  const weekStart = req.query.weekStart || getMondayIST(todayIST());
   const days = getDaysOfWeek(weekStart);
 
   const goal = db.prepare('SELECT weekly_point_threshold FROM goal WHERE id = 1').get();
@@ -142,4 +121,3 @@ router.get('/weekly', (req, res) => {
 
 module.exports = router;
 module.exports.calculateDailyPoints = calculateDailyPoints;
-module.exports.getMonday = getMonday;

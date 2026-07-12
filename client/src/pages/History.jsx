@@ -3,10 +3,9 @@ import { api } from '../api';
 
 function getPastDates(count = 14) {
   const dates = [];
-  const today = new Date();
   for (let i = 0; i < count; i++) {
-    const d = new Date(today);
-    d.setDate(today.getDate() - i);
+    const d = new Date(Date.now() + 330 * 60000); // Shift to IST
+    d.setUTCDate(d.getUTCDate() - i);
     dates.push(d.toISOString().split('T')[0]);
   }
   return dates;
@@ -14,8 +13,11 @@ function getPastDates(count = 14) {
 
 function formatDate(dateStr) {
   const d = new Date(dateStr + 'T12:00:00Z');
-  const today = new Date().toISOString().split('T')[0];
-  const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0];
+  const istNow = new Date(Date.now() + 330 * 60000);
+  const today = istNow.toISOString().split('T')[0];
+  const istYesterday = new Date(istNow);
+  istYesterday.setUTCDate(istYesterday.getUTCDate() - 1);
+  const yesterday = istYesterday.toISOString().split('T')[0];
   if (dateStr === today) return 'Today';
   if (dateStr === yesterday) return 'Yesterday';
   return d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });

@@ -1,15 +1,12 @@
 const express = require('express');
 const router = express.Router();
 const { getDB } = require('../db/database');
-
-function todayStr() {
-  return new Date().toISOString().split('T')[0];
-}
+const { todayIST } = require('../dateUtils');
 
 // GET /api/food-logs?date=YYYY-MM-DD
 router.get('/', (req, res) => {
   const db = getDB();
-  const date = req.query.date || todayStr();
+  const date = req.query.date || todayIST();
   const logs = db.prepare('SELECT * FROM food_logs WHERE date = ? ORDER BY logged_at').all(date);
 
   // Group by meal_type
@@ -36,7 +33,7 @@ router.get('/', (req, res) => {
 // 3. Log custom entry: { date, meal_type, food_name, calories, protein_g, carbs_g, fat_g }
 router.post('/', (req, res) => {
   const db = getDB();
-  const date = req.body.date || todayStr();
+  const date = req.body.date || todayIST();
   const meal_type = req.body.meal_type || 'snack';
 
   const insertLog = db.prepare(`

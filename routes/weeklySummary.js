@@ -1,26 +1,13 @@
 const express = require('express');
 const router = express.Router();
 const { getDB } = require('../db/database');
-const { calculateDailyPoints, getMonday } = require('./points');
-
-function todayStr() {
-  return new Date().toISOString().split('T')[0];
-}
-
-function getDaysOfWeek(mondayStr) {
-  const days = [];
-  const d = new Date(mondayStr + 'T12:00:00Z');
-  for (let i = 0; i < 7; i++) {
-    days.push(d.toISOString().split('T')[0]);
-    d.setUTCDate(d.getUTCDate() + 1);
-  }
-  return days;
-}
+const { calculateDailyPoints } = require('./points');
+const { todayIST, getMondayIST, getDaysOfWeek } = require('../dateUtils');
 
 // GET /api/weekly-summary?weekStart=YYYY-MM-DD
 router.get('/', (req, res) => {
   const db = getDB();
-  const weekStart = req.query.weekStart || getMonday(todayStr());
+  const weekStart = req.query.weekStart || getMondayIST(todayIST());
   const days = getDaysOfWeek(weekStart);
 
   const goal = db.prepare('SELECT weekly_point_threshold FROM goal WHERE id = 1').get();
@@ -58,13 +45,13 @@ router.get('/', (req, res) => {
 // POST /api/weekly-summary/redeem
 router.post('/redeem', (req, res) => {
   const db = getDB();
-  const weekStart = req.body.weekStart || getMonday(todayStr());
+  const weekStart = req.body.weekStart || getMondayIST(todayIST());
 
   db.prepare(`
     INSERT INTO weekly_summary (week_start, treat_redeemed, treat_redeemed_date, threshold)
     VALUES (?, 1, ?, ?)
     ON CONFLICT(week_start) DO UPDATE SET treat_redeemed=1, treat_redeemed_date=?
-  `).run(weekStart, todayStr(), 350, todayStr());
+  `).run(weekStart, todayIST(), 350, todayIST());
 
   res.json({ ok: true, week_start: weekStart });
 });

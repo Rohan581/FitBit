@@ -1,10 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const { getDB } = require('../db/database');
-
-function todayStr() {
-  return new Date().toISOString().split('T')[0];
-}
+const { todayIST } = require('../dateUtils');
 
 // Compute 7-day rolling average for an ordered array of weight logs
 function addRollingAverage(logs) {
@@ -27,7 +24,7 @@ router.get('/', (req, res) => {
 // GET /api/weight-logs/today
 router.get('/today', (req, res) => {
   const db = getDB();
-  const today = todayStr();
+  const today = todayIST();
   const log = db.prepare('SELECT * FROM weight_logs WHERE date = ? ORDER BY logged_at DESC LIMIT 1').get(today);
   res.json(log || null);
 });
@@ -44,7 +41,7 @@ router.get('/rolling-average', (req, res) => {
 router.post('/', (req, res) => {
   const db = getDB();
   const { weight_kg } = req.body;
-  const date = req.body.date || todayStr();
+  const date = req.body.date || todayIST();
 
   if (weight_kg == null) return res.status(400).json({ error: 'weight_kg is required' });
 

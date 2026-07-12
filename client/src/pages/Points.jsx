@@ -27,12 +27,11 @@ const TREAT_SUGGESTIONS = {
 };
 
 function getWeekDates() {
-  const today = new Date();
-  const day = today.getDay();
+  const ist = new Date(Date.now() + 330 * 60000);
+  const day = ist.getUTCDay();
   const diff = day === 0 ? -6 : 1 - day;
-  const monday = new Date(today);
-  monday.setDate(today.getDate() + diff);
-  return monday.toISOString().split('T')[0];
+  ist.setUTCDate(ist.getUTCDate() + diff);
+  return ist.toISOString().split('T')[0];
 }
 
 export default function Points() {
@@ -112,7 +111,7 @@ export default function Points() {
         <div className="grid grid-cols-7 gap-1 text-center">
           {(by_day || []).map((day, i) => {
             const dayPct = Math.min((day.total / (threshold / 7)) * 100, 100);
-            const isToday = day.date === new Date().toISOString().split('T')[0];
+            const isToday = day.date === new Date(Date.now() + 330 * 60000).toISOString().split('T')[0];
             return (
               <div key={day.date} className="flex flex-col items-center gap-1">
                 <div className="text-[10px] text-warm-400">{weekdays[i]}</div>
@@ -152,7 +151,7 @@ export default function Points() {
                 className={`py-2 rounded-card text-sm border transition-colors press-scale ${
                   cravingCategory === c.id
                     ? 'border-accent bg-accent-tint text-accent'
-                    : 'border-warm-200 bg-white text-warm-600'
+                    : 'border-warm-200 bg-surface text-warm-600'
                 }`}
               >
                 {c.label}
@@ -163,7 +162,7 @@ export default function Points() {
           {suggestions.length > 0 && (
             <div className="space-y-2 mb-4">
               {suggestions.slice(0, 3).map((s, i) => (
-                <div key={i} className="flex items-center justify-between bg-white rounded-card px-3 py-2.5 border border-warm-200">
+                <div key={i} className="flex items-center justify-between bg-surface rounded-card px-3 py-2.5 border border-warm-200">
                   <span className="text-sm text-warm-700">{s.name}</span>
                   <span className="text-xs text-warm-400">~{s.cal} kcal</span>
                 </div>

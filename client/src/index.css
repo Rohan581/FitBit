@@ -4,11 +4,94 @@
 
 :root {
   color-scheme: light;
+
+  /* Warm palette (RGB triplets for Tailwind opacity support) */
+  --warm-50: 250 248 245;
+  --warm-100: 243 240 235;
+  --warm-200: 232 228 222;
+  --warm-300: 216 212 204;
+  --warm-400: 168 164 156;
+  --warm-500: 120 116 108;
+  --warm-600: 80 76 70;
+  --warm-700: 58 55 51;
+  --warm-800: 44 41 37;
+  --warm-900: 26 24 21;
+
+  /* Accent */
+  --accent: 216 90 48;
+  --accent-hover: 153 60 29;
+  --accent-tint: #FAECE7;
+
+  /* Success */
+  --success: 29 158 117;
+  --success-tint: #E8F8F2;
+
+  /* Surface (elevated backgrounds like inputs, sheets) */
+  --surface: 255 255 255;
+
+  /* Chart colors (full values for SVG attributes) */
+  --chart-grid: #E8E4DE;
+  --chart-text: #78746C;
+  --chart-accent: #D85A30;
+  --chart-accent-complete: #B84D28;
+  --chart-success: #1D9E75;
+  --chart-dot: #D8D4CC;
+  --chart-tooltip-bg: #ffffff;
+  --chart-tooltip-border: #E8E4DE;
+  --chart-ring-track: #E8E4DE;
+
+  /* Shadows */
+  --shadow-subtle: 0 1px 2px rgba(0,0,0,0.04);
+  --shadow-sheet: 0 -4px 24px rgba(0,0,0,0.12);
+
+  /* Meta theme-color */
+  --theme-color: #FAF8F5;
+
+  /* Motion */
   --ease-out-quint: cubic-bezier(0.22, 1, 0.36, 1);
   --duration-interaction: 200ms;
   --duration-entrance: 550ms;
   --duration-countup: 1100ms;
   --stagger-delay: 80ms;
+}
+
+[data-theme="dark"] {
+  color-scheme: dark;
+
+  --warm-50: 26 24 21;
+  --warm-100: 38 34 29;
+  --warm-200: 45 40 34;
+  --warm-300: 55 50 44;
+  --warm-400: 107 101 92;
+  --warm-500: 163 157 147;
+  --warm-600: 163 157 147;
+  --warm-700: 240 237 232;
+  --warm-800: 240 237 232;
+  --warm-900: 240 237 232;
+
+  --accent: 232 115 74;
+  --accent-hover: 255 140 100;
+  --accent-tint: rgba(232, 115, 74, 0.14);
+
+  --success: 52 192 143;
+  --success-tint: rgba(52, 192, 143, 0.14);
+
+  --surface: 45 40 34;
+
+  --chart-grid: #3A3632;
+  --chart-text: #A39D93;
+  --chart-accent: #E8734A;
+  --chart-accent-complete: #C4613A;
+  --chart-success: #34C08F;
+  --chart-dot: #6B655C;
+  --chart-tooltip-bg: #2D2822;
+  --chart-tooltip-border: #3A3632;
+  --chart-ring-track: #3A3632;
+
+  --shadow-subtle: 0 1px 2px rgba(0,0,0,0.2);
+  --shadow-sheet: 0 -4px 24px rgba(0,0,0,0.4);
+
+  --theme-color: #1A1815;
 }
 
 * {
@@ -29,7 +112,7 @@ html {
 
 body {
   overscroll-behavior: none;
-  background-color: #FAF8F5;
+  background-color: rgb(var(--warm-50));
   padding-top: env(safe-area-inset-top);
   overflow-x: hidden;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;

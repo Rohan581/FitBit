@@ -1,27 +1,14 @@
 const express = require('express');
 const router = express.Router();
 const { getDB } = require('../db/database');
-const { calculateDailyPoints, getMonday } = require('./points');
-
-function todayStr() {
-  return new Date().toISOString().split('T')[0];
-}
-
-function getDaysOfWeek(mondayStr) {
-  const days = [];
-  const d = new Date(mondayStr + 'T12:00:00Z');
-  for (let i = 0; i < 7; i++) {
-    days.push(d.toISOString().split('T')[0]);
-    d.setUTCDate(d.getUTCDate() + 1);
-  }
-  return days;
-}
+const { calculateDailyPoints } = require('./points');
+const { todayIST, getMondayIST, getDaysOfWeek } = require('../dateUtils');
 
 // GET /api/dashboard
 router.get('/', (req, res) => {
   const db = getDB();
-  const today = todayStr();
-  const weekStart = getMonday(today);
+  const today = todayIST();
+  const weekStart = getMondayIST(today);
   const weekDays = getDaysOfWeek(weekStart);
 
   // Today's logs
