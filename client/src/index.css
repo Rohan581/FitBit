@@ -2,58 +2,44 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ─── Light theme (default) ─── */
 :root {
   color-scheme: light;
 
-  /* Warm palette (RGB triplets for Tailwind opacity support) */
-  --warm-50: 250 248 245;
-  --warm-100: 243 240 235;
-  --warm-200: 232 228 222;
-  --warm-300: 216 212 204;
-  --warm-400: 168 164 156;
-  --warm-500: 120 116 108;
-  --warm-600: 80 76 70;
-  --warm-700: 58 55 51;
-  --warm-800: 44 41 37;
-  --warm-900: 26 24 21;
+  --desk: oklch(0.92 0.006 80);
+  --bg: oklch(0.975 0.006 85);
+  --card: oklch(1 0 0);
+  --card-2: oklch(0.965 0.006 85);
+  --text: oklch(0.24 0.012 70);
+  --text-2: oklch(0.47 0.012 70);
+  --text-3: oklch(0.62 0.012 70);
+  --hair: oklch(0.2 0.01 70 / 0.11);
 
-  /* Accent */
-  --accent: 216 90 48;
-  --accent-hover: 153 60 29;
-  --accent-tint: #FAECE7;
+  --cal: oklch(0.62 0.17 48);
+  --protein: oklch(0.56 0.18 18);
+  --carbs: oklch(0.66 0.15 78);
+  --fat: oklch(0.53 0.16 300);
+  --fiber: oklch(0.56 0.15 158);
+  --sugar: oklch(0.56 0.18 350);
+  --points: oklch(0.58 0.15 165);
 
-  /* Success */
-  --success: 29 158 117;
-  --success-tint: #E8F8F2;
+  --breakfast: oklch(0.62 0.15 70);
+  --lunch: oklch(0.56 0.15 150);
+  --snack: oklch(0.53 0.16 300);
+  --dinner: oklch(0.55 0.15 258);
+  --drinks: oklch(0.58 0.14 212);
 
-  /* Surface (elevated backgrounds like inputs, sheets) */
-  --surface: 255 255 255;
+  --sweet: oklch(0.57 0.17 350);
+  --fried: oklch(0.62 0.16 62);
+  --fast: oklch(0.55 0.17 25);
 
-  /* Chart colors (full values for SVG attributes) */
-  --chart-grid: #E8E4DE;
-  --chart-text: #78746C;
-  --chart-accent: #D85A30;
-  --chart-accent-complete: #B84D28;
-  --chart-success: #1D9E75;
-  --chart-dot: #D8D4CC;
-  --chart-tooltip-bg: #ffffff;
-  --chart-tooltip-border: #E8E4DE;
-  --chart-ring-track: #E8E4DE;
+  --warning: oklch(0.75 0.16 70);
+  --danger: oklch(0.58 0.22 25);
+  --star: oklch(0.82 0.17 90);
 
-  /* Nutrient colors */
-  --fiber: #5856D6;
-  --sugar: #AF52DE;
-  --water: #007AFF;
-  --warning: #FF9500;
-  --danger: #FF3B30;
-  --star: #FFCC00;
-
-  /* Shadows */
   --shadow-subtle: 0 1px 2px rgba(0,0,0,0.04);
   --shadow-sheet: 0 -4px 24px rgba(0,0,0,0.12);
-
-  /* Meta theme-color */
-  --theme-color: #FAF8F5;
+  --theme-color: #EAE7E2;
 
   /* Motion */
   --ease-out-quint: cubic-bezier(0.22, 1, 0.36, 1);
@@ -63,54 +49,47 @@
   --stagger-delay: 80ms;
 }
 
+/* ─── Dark theme ─── */
 [data-theme="dark"] {
   color-scheme: dark;
 
-  /* True neutral dark palette (Apple Health / iOS system dark) */
-  --warm-50: 0 0 0;
-  --warm-100: 28 28 30;
-  --warm-200: 44 44 46;
-  --warm-300: 58 58 60;
-  --warm-400: 142 142 147;
-  --warm-500: 142 142 147;
-  --warm-600: 174 174 178;
-  --warm-700: 229 229 234;
-  --warm-800: 255 255 255;
-  --warm-900: 255 255 255;
+  --desk: oklch(0.15 0.008 65);
+  --bg: oklch(0.185 0.008 65);
+  --card: oklch(0.235 0.01 65);
+  --card-2: oklch(0.285 0.012 65);
+  --text: oklch(0.97 0.004 75);
+  --text-2: oklch(0.74 0.008 75);
+  --text-3: oklch(0.58 0.008 75);
+  --hair: oklch(0.99 0 0 / 0.09);
 
-  --accent: 255 107 61;
-  --accent-hover: 216 90 48;
-  --accent-tint: rgba(255, 107, 61, 0.14);
+  --cal: oklch(0.79 0.155 48);
+  --protein: oklch(0.72 0.15 18);
+  --carbs: oklch(0.85 0.14 88);
+  --fat: oklch(0.73 0.13 300);
+  --fiber: oklch(0.80 0.14 158);
+  --sugar: oklch(0.74 0.15 350);
+  --points: oklch(0.84 0.15 165);
 
-  --success: 48 209 88;
-  --success-tint: rgba(48, 209, 88, 0.14);
+  --breakfast: oklch(0.84 0.14 78);
+  --lunch: oklch(0.80 0.14 150);
+  --snack: oklch(0.74 0.13 300);
+  --dinner: oklch(0.74 0.12 258);
+  --drinks: oklch(0.81 0.12 212);
 
-  --surface: 28 28 30;
+  --sweet: oklch(0.77 0.15 350);
+  --fried: oklch(0.81 0.15 62);
+  --fast: oklch(0.72 0.15 25);
 
-  --chart-grid: #2C2C2E;
-  --chart-text: #8E8E93;
-  --chart-accent: #FF6B3D;
-  --chart-accent-complete: #D85A30;
-  --chart-success: #30D158;
-  --chart-dot: #636366;
-  --chart-tooltip-bg: #1C1C1E;
-  --chart-tooltip-border: #2C2C2E;
-  --chart-ring-track: #2C2C2E;
-
-  /* Nutrient colors (dark mode — brighter for contrast on black) */
-  --fiber: #64D2FF;
-  --sugar: #BF5AF2;
-  --water: #0A84FF;
-  --warning: #FF9F0A;
-  --danger: #FF453A;
-  --star: #FFD60A;
+  --warning: oklch(0.82 0.15 75);
+  --danger: oklch(0.68 0.22 28);
+  --star: oklch(0.88 0.16 95);
 
   --shadow-subtle: 0 1px 2px rgba(0,0,0,0.3);
   --shadow-sheet: 0 -4px 24px rgba(0,0,0,0.6);
-
-  --theme-color: #000000;
+  --theme-color: #252321;
 }
 
+/* ─── Reset ─── */
 * {
   -webkit-tap-highlight-color: transparent;
   box-sizing: border-box;
@@ -129,10 +108,10 @@ html {
 
 body {
   overscroll-behavior: none;
-  background-color: rgb(var(--warm-50));
+  background-color: var(--desk);
   padding-top: env(safe-area-inset-top);
   overflow-x: hidden;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-family: 'Hanken Grotesk', system-ui, sans-serif;
   font-weight: 400;
   -webkit-font-smoothing: antialiased;
 }
@@ -142,12 +121,36 @@ body {
   flex-direction: column;
 }
 
-/* Typography: only 400 and 500 weights */
-h1, h2, h3, strong, b {
-  font-weight: 500;
+/* ─── Typography ─── */
+h1, h2, h3 {
+  font-family: 'Space Grotesk', system-ui, sans-serif;
+  font-weight: 600;
 }
 
-/* Press feedback for interactive elements */
+strong, b {
+  font-weight: 600;
+}
+
+/* ─── Tint utility classes ─── */
+@layer utilities {
+  .tint-cal { background: color-mix(in oklab, var(--cal) 14%, transparent); }
+  .tint-protein { background: color-mix(in oklab, var(--protein) 14%, transparent); }
+  .tint-carbs { background: color-mix(in oklab, var(--carbs) 14%, transparent); }
+  .tint-fat { background: color-mix(in oklab, var(--fat) 14%, transparent); }
+  .tint-fiber { background: color-mix(in oklab, var(--fiber) 14%, transparent); }
+  .tint-sugar { background: color-mix(in oklab, var(--sugar) 14%, transparent); }
+  .tint-points { background: color-mix(in oklab, var(--points) 14%, transparent); }
+  .tint-breakfast { background: color-mix(in oklab, var(--breakfast) 14%, transparent); }
+  .tint-lunch { background: color-mix(in oklab, var(--lunch) 14%, transparent); }
+  .tint-snack { background: color-mix(in oklab, var(--snack) 14%, transparent); }
+  .tint-dinner { background: color-mix(in oklab, var(--dinner) 14%, transparent); }
+  .tint-drinks { background: color-mix(in oklab, var(--drinks) 14%, transparent); }
+  .tint-sweet { background: color-mix(in oklab, var(--sweet) 14%, transparent); }
+  .tint-fried { background: color-mix(in oklab, var(--fried) 14%, transparent); }
+  .tint-fast { background: color-mix(in oklab, var(--fast) 14%, transparent); }
+}
+
+/* ─── Press feedback ─── */
 @media (prefers-reduced-motion: no-preference) {
   .press-scale {
     transition: transform 150ms var(--ease-out-quint);
@@ -157,7 +160,7 @@ h1, h2, h3, strong, b {
   }
 }
 
-/* Staggered entrance animation */
+/* ─── Staggered entrance ─── */
 @media (prefers-reduced-motion: no-preference) {
   .stagger-enter {
     opacity: 0;
@@ -187,7 +190,7 @@ h1, h2, h3, strong, b {
   }
 }
 
-/* Progress bar fill animation */
+/* ─── Progress bar fill ─── */
 @media (prefers-reduced-motion: no-preference) {
   .progress-fill {
     transition: width var(--duration-countup) var(--ease-out-quint);
@@ -200,7 +203,7 @@ h1, h2, h3, strong, b {
   }
 }
 
-/* Ring stroke animation */
+/* ─── Ring stroke animation ─── */
 @media (prefers-reduced-motion: no-preference) {
   .ring-animate {
     transition: stroke-dashoffset var(--duration-countup) var(--ease-out-quint);
@@ -213,7 +216,7 @@ h1, h2, h3, strong, b {
   }
 }
 
-/* Bottom sheet animation */
+/* ─── Bottom sheet animation ─── */
 @media (prefers-reduced-motion: no-preference) {
   @keyframes sheetSlideUp {
     from { transform: translateY(100%); }
@@ -237,7 +240,7 @@ h1, h2, h3, strong, b {
   }
 }
 
-/* Threshold celebration pulse */
+/* ─── Ring celebration pulse ─── */
 @media (prefers-reduced-motion: no-preference) {
   @keyframes ringPulse {
     0% { transform: scale(1); }
@@ -249,7 +252,7 @@ h1, h2, h3, strong, b {
   }
 }
 
-/* Tab crossfade */
+/* ─── Tab crossfade ─── */
 @media (prefers-reduced-motion: no-preference) {
   .tab-fade-enter {
     animation: fadeIn 180ms ease;
@@ -260,12 +263,11 @@ h1, h2, h3, strong, b {
   }
 }
 
-/* Safe area for tab bar */
+/* ─── Layout ─── */
 .tab-bar {
   padding-bottom: calc(8px + env(safe-area-inset-bottom));
 }
 
-/* Page content area */
 .page-content {
   flex: 1;
   overflow-y: auto;
@@ -274,13 +276,13 @@ h1, h2, h3, strong, b {
   padding-right: env(safe-area-inset-right);
 }
 
-/* Input styles */
+/* ─── Input ─── */
 input[type="number"]::-webkit-inner-spin-button,
 input[type="number"]::-webkit-outer-spin-button {
   opacity: 1;
 }
 
-/* Hide scrollbar for horizontal scroll */
+/* ─── Hide scrollbar ─── */
 .scrollbar-none::-webkit-scrollbar {
   display: none;
 }

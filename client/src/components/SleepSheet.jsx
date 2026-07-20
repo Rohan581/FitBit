@@ -31,9 +31,8 @@ export default function SleepSheet({ open, onClose, onLogged, existing }) {
   return (
     <Sheet open={open} onClose={onClose} title="Log sleep">
       <div className="px-5 pb-6 space-y-5">
-        {/* Hours */}
         <div>
-          <label className="text-xs text-warm-500 block mb-2">Hours slept</label>
+          <label className="text-xs text-tx-3 block mb-2">Hours slept</label>
           <div className="grid grid-cols-3 gap-2 mb-2">
             {PRESETS.map(h => (
               <button
@@ -41,8 +40,8 @@ export default function SleepSheet({ open, onClose, onLogged, existing }) {
                 onClick={() => setHours(String(h))}
                 className={`py-2 rounded-card text-sm border transition-colors press-scale ${
                   hours === String(h)
-                    ? 'border-accent bg-accent-tint text-accent'
-                    : 'border-warm-200 bg-surface text-warm-600'
+                    ? 'border-points tint-points text-points'
+                    : 'border-hair bg-card text-tx-2'
                 }`}
               >
                 {h}h
@@ -54,16 +53,15 @@ export default function SleepSheet({ open, onClose, onLogged, existing }) {
             value={hours}
             onChange={e => setHours(e.target.value)}
             placeholder="Or type hours (e.g. 7.5)"
-            className="w-full px-3 py-2.5 rounded-card border border-warm-200 text-sm text-warm-800 focus:outline-none focus:border-accent bg-surface"
+            className="w-full px-3 py-2.5 rounded-card border border-hair text-sm text-tx focus:outline-none bg-card-2"
             step="0.5"
             min="1"
             max="16"
           />
         </div>
 
-        {/* Quality */}
         <div>
-          <p className="text-xs text-warm-500 mb-2">Quality</p>
+          <p className="text-xs text-tx-3 mb-2">Quality</p>
           <div className="flex gap-2">
             {QUALITIES.map(q => (
               <button
@@ -71,8 +69,8 @@ export default function SleepSheet({ open, onClose, onLogged, existing }) {
                 onClick={() => setQuality(q.id)}
                 className={`flex-1 py-3 rounded-card border text-sm transition-colors press-scale ${
                   quality === q.id
-                    ? 'border-accent bg-accent-tint text-accent'
-                    : 'border-warm-200 bg-surface text-warm-600'
+                    ? 'border-points tint-points text-points'
+                    : 'border-hair bg-card text-tx-2'
                 }`}
               >
                 {q.label}
@@ -81,12 +79,12 @@ export default function SleepSheet({ open, onClose, onLogged, existing }) {
           </div>
         </div>
 
-        <p className="text-xs text-warm-400 text-center">7-8.5 hours earns full points</p>
+        <p className="text-xs text-tx-3 text-center">7-8.5 hours earns full points</p>
 
         <button
           onClick={handleSave}
           disabled={!hours || saving}
-          className="w-full py-3.5 bg-accent text-white rounded-card text-sm disabled:opacity-40 press-scale"
+          className="w-full py-3.5 bg-points text-white rounded-card text-sm disabled:opacity-40 press-scale"
         >
           {saving ? 'Saving...' : 'Log sleep'}
         </button>

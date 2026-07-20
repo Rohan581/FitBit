@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-    <meta name="theme-color" content="#FAF8F5" />
+    <meta name="theme-color" content="#EAE7E2" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />
     <meta name="apple-mobile-web-app-title" content="FitBit" />
@@ -14,8 +14,8 @@
     <script>
       // Apply theme before first paint to avoid FOUC
       (function() {
-        var LIGHT_META = '#FAF8F5';
-        var DARK_META = '#000000';
+        var LIGHT_META = '#EAE7E2';
+        var DARK_META = '#252321';
         var stored = localStorage.getItem('theme') || 'system';
         var dark = stored === 'dark' ||
           (stored === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);

@@ -2,8 +2,15 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { api } from '../api';
 import Sheet from '../components/Sheet';
 
-const MEAL_TYPES = ['breakfast', 'lunch', 'dinner', 'snack'];
-const MEAL_LABELS = { breakfast: 'Breakfast', lunch: 'Lunch', dinner: 'Dinner', snack: 'Snacks' };
+const MEAL_TYPES = ['breakfast', 'lunch', 'snack', 'dinner', 'drinks'];
+const MEAL_LABELS = { breakfast: 'Breakfast', lunch: 'Lunch', snack: 'Snacks', dinner: 'Dinner', drinks: 'Drinks' };
+const MEAL_COLORS = {
+  breakfast: 'var(--breakfast)',
+  lunch: 'var(--lunch)',
+  snack: 'var(--snack)',
+  dinner: 'var(--dinner)',
+  drinks: 'var(--drinks)',
+};
 
 function getMealTypeByTime() {
   const h = new Date().getHours();
@@ -32,7 +39,6 @@ export default function FoodLog() {
       setLogs(l);
       setSavedMeals(m);
       setGoal(g);
-      // Load suggestions
       api.getSuggestions().then(setSuggestions).catch(() => {});
     } finally {
       setLoading(false);
@@ -68,7 +74,7 @@ export default function FoodLog() {
       await api.copyYesterday(mealType);
       load();
     } catch (e) {
-      // No entries to copy — ignore
+      // No entries to copy
     }
   }
 
@@ -81,74 +87,100 @@ export default function FoodLog() {
   const { totals } = logs;
   const calTarget = goal?.current_calorie_target || 2240;
   const proTarget = goal?.current_protein_target_g || 180;
+  const carbTarget = goal?.current_carb_target_g || 250;
+  const fatTarget = goal?.current_fat_target_g || 60;
   const fiberTarget = goal?.current_fiber_target_g || 32;
   const sugarLimit = goal?.current_sugar_limit_g || 50;
+
+  // Determine which nutrient has the biggest gap for the suggestion card
+  const gaps = [
+    { key: 'fiber', label: 'Fiber', gap: fiberTarget - (totals.fiber_g || 0), color: 'var(--fiber)', token: 'fiber' },
+    { key: 'protein', label: 'Protein', gap: proTarget - (totals.protein_g || 0), color: 'var(--protein)', token: 'protein' },
+    { key: 'calories', label: 'Calories', gap: calTarget - (totals.calories || 0), color: 'var(--cal)', token: 'cal' },
+  ];
+  const biggestGap = gaps.reduce((a, b) => (b.gap / (b.key === 'calories' ? calTarget : b.key === 'protein' ? proTarget : fiberTarget)) > (a.gap / (a.key === 'calories' ? calTarget : a.key === 'protein' ? proTarget : fiberTarget)) ? b : a);
 
   return (
     <div className="px-4 pb-4">
       {/* Header */}
       <div className="pt-5 pb-5">
-        <h1 className="text-[22px] font-medium text-warm-800">Food log</h1>
-        <p className="text-xs text-warm-400 mt-0.5">
+        <h1 className="text-[22px] font-bold text-tx">Food log</h1>
+        <p className="text-xs text-tx-3 mt-0.5">
           {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })}
         </p>
       </div>
 
-      {/* 2×2 Macro progress grid */}
-      <div className="bg-warm-100 rounded-card p-4 mb-3 stagger-enter">
-        <div className="grid grid-cols-2 gap-3">
-          <MacroProgress label="Calories" current={totals.calories} target={calTarget} unit="kcal" color="var(--chart-accent)" />
-          <MacroProgress label="Protein" current={totals.protein_g} target={proTarget} unit="g" color="var(--chart-success)" />
-          <MacroProgress label="Fiber" current={totals.fiber_g} target={fiberTarget} unit="g" color="var(--fiber)" direction="reach" />
-          <MacroProgress label="Sugar" current={totals.sugar_g} target={sugarLimit} unit="g" color="var(--sugar)" direction="limit" />
-        </div>
+      {/* 3-column grid of 6 tinted macro cards */}
+      <div className="grid grid-cols-3 gap-2 mb-3 stagger-enter">
+        <MacroCard label="CALORIES" value={totals.calories} target={calTarget} unit="kcal" token="cal" />
+        <MacroCard label="PROTEIN" value={totals.protein_g} target={proTarget} unit="g" token="protein" />
+        <MacroCard label="CARBS" value={totals.carbs_g} target={carbTarget} unit="g" token="carbs" />
+        <MacroCard label="FAT" value={totals.fat_g} target={fatTarget} unit="g" token="fat" />
+        <MacroCard label="FIBER" value={totals.fiber_g} target={fiberTarget} unit="g" token="fiber" />
+        <MacroCard label="SUGAR" value={totals.sugar_g} target={sugarLimit} unit="g" token="sugar" direction="limit" />
       </div>
 
-      {/* Suggestions card */}
+      {/* Gap suggestion card */}
       {suggestions?.suggestions?.length > 0 && (
-        <div className="bg-warm-100 rounded-card p-4 mb-3 stagger-enter">
-          <p className="text-xs text-warm-500 mb-2">
-            Close the gap — {suggestions.primary_gap === 'protein' ? 'protein' : 'fiber'} ({suggestions.gap_amount}g remaining)
-          </p>
-          <div className="space-y-2">
-            {suggestions.suggestions.map(s => (
-              <div key={s.food_id} className="flex items-center justify-between bg-warm-200/50 rounded-xl px-3 py-2.5">
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm text-warm-700 truncate">{s.food_name}</p>
-                  <p className="text-xs text-warm-400">{s.description}</p>
-                </div>
-                <button
-                  onClick={() => handleAddSuggestion(s)}
-                  className="ml-2 px-3 py-1.5 bg-accent/10 text-accent text-xs rounded-lg press-scale flex-shrink-0"
-                >
-                  Add
-                </button>
+        <div className="bg-card rounded-card overflow-hidden mb-3 stagger-enter">
+          <div className="flex">
+            <div className="w-[5px] flex-shrink-0" style={{ backgroundColor: biggestGap.color }} />
+            <div className="flex-1 p-4">
+              <p className="text-[10px] font-semibold uppercase tracking-wider mb-1" style={{ color: biggestGap.color }}>
+                Close the gap
+              </p>
+              <p className="text-sm text-tx mb-2">
+                You're short on <span className="font-semibold" style={{ color: biggestGap.color }}>{biggestGap.label.toLowerCase()}</span>
+                {suggestions.primary_gap && suggestions.primary_gap !== biggestGap.key && (
+                  <> and <span className="font-semibold" style={{ color: gaps.find(g => g.key === suggestions.primary_gap)?.color }}>{suggestions.primary_gap}</span></>
+                )}
+                {' '}({suggestions.gap_amount}g remaining)
+              </p>
+              <div className="space-y-2">
+                {suggestions.suggestions.map(s => (
+                  <div key={s.food_id} className="flex items-center justify-between bg-card-2 rounded-xl px-3 py-2.5">
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm text-tx truncate">{s.food_name}</p>
+                      <p className="text-xs text-tx-3">{s.description}</p>
+                    </div>
+                    <button
+                      onClick={() => handleAddSuggestion(s)}
+                      className="ml-2 px-3 py-1.5 rounded-full text-xs press-scale flex-shrink-0 font-medium"
+                      style={{
+                        background: `color-mix(in oklab, ${biggestGap.color} 14%, transparent)`,
+                        color: biggestGap.color,
+                      }}
+                    >
+                      Add
+                    </button>
+                  </div>
+                ))}
               </div>
-            ))}
+            </div>
           </div>
         </div>
       )}
 
       {suggestions?.reason === 'low_calories' && (
-        <div className="bg-warm-100 rounded-card px-4 py-3 mb-3 stagger-enter">
-          <p className="text-xs text-warm-500">{suggestions.message}</p>
+        <div className="bg-card rounded-card px-4 py-3 mb-3 stagger-enter">
+          <p className="text-xs text-tx-3">{suggestions.message}</p>
         </div>
       )}
 
       {/* Saved meals quick-log */}
       {savedMeals.length > 0 && (
         <div className="mb-3 stagger-enter">
-          <p className="text-xs text-warm-400 mb-2 px-1">Saved meals</p>
+          <p className="text-xs text-tx-3 mb-2 px-1">Saved meals</p>
           <div className="-mx-4 px-4">
             <div className="flex gap-2 overflow-x-auto py-1 scrollbar-none">
               {savedMeals.map(meal => (
                 <button
                   key={meal.id}
                   onClick={() => openSavedMealPicker(meal)}
-                  className="flex-shrink-0 flex flex-col items-start bg-accent-tint border border-accent/20 rounded-card px-4 py-3 min-w-[140px] press-scale"
+                  className="flex-shrink-0 flex flex-col items-start tint-points border border-points/20 rounded-card px-4 py-3 min-w-[140px] press-scale"
                 >
-                  <span className="text-sm text-warm-800">{meal.name}</span>
-                  <span className="text-xs text-warm-500 mt-0.5">{Math.round(meal.total_calories)} kcal · {Math.round(meal.total_protein_g)}g protein</span>
+                  <span className="text-sm text-tx">{meal.name}</span>
+                  <span className="text-xs text-tx-3 mt-0.5">{Math.round(meal.total_calories)} kcal · {Math.round(meal.total_protein_g)}g protein</span>
                 </button>
               ))}
             </div>
@@ -163,6 +195,7 @@ export default function FoodLog() {
             <MealSection
               type={mealType}
               label={MEAL_LABELS[mealType]}
+              color={MEAL_COLORS[mealType]}
               entries={logs.grouped?.[mealType] || []}
               onAdd={() => openLog(mealType)}
               onDelete={async (id) => { await api.deleteFoodLog(id); load(); }}
@@ -172,56 +205,45 @@ export default function FoodLog() {
         ))}
       </div>
 
-      {/* Suggest button */}
+      {/* Suggest / custom buttons */}
       <div className="mt-3 flex gap-2 stagger-enter">
         <button
           onClick={() => api.getSuggestions(null, true).then(setSuggestions)}
-          className="flex-1 py-3 border border-warm-300 rounded-card text-sm text-warm-500 press-scale"
+          className="flex-1 py-3 border border-hair rounded-card text-sm text-tx-3 press-scale"
         >
           Suggest foods
         </button>
         <button
           onClick={() => setShowCustomFood(true)}
-          className="flex-1 py-3 border border-dashed border-warm-300 rounded-card text-sm text-warm-500 press-scale"
+          className="flex-1 py-3 border border-dashed border-hair rounded-card text-sm text-tx-3 press-scale"
         >
           + Custom food
         </button>
       </div>
 
-      {/* Food search sheet */}
-      <FoodSearchSheet
-        open={showLog}
-        onClose={() => setShowLog(false)}
-        mealType={selectedMeal}
-        onLogged={load}
-      />
+      {/* Sheets */}
+      <FoodSearchSheet open={showLog} onClose={() => setShowLog(false)} mealType={selectedMeal} onLogged={load} />
+      <CustomFoodSheet open={showCustomFood} onClose={() => setShowCustomFood(false)} onSaved={load} />
 
-      {/* Custom food sheet */}
-      <CustomFoodSheet
-        open={showCustomFood}
-        onClose={() => setShowCustomFood(false)}
-        onSaved={load}
-      />
-
-      {/* Saved meal picker sheet */}
       <Sheet open={!!savedMealPicker} onClose={() => setSavedMealPicker(null)} title={savedMealPicker ? `Log "${savedMealPicker.name}"` : ''}>
         {savedMealPicker && (
           <div className="px-5 pb-6 space-y-4">
-            <p className="text-sm text-warm-500">
+            <p className="text-sm text-tx-3">
               {Math.round(savedMealPicker.total_calories)} kcal · {Math.round(savedMealPicker.total_protein_g)}g protein · {Math.round(savedMealPicker.total_carbs_g)}g carbs · {Math.round(savedMealPicker.total_fat_g)}g fat
             </p>
             <div>
-              <p className="text-xs text-warm-500 mb-2">Log as</p>
-              <div className="grid grid-cols-4 gap-2">
+              <p className="text-xs text-tx-3 mb-2">Log as</p>
+              <div className="grid grid-cols-5 gap-2">
                 {MEAL_TYPES.map(t => (
                   <button
                     key={t}
                     onClick={() => setSavedMealType(t)}
-                    className={`py-2.5 rounded-card text-sm border transition-colors press-scale ${
+                    className={`py-2.5 rounded-card text-xs border transition-colors press-scale ${
                       savedMealType === t
-                        ? 'border-accent bg-accent-tint text-accent'
-                        : 'border-warm-200 bg-surface text-warm-600'
+                        ? 'border-current bg-card-2'
+                        : 'border-hair bg-card text-tx-3'
                     }`}
+                    style={savedMealType === t ? { color: MEAL_COLORS[t], borderColor: MEAL_COLORS[t] } : undefined}
                   >
                     {MEAL_LABELS[t]}
                   </button>
@@ -231,7 +253,7 @@ export default function FoodLog() {
             <button
               onClick={handleLogSavedMeal}
               disabled={loggingSavedMeal}
-              className="w-full py-3.5 bg-accent text-white rounded-card text-sm disabled:opacity-40 press-scale"
+              className="w-full py-3.5 bg-points text-white rounded-card text-sm disabled:opacity-40 press-scale"
             >
               {loggingSavedMeal ? 'Logging...' : `Log to ${MEAL_LABELS[savedMealType]}`}
             </button>
@@ -242,51 +264,43 @@ export default function FoodLog() {
   );
 }
 
-function MacroProgress({ label, current, target, unit, color, direction }) {
-  const pct = target > 0 ? Math.min((current / target) * 100, 100) : 0;
+function MacroCard({ label, value, target, unit, token, direction }) {
   const isLimit = direction === 'limit';
-  const overLimit = isLimit && current > target;
-  const nearLimit = isLimit && pct >= 80 && pct < 100;
-
-  let barColor = color;
-  if (isLimit && overLimit) barColor = 'var(--danger)';
-  else if (isLimit && nearLimit) barColor = 'var(--warning)';
+  const over = isLimit && value > target;
 
   return (
-    <div>
-      <div className="flex justify-between items-baseline mb-1">
-        <span className="text-[11px] text-warm-500">{label}</span>
-        <span className="text-xs text-warm-700">
-          {Math.round(current)}<span className="text-warm-400">/{Math.round(target)} {unit}</span>
-        </span>
-      </div>
-      <div className="h-2 bg-warm-200/60 rounded-full overflow-hidden">
-        <div
-          className="h-full rounded-full progress-fill"
-          style={{ width: `${Math.min(pct, 100)}%`, backgroundColor: barColor }}
-        />
-      </div>
+    <div
+      className="rounded-card p-3"
+      style={{ background: `color-mix(in oklab, var(--${token}) 13%, transparent)` }}
+    >
+      <p className="text-[9px] font-semibold uppercase tracking-wider text-tx-3 mb-1">{label}</p>
+      <p className="text-[19px] font-num font-semibold leading-tight" style={{ color: over ? 'var(--danger)' : `var(--${token})` }}>
+        {Math.round(value)}
+      </p>
+      <p className="text-[10px] text-tx-3 mt-0.5">
+        {isLimit ? 'limit' : 'of'} {Math.round(target)} {unit}
+      </p>
     </div>
   );
 }
 
-
-function MealSection({ type, label, entries, onAdd, onDelete, onCopyYesterday }) {
+function MealSection({ type, label, color, entries, onAdd, onDelete, onCopyYesterday }) {
   const total = entries.reduce((s, e) => ({ cal: s.cal + e.calories, pro: s.pro + e.protein_g }), { cal: 0, pro: 0 });
 
   return (
-    <div className="bg-warm-100 rounded-card overflow-hidden">
-      <div className="flex items-center justify-between px-4 py-3 border-b border-warm-200/50">
-        <div>
-          <span className="text-sm text-warm-700">{label}</span>
+    <div className="bg-card rounded-card overflow-hidden">
+      <div className="flex items-center justify-between px-4 py-3 border-b border-hair">
+        <div className="flex items-center gap-2">
+          <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: color }} />
+          <span className="text-sm text-tx">{label}</span>
           {entries.length > 0 && (
-            <span className="text-xs text-warm-400 ml-2">{Math.round(total.cal)} kcal · {Math.round(total.pro)}g protein</span>
+            <span className="text-xs text-tx-3">{Math.round(total.cal)} kcal</span>
           )}
         </div>
         <div className="flex items-center gap-1.5">
           <button
             onClick={onCopyYesterday}
-            className="w-7 h-7 flex items-center justify-center rounded-full bg-warm-200/60 text-warm-400 text-xs press-scale"
+            className="w-7 h-7 flex items-center justify-center rounded-full bg-card-2 text-tx-3 text-xs press-scale"
             title="Copy yesterday"
           >
             <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -295,7 +309,8 @@ function MealSection({ type, label, entries, onAdd, onDelete, onCopyYesterday })
           </button>
           <button
             onClick={onAdd}
-            className="w-7 h-7 flex items-center justify-center rounded-full bg-accent/10 text-accent text-lg leading-none press-scale"
+            className="w-7 h-7 flex items-center justify-center rounded-full text-lg leading-none press-scale"
+            style={{ background: `color-mix(in oklab, ${color} 14%, transparent)`, color: color }}
           >
             +
           </button>
@@ -303,27 +318,34 @@ function MealSection({ type, label, entries, onAdd, onDelete, onCopyYesterday })
       </div>
 
       {entries.length === 0 ? (
-        <div className="px-4 py-3 text-sm text-warm-300 italic">Nothing logged yet</div>
+        <button onClick={onAdd} className="w-full px-4 py-3 text-sm text-left press-scale" style={{ color }}>
+          + Add to {label}
+        </button>
       ) : (
-        <div className="divide-y divide-warm-200/50">
-          {entries.map(entry => (
-            <div key={entry.id} className="flex items-center px-4 py-2.5">
-              <div className="flex-1 min-w-0">
-                <p className="text-sm text-warm-700 truncate">
-                  {entry.quantity !== 1 ? `${entry.quantity}x ` : ''}{entry.food_name}
-                </p>
-                <p className="text-xs text-warm-400">{Math.round(entry.calories)} kcal · {Math.round(entry.protein_g)}g protein</p>
+        <>
+          <div className="divide-y divide-hair">
+            {entries.map(entry => (
+              <div key={entry.id} className="flex items-center px-4 py-2.5">
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm text-tx truncate">
+                    {entry.quantity !== 1 ? `${entry.quantity}x ` : ''}{entry.food_name}
+                  </p>
+                  <p className="text-xs text-tx-3">{Math.round(entry.calories)} kcal · {Math.round(entry.protein_g)}g protein</p>
+                </div>
+                <button
+                  onClick={() => onDelete(entry.id)}
+                  className="ml-3 text-tx-3 text-lg leading-none active:text-danger"
+                  aria-label="Remove"
+                >
+                  ×
+                </button>
               </div>
-              <button
-                onClick={() => onDelete(entry.id)}
-                className="ml-3 text-warm-300 text-lg leading-none active:text-red-400"
-                aria-label="Remove"
-              >
-                ×
-              </button>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+          <button onClick={onAdd} className="w-full px-4 py-2.5 text-sm text-left border-t border-hair press-scale" style={{ color }}>
+            + Add to {label}
+          </button>
+        </>
       )}
     </div>
   );
@@ -400,11 +422,11 @@ function FoodSearchSheet({ open, onClose, mealType, onLogged }) {
   function selectFood(food) {
     setSelected(food);
     setQty('1');
-    // Use default_unit or first unit if available
     const units = food.units ? JSON.parse(food.units) : null;
     setSelectedUnit(food.default_unit || (units ? units[0]?.unit : null));
   }
 
+  const mealColor = MEAL_COLORS[mealType] || 'var(--cal)';
   const units = selected?.units ? JSON.parse(selected.units) : null;
   const unitMultiplier = selectedUnit && units
     ? (units.find(u => u.unit === selectedUnit)?.multiplier || 1)
@@ -417,16 +439,14 @@ function FoodSearchSheet({ open, onClose, mealType, onLogged }) {
     fiber: Math.round((selected.fiber_g || 0) * effectiveQty * 10) / 10,
   } : null;
 
-  // Show favorites and recents when no query
   const showFavsRecents = !query && (favorites.length > 0 || recents.length > 0);
 
   return (
     <Sheet open={open} onClose={onClose} title={`Add to ${MEAL_LABELS[mealType]}`} height="full">
       <div className="flex flex-col h-full">
-        {/* Search bar */}
         <div className="px-4 pb-3 flex-shrink-0">
           <div className="relative">
-            <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-warm-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-tx-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
             </svg>
             <input
@@ -435,23 +455,27 @@ function FoodSearchSheet({ open, onClose, mealType, onLogged }) {
               value={query}
               onChange={e => setQuery(e.target.value)}
               placeholder="Search foods..."
-              className="w-full pl-9 pr-4 py-2.5 rounded-card border border-warm-200 text-sm text-warm-800 focus:outline-none focus:border-accent bg-surface"
+              className="w-full pl-9 pr-4 py-2.5 rounded-card border border-hair text-sm text-tx focus:outline-none bg-card-2"
+              style={{ '--tw-ring-color': mealColor }}
             />
           </div>
         </div>
 
-        {/* Selected food editor */}
         {selected && (
-          <div className="mx-4 mb-3 bg-accent-tint border border-accent/20 rounded-card p-3 flex-shrink-0">
+          <div className="mx-4 mb-3 rounded-card p-3 flex-shrink-0 border"
+            style={{
+              background: `color-mix(in oklab, ${mealColor} 10%, transparent)`,
+              borderColor: `color-mix(in oklab, ${mealColor} 25%, transparent)`,
+            }}
+          >
             <div className="flex items-start justify-between">
               <div>
-                <p className="text-sm font-medium text-warm-800">{selected.name}</p>
-                <p className="text-xs text-warm-500">{selected.serving_unit}</p>
+                <p className="text-sm font-medium text-tx">{selected.name}</p>
+                <p className="text-xs text-tx-3">{selected.serving_unit}</p>
               </div>
-              <button onClick={() => setSelected(null)} className="text-warm-400 text-lg">×</button>
+              <button onClick={() => setSelected(null)} className="text-tx-3 text-lg">×</button>
             </div>
 
-            {/* Unit selector */}
             {units && units.length > 1 && (
               <div className="flex gap-1.5 mt-2 overflow-x-auto scrollbar-none">
                 {units.map(u => (
@@ -460,9 +484,10 @@ function FoodSearchSheet({ open, onClose, mealType, onLogged }) {
                     onClick={() => setSelectedUnit(u.unit)}
                     className={`px-2.5 py-1 rounded-lg text-xs whitespace-nowrap border transition-colors ${
                       selectedUnit === u.unit
-                        ? 'border-accent bg-accent/10 text-accent'
-                        : 'border-warm-200 text-warm-500'
+                        ? 'border-current'
+                        : 'border-hair text-tx-3'
                     }`}
+                    style={selectedUnit === u.unit ? { color: mealColor, borderColor: mealColor } : undefined}
                   >
                     {u.unit}
                   </button>
@@ -471,68 +496,66 @@ function FoodSearchSheet({ open, onClose, mealType, onLogged }) {
             )}
 
             <div className="flex items-center gap-3 mt-2">
-              <label className="text-xs text-warm-500">Qty:</label>
+              <label className="text-xs text-tx-3">Qty:</label>
               <div className="flex items-center gap-2">
-                <button onClick={() => setQty(q => String(Math.max(0.25, (parseFloat(q) || 1) - 0.25)))} className="w-7 h-7 rounded-lg bg-warm-100 text-warm-700 text-sm press-scale">-</button>
+                <button onClick={() => setQty(q => String(Math.max(0.25, (parseFloat(q) || 1) - 0.25)))} className="w-7 h-7 rounded-lg bg-card-2 text-tx text-sm press-scale">-</button>
                 <input
                   type="number"
                   value={qty}
                   onChange={e => setQty(e.target.value)}
-                  className="w-14 text-center px-1 py-1 rounded-lg border border-warm-200 text-sm text-warm-800 bg-surface focus:outline-none"
+                  className="w-14 text-center px-1 py-1 rounded-lg border border-hair text-sm text-tx bg-card focus:outline-none"
                   step="0.25"
                   min="0.25"
                 />
-                <button onClick={() => setQty(q => String((parseFloat(q) || 1) + 0.25))} className="w-7 h-7 rounded-lg bg-warm-100 text-warm-700 text-sm press-scale">+</button>
+                <button onClick={() => setQty(q => String((parseFloat(q) || 1) + 0.25))} className="w-7 h-7 rounded-lg bg-card-2 text-tx text-sm press-scale">+</button>
               </div>
               {multiplied && (
-                <span className="text-xs text-warm-500 ml-auto">{multiplied.cal} kcal · {multiplied.pro}g pro</span>
+                <span className="text-xs text-tx-3 ml-auto">{multiplied.cal} kcal · {multiplied.pro}g pro</span>
               )}
             </div>
             <button
               onClick={handleLog}
               disabled={saving}
-              className="w-full mt-3 py-2.5 bg-accent text-white rounded-card text-sm disabled:opacity-40 press-scale"
+              className="w-full mt-3 py-2.5 text-white rounded-card text-sm disabled:opacity-40 press-scale"
+              style={{ backgroundColor: mealColor }}
             >
               {saving ? 'Adding...' : `Add to ${MEAL_LABELS[mealType]}`}
             </button>
           </div>
         )}
 
-        {/* Results list */}
         <div className="flex-1 overflow-y-auto px-4 pb-4">
-          {/* Favorites row */}
           {showFavsRecents && favorites.length > 0 && (
             <div className="mb-3">
-              <p className="text-[11px] text-warm-400 mb-1.5 px-1">Favorites</p>
+              <p className="text-[11px] text-tx-3 mb-1.5 px-1">Favorites</p>
               <div className="space-y-1">
                 {favorites.map(food => (
-                  <FoodRow key={food.id} food={food} selected={selected} onSelect={selectFood} onToggleFavorite={handleToggleFavorite} />
+                  <FoodRow key={food.id} food={food} selected={selected} onSelect={selectFood} onToggleFavorite={handleToggleFavorite} mealColor={mealColor} />
                 ))}
               </div>
             </div>
           )}
 
-          {/* Recents row */}
           {showFavsRecents && recents.length > 0 && (
             <div className="mb-3">
-              <p className="text-[11px] text-warm-400 mb-1.5 px-1">Recent</p>
+              <p className="text-[11px] text-tx-3 mb-1.5 px-1">Recent</p>
               <div className="space-y-1">
                 {recents.filter(r => !favorites.find(f => f.id === r.id)).slice(0, 10).map(food => (
-                  <FoodRow key={food.id} food={food} selected={selected} onSelect={selectFood} onToggleFavorite={handleToggleFavorite} />
+                  <FoodRow key={food.id} food={food} selected={selected} onSelect={selectFood} onToggleFavorite={handleToggleFavorite} mealColor={mealColor} />
                 ))}
               </div>
             </div>
           )}
 
-          {showFavsRecents && <div className="border-t border-warm-200/50 my-3" />}
+          {showFavsRecents && <div className="border-t border-hair my-3" />}
 
-          {searching && <p className="text-sm text-warm-400 text-center py-4">Searching...</p>}
+          {searching && <p className="text-sm text-tx-3 text-center py-4">Searching...</p>}
           {!searching && results.length === 0 && (
-            <p className="text-sm text-warm-400 text-center py-4">No foods found. Try a different search.</p>
+            <p className="text-sm text-tx-3 text-center py-4">No foods found. Try a different search.</p>
           )}
           <div className="space-y-1">
             {results.map(food => (
-              <FoodRow key={food.id} food={food} selected={selected} onSelect={selectFood} onToggleFavorite={handleToggleFavorite} />
+              <FoodRow key={food.id} food={food} selected={selected} onSelect={selectFood} onToggleFavorite={handleToggleFavorite} mealColor={mealColor} />
             ))}
           </div>
         </div>
@@ -541,17 +564,22 @@ function FoodSearchSheet({ open, onClose, mealType, onLogged }) {
   );
 }
 
-function FoodRow({ food, selected, onSelect, onToggleFavorite }) {
+function FoodRow({ food, selected, onSelect, onToggleFavorite, mealColor }) {
+  const isSelected = selected?.id === food.id;
   return (
     <button
       onClick={() => onSelect(food)}
       className={`w-full flex items-center justify-between px-4 py-3 rounded-card text-left transition-colors ${
-        selected?.id === food.id ? 'bg-accent-tint border border-accent/20' : 'bg-warm-100 border border-transparent'
+        isSelected ? 'border' : 'bg-card border border-transparent'
       }`}
+      style={isSelected ? {
+        background: `color-mix(in oklab, ${mealColor} 10%, transparent)`,
+        borderColor: `color-mix(in oklab, ${mealColor} 25%, transparent)`,
+      } : undefined}
     >
       <div className="min-w-0 flex-1">
-        <p className="text-sm text-warm-800 truncate">{food.name}</p>
-        <p className="text-xs text-warm-400">{food.serving_unit}</p>
+        <p className="text-sm text-tx truncate">{food.name}</p>
+        <p className="text-xs text-tx-3">{food.serving_unit}</p>
       </div>
       <div className="flex items-center gap-2 ml-3 flex-shrink-0">
         <button
@@ -559,13 +587,13 @@ function FoodRow({ food, selected, onSelect, onToggleFavorite }) {
           className="text-sm"
           aria-label={food.is_favorite ? 'Unfavorite' : 'Favorite'}
         >
-          <span style={{ color: food.is_favorite ? 'var(--star)' : 'var(--chart-grid)' }}>
+          <span style={{ color: food.is_favorite ? 'var(--star)' : 'var(--hair)' }}>
             {food.is_favorite ? '★' : '☆'}
           </span>
         </button>
         <div className="text-right">
-          <p className="text-sm text-warm-700">{Math.round(food.calories)}</p>
-          <p className="text-xs text-warm-400">kcal</p>
+          <p className="text-sm font-num text-tx">{Math.round(food.calories)}</p>
+          <p className="text-xs text-tx-3">kcal</p>
         </div>
       </div>
     </button>
@@ -617,11 +645,11 @@ function CustomFoodSheet({ open, onClose, onSaved }) {
           <Field label="Fiber (g)" value={form.fiber_g} onChange={v => set('fiber_g', v)} type="number" placeholder="0" />
           <Field label="Sugar (g)" value={form.sugar_g} onChange={v => set('sugar_g', v)} type="number" placeholder="0" />
         </div>
-        {error && <p className="text-sm text-red-500">{error}</p>}
+        {error && <p className="text-sm text-danger">{error}</p>}
         <button
           onClick={handleSave}
           disabled={saving}
-          className="w-full py-3.5 bg-accent text-white rounded-card text-sm disabled:opacity-40 press-scale"
+          className="w-full py-3.5 bg-points text-white rounded-card text-sm disabled:opacity-40 press-scale"
         >
           {saving ? 'Saving...' : 'Save to food database'}
         </button>
@@ -633,13 +661,13 @@ function CustomFoodSheet({ open, onClose, onSaved }) {
 function Field({ label, value, onChange, placeholder, type = 'text' }) {
   return (
     <div>
-      <label className="text-xs text-warm-500 block mb-1">{label}</label>
+      <label className="text-xs text-tx-3 block mb-1">{label}</label>
       <input
         type={type}
         value={value}
         onChange={e => onChange(e.target.value)}
         placeholder={placeholder}
-        className="w-full px-3 py-2.5 rounded-card border border-warm-200 text-sm text-warm-800 focus:outline-none focus:border-accent bg-surface"
+        className="w-full px-3 py-2.5 rounded-card border border-hair text-sm text-tx focus:outline-none bg-card"
       />
     </div>
   );

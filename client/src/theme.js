@@ -1,5 +1,5 @@
-const LIGHT_META = '#FAF8F5';
-const DARK_META = '#000000';
+const LIGHT_META = '#EAE7E2';
+const DARK_META = '#252321';
 const STORAGE_KEY = 'theme';
 
 export function getThemeSetting() {

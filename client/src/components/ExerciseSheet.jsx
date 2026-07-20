@@ -42,9 +42,8 @@ export default function ExerciseSheet({ open, onClose, onLogged }) {
   return (
     <Sheet open={open} onClose={onClose} title="Log workout">
       <div className="px-5 pb-6 space-y-5">
-        {/* Type */}
         <div>
-          <p className="text-xs text-warm-500 mb-2">Type</p>
+          <p className="text-xs text-tx-3 mb-2">Type</p>
           <div className="grid grid-cols-2 gap-2">
             {EXERCISE_TYPES.map(t => (
               <button
@@ -52,8 +51,8 @@ export default function ExerciseSheet({ open, onClose, onLogged }) {
                 onClick={() => setType(t.id)}
                 className={`px-3 py-2.5 rounded-card border text-sm transition-colors press-scale ${
                   type === t.id
-                    ? 'border-accent bg-accent-tint text-accent'
-                    : 'border-warm-200 bg-surface text-warm-600'
+                    ? 'border-points tint-points text-points'
+                    : 'border-hair bg-card text-tx-2'
                 }`}
               >
                 {t.label}
@@ -62,9 +61,8 @@ export default function ExerciseSheet({ open, onClose, onLogged }) {
           </div>
         </div>
 
-        {/* Duration */}
         <div>
-          <label className="text-xs text-warm-500 block mb-2">Duration (minutes)</label>
+          <label className="text-xs text-tx-3 block mb-2">Duration (minutes)</label>
           <div className="flex items-center gap-2">
             {[15, 30, 45, 60, 90].map(d => (
               <button
@@ -72,8 +70,8 @@ export default function ExerciseSheet({ open, onClose, onLogged }) {
                 onClick={() => setDuration(String(d))}
                 className={`flex-1 py-2 rounded-card text-sm border transition-colors press-scale ${
                   duration === String(d)
-                    ? 'border-accent bg-accent-tint text-accent'
-                    : 'border-warm-200 bg-surface text-warm-600'
+                    ? 'border-points tint-points text-points'
+                    : 'border-hair bg-card text-tx-2'
                 }`}
               >
                 {d}
@@ -85,15 +83,14 @@ export default function ExerciseSheet({ open, onClose, onLogged }) {
             value={duration}
             onChange={e => setDuration(e.target.value)}
             placeholder="Or type custom"
-            className="mt-2 w-full px-3 py-2.5 rounded-card border border-warm-200 text-sm text-warm-800 focus:outline-none focus:border-accent bg-surface"
+            className="mt-2 w-full px-3 py-2.5 rounded-card border border-hair text-sm text-tx focus:outline-none bg-card-2"
             min="1"
             max="300"
           />
         </div>
 
-        {/* Intensity */}
         <div>
-          <p className="text-xs text-warm-500 mb-2">Intensity</p>
+          <p className="text-xs text-tx-3 mb-2">Intensity</p>
           <div className="flex gap-2">
             {INTENSITIES.map(i => (
               <button
@@ -101,8 +98,8 @@ export default function ExerciseSheet({ open, onClose, onLogged }) {
                 onClick={() => setIntensity(i.id)}
                 className={`flex-1 py-2 rounded-card text-sm border transition-colors press-scale ${
                   intensity === i.id
-                    ? 'border-accent bg-accent-tint text-accent'
-                    : 'border-warm-200 bg-surface text-warm-600'
+                    ? 'border-points tint-points text-points'
+                    : 'border-hair bg-card text-tx-2'
                 }`}
               >
                 {i.label}
@@ -114,7 +111,7 @@ export default function ExerciseSheet({ open, onClose, onLogged }) {
         <button
           onClick={handleSave}
           disabled={!duration || saving}
-          className="w-full py-3.5 bg-accent text-white rounded-card text-sm disabled:opacity-40 press-scale"
+          className="w-full py-3.5 bg-points text-white rounded-card text-sm disabled:opacity-40 press-scale"
         >
           {saving ? 'Saving...' : 'Log workout'}
         </button>

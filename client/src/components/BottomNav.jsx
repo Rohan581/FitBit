@@ -9,7 +9,14 @@ const tabs = [
 
 export default function BottomNav() {
   return (
-    <nav className="tab-bar border-t border-warm-200 bg-surface flex-shrink-0">
+    <nav
+      className="tab-bar flex-shrink-0 border-t border-hair"
+      style={{
+        background: 'color-mix(in oklab, var(--bg) 80%, transparent)',
+        backdropFilter: 'blur(18px)',
+        WebkitBackdropFilter: 'blur(18px)',
+      }}
+    >
       <div className="flex">
         {tabs.map(({ to, label, icon: Icon }) => (
           <NavLink
@@ -18,12 +25,20 @@ export default function BottomNav() {
             end={to === '/'}
             className={({ isActive }) =>
               `flex-1 flex flex-col items-center pt-2 pb-1 gap-0.5 transition-colors ${
-                isActive ? 'text-accent' : 'text-warm-400'
+                isActive ? 'text-tx' : 'text-tx-3'
               }`
             }
           >
-            <Icon />
-            <span className="text-[11px]">{label}</span>
+            {({ isActive }) => (
+              <>
+                <div
+                  className="w-1 h-1 rounded-full mb-0.5 transition-colors"
+                  style={{ backgroundColor: isActive ? 'var(--points)' : 'transparent' }}
+                />
+                <Icon />
+                <span className="text-[11px]">{label}</span>
+              </>
+            )}
           </NavLink>
         ))}
       </div>

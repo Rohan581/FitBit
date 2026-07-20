@@ -14,7 +14,7 @@ export default function App() {
 
   return (
     <BrowserRouter>
-      <div className="flex flex-col h-full bg-warm-50">
+      <div className="flex flex-col h-full bg-desk">
         <div className="flex-1 overflow-y-auto page-content">
           <Routes>
             <Route path="/" element={<Dashboard />} />

@@ -23,11 +23,11 @@ export default function WeightSheet({ open, onClose, onLogged, existing }) {
     <Sheet open={open} onClose={onClose} title="Log weight">
       <div className="px-5 pb-6 space-y-5">
         <div>
-          <label className="text-xs text-warm-500 block mb-2">Weight (kg)</label>
+          <label className="text-xs text-tx-3 block mb-2">Weight (kg)</label>
           <div className="flex items-center gap-3">
             <button
               onClick={() => setWeight(w => String(Math.max(30, parseFloat(w || 0) - 0.1).toFixed(1)))}
-              className="w-12 h-12 rounded-card border border-warm-200 text-2xl text-warm-500 bg-surface flex items-center justify-center press-scale"
+              className="w-12 h-12 rounded-card border border-hair text-2xl text-tx-3 bg-card flex items-center justify-center press-scale"
             >
               -
             </button>
@@ -36,28 +36,28 @@ export default function WeightSheet({ open, onClose, onLogged, existing }) {
               value={weight}
               onChange={e => setWeight(e.target.value)}
               placeholder="e.g. 88.4"
-              className="flex-1 px-3 py-3 rounded-card border border-warm-200 text-center text-2xl font-medium text-warm-800 focus:outline-none focus:border-accent bg-surface"
+              className="flex-1 px-3 py-3 rounded-card border border-hair text-center text-2xl font-num font-medium text-tx focus:outline-none bg-card-2"
               step="0.1"
               min="30"
               max="250"
             />
             <button
               onClick={() => setWeight(w => String((parseFloat(w || 0) + 0.1).toFixed(1)))}
-              className="w-12 h-12 rounded-card border border-warm-200 text-2xl text-warm-500 bg-surface flex items-center justify-center press-scale"
+              className="w-12 h-12 rounded-card border border-hair text-2xl text-tx-3 bg-card flex items-center justify-center press-scale"
             >
               +
             </button>
           </div>
         </div>
 
-        <p className="text-xs text-warm-400 text-center">
+        <p className="text-xs text-tx-3 text-center">
           Best logged in the morning, after waking. The 7-day average is what matters.
         </p>
 
         <button
           onClick={handleSave}
           disabled={!weight || saving}
-          className="w-full py-3.5 bg-accent text-white rounded-card text-sm disabled:opacity-40 press-scale"
+          className="w-full py-3.5 bg-points text-white rounded-card text-sm disabled:opacity-40 press-scale"
         >
           {saving ? 'Saving...' : 'Log weight'}
         </button>
