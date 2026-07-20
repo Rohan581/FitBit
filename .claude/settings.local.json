@@ -22,7 +22,10 @@
       "Read(//dev/fd/**)",
       "WebFetch(domain:localhost)",
       "Bash(curl -s http://localhost:5173/)",
-      "Bash(curl -s http://localhost:5173/src/index.css)"
+      "Bash(curl -s http://localhost:5173/src/index.css)",
+      "Bash(mv apple-touch-icon_1.png apple-touch-icon.png)",
+      "Bash(mv icon-192_1.png icon-192.png)",
+      "Bash(mv icon-512_1.png icon-512.png)"
     ]
   }
 }

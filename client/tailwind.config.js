@@ -4,7 +4,6 @@ export default {
   theme: {
     extend: {
       colors: {
-        desk: 'var(--desk)',
         page: 'var(--bg)',
         card: { DEFAULT: 'var(--card)', 2: 'var(--card-2)' },
         tx: { DEFAULT: 'var(--text)', 2: 'var(--text-2)', 3: 'var(--text-3)' },

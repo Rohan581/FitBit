@@ -6,7 +6,6 @@
 :root {
   color-scheme: light;
 
-  --desk: oklch(0.92 0.006 80);
   --bg: oklch(0.975 0.006 85);
   --card: oklch(1 0 0);
   --card-2: oklch(0.965 0.006 85);
@@ -53,14 +52,13 @@
 [data-theme="dark"] {
   color-scheme: dark;
 
-  --desk: oklch(0.15 0.008 65);
-  --bg: oklch(0.185 0.008 65);
-  --card: oklch(0.235 0.01 65);
-  --card-2: oklch(0.285 0.012 65);
-  --text: oklch(0.97 0.004 75);
-  --text-2: oklch(0.74 0.008 75);
-  --text-3: oklch(0.58 0.008 75);
-  --hair: oklch(0.99 0 0 / 0.09);
+  --bg: oklch(0 0 0);
+  --card: oklch(0.16 0 0);
+  --card-2: oklch(0.20 0 0);
+  --text: oklch(0.97 0 0);
+  --text-2: oklch(0.72 0 0);
+  --text-3: oklch(0.55 0 0);
+  --hair: oklch(1 0 0 / 0.09);
 
   --cal: oklch(0.79 0.155 48);
   --protein: oklch(0.72 0.15 18);
@@ -108,7 +106,7 @@ html {
 
 body {
   overscroll-behavior: none;
-  background-color: var(--desk);
+  background-color: var(--bg);
   padding-top: env(safe-area-inset-top);
   overflow-x: hidden;
   font-family: 'Hanken Grotesk', system-ui, sans-serif;
