@@ -21,6 +21,7 @@ export const api = {
   searchFoods: (q, categories) => req('GET', `/foods?${new URLSearchParams({ ...(q && { q }), ...(categories && { categories }) })}`),
   getRecents: (categories) => req('GET', `/foods/recents?${new URLSearchParams({ ...(categories && { categories }) })}`),
   getFavorites: (categories) => req('GET', `/foods/favorites?${new URLSearchParams({ ...(categories && { categories }) })}`),
+  getFood: (id) => req('GET', `/foods/${id}`),
   addCustomFood: (food) => req('POST', '/foods', food),
   updateFood: (id, food) => req('PUT', `/foods/${id}`, food),
   toggleFavorite: (id) => req('PATCH', `/foods/${id}/favorite`),
@@ -36,6 +37,7 @@ export const api = {
   getFoodLogs: (date) => req('GET', `/food-logs?${new URLSearchParams({ ...(date && { date }) })}`),
   logFood: (entry) => req('POST', '/food-logs', entry),
   copyYesterday: (meal_type, date) => req('POST', '/food-logs/copy-yesterday', { meal_type, ...(date && { date }) }),
+  updateFoodLog: (id, data) => req('PUT', `/food-logs/${id}`, data),
   deleteFoodLog: (id) => req('DELETE', `/food-logs/${id}`),
 
   // Exercise logs

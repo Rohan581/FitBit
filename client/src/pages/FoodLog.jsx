@@ -32,6 +32,7 @@ export default function FoodLog() {
   const [loggingSavedMeal, setLoggingSavedMeal] = useState(false);
   const [suggestions, setSuggestions] = useState(null);
   const [goal, setGoal] = useState(null);
+  const [editEntry, setEditEntry] = useState(null);
 
   const load = useCallback(async () => {
     try {
@@ -200,6 +201,7 @@ export default function FoodLog() {
               onAdd={() => openLog(mealType)}
               onDelete={async (id) => { await api.deleteFoodLog(id); load(); }}
               onCopyYesterday={() => handleCopyYesterday(mealType)}
+              onEdit={setEditEntry}
             />
           </div>
         ))}
@@ -224,6 +226,14 @@ export default function FoodLog() {
       {/* Sheets */}
       <FoodSearchSheet open={showLog} onClose={() => setShowLog(false)} mealType={selectedMeal} onLogged={load} />
       <CustomFoodSheet open={showCustomFood} onClose={() => setShowCustomFood(false)} onSaved={load} />
+      <EditEntrySheet
+        open={!!editEntry}
+        onClose={() => setEditEntry(null)}
+        entry={editEntry}
+        mealColor={editEntry ? MEAL_COLORS[editEntry.meal_type] || 'var(--cal)' : 'var(--cal)'}
+        onSaved={() => { setEditEntry(null); load(); }}
+        onDeleted={() => { setEditEntry(null); load(); }}
+      />
 
       <Sheet open={!!savedMealPicker} onClose={() => setSavedMealPicker(null)} title={savedMealPicker ? `Log "${savedMealPicker.name}"` : ''}>
         {savedMealPicker && (
@@ -284,7 +294,7 @@ function MacroCard({ label, value, target, unit, token, direction }) {
   );
 }
 
-function MealSection({ type, label, color, entries, onAdd, onDelete, onCopyYesterday }) {
+function MealSection({ type, label, color, entries, onAdd, onDelete, onCopyYesterday, onEdit }) {
   const total = entries.reduce((s, e) => ({ cal: s.cal + e.calories, pro: s.pro + e.protein_g }), { cal: 0, pro: 0 });
 
   return (
@@ -298,15 +308,17 @@ function MealSection({ type, label, color, entries, onAdd, onDelete, onCopyYeste
           )}
         </div>
         <div className="flex items-center gap-1.5">
-          <button
-            onClick={onCopyYesterday}
-            className="w-7 h-7 flex items-center justify-center rounded-full bg-card-2 text-tx-3 text-xs press-scale"
-            title="Copy yesterday"
-          >
-            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M8 7v8a2 2 0 002 2h6M8 7V5a2 2 0 012-2h4.586a1 1 0 01.707.293l4.414 4.414a1 1 0 01.293.707V15a2 2 0 01-2 2h-2M8 7H6a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2v-2" />
-            </svg>
-          </button>
+          {onCopyYesterday && (
+            <button
+              onClick={onCopyYesterday}
+              className="w-7 h-7 flex items-center justify-center rounded-full bg-card-2 text-tx-3 text-xs press-scale"
+              title="Copy previous day"
+            >
+              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M8 7v8a2 2 0 002 2h6M8 7V5a2 2 0 012-2h4.586a1 1 0 01.707.293l4.414 4.414a1 1 0 01.293.707V15a2 2 0 01-2 2h-2M8 7H6a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2v-2" />
+              </svg>
+            </button>
+          )}
           <button
             onClick={onAdd}
             className="w-7 h-7 flex items-center justify-center rounded-full text-lg leading-none press-scale"
@@ -326,12 +338,15 @@ function MealSection({ type, label, color, entries, onAdd, onDelete, onCopyYeste
           <div className="divide-y divide-hair">
             {entries.map(entry => (
               <div key={entry.id} className="flex items-center px-4 py-2.5">
-                <div className="flex-1 min-w-0">
+                <button
+                  className="flex-1 min-w-0 text-left"
+                  onClick={() => onEdit?.(entry)}
+                >
                   <p className="text-sm text-tx truncate">
                     {entry.quantity !== 1 ? `${entry.quantity}x ` : ''}{entry.food_name}
                   </p>
                   <p className="text-xs text-tx-3">{Math.round(entry.calories)} kcal · {Math.round(entry.protein_g)}g protein</p>
-                </div>
+                </button>
                 <button
                   onClick={() => onDelete(entry.id)}
                   className="ml-3 text-tx-3 text-lg leading-none active:text-danger"
@@ -351,7 +366,7 @@ function MealSection({ type, label, color, entries, onAdd, onDelete, onCopyYeste
   );
 }
 
-function FoodSearchSheet({ open, onClose, mealType, onLogged }) {
+function FoodSearchSheet({ open, onClose, mealType, onLogged, targetDate }) {
   const [query, setQuery] = useState('');
   const [results, setResults] = useState([]);
   const [favorites, setFavorites] = useState([]);
@@ -406,6 +421,7 @@ function FoodSearchSheet({ open, onClose, mealType, onLogged }) {
         quantity: parseFloat(qty) || 1,
         meal_type: mealType,
         unit_used: selectedUnit,
+        ...(targetDate && { date: targetDate }),
       });
       onLogged?.();
       onClose();
@@ -675,3 +691,118 @@ function Field({ label, value, onChange, placeholder, type = 'text' }) {
     </div>
   );
 }
+
+function EditEntrySheet({ open, onClose, entry, mealColor, onSaved, onDeleted }) {
+  const [food, setFood] = useState(null);
+  const [qty, setQty] = useState('1');
+  const [selectedUnit, setSelectedUnit] = useState(null);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (open && entry) {
+      setQty(String(entry.quantity));
+      setSelectedUnit(entry.unit_used);
+      if (entry.food_id) {
+        api.getFood(entry.food_id).then(setFood).catch(() => setFood(null));
+      } else {
+        setFood(null);
+      }
+    }
+  }, [open, entry]);
+
+  const units = food?.units ? JSON.parse(food.units) : null;
+  const unitMultiplier = selectedUnit && units
+    ? (units.find(u => u.unit === selectedUnit)?.multiplier || 1)
+    : 1;
+  const effectiveQty = (parseFloat(qty) || 1) * unitMultiplier;
+  const multiplied = food ? {
+    cal: Math.round(food.calories * effectiveQty),
+    pro: Math.round(food.protein_g * effectiveQty * 10) / 10,
+  } : null;
+
+  async function handleSave() {
+    if (!entry) return;
+    setSaving(true);
+    try {
+      await api.updateFoodLog(entry.id, { quantity: parseFloat(qty) || 1, unit_used: selectedUnit });
+      onSaved?.();
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function handleDelete() {
+    if (!entry) return;
+    await api.deleteFoodLog(entry.id);
+    onDeleted?.();
+  }
+
+  const color = mealColor || 'var(--cal)';
+
+  return (
+    <Sheet open={open} onClose={onClose} title="Edit entry">
+      {entry && (
+        <div className="px-5 pb-6 space-y-4">
+          <div>
+            <p className="text-sm font-medium text-tx">{entry.food_name}</p>
+            <p className="text-xs text-tx-3">{entry.unit_used || food?.serving_unit || 'default serving'}</p>
+          </div>
+
+          {units && units.length > 1 && (
+            <div className="flex gap-1.5 overflow-x-auto scrollbar-none">
+              {units.map(u => (
+                <button
+                  key={u.unit}
+                  onClick={() => setSelectedUnit(u.unit)}
+                  className={`px-2.5 py-1 rounded-lg text-xs whitespace-nowrap border transition-colors ${
+                    selectedUnit === u.unit ? 'border-current' : 'border-hair text-tx-3'
+                  }`}
+                  style={selectedUnit === u.unit ? { color, borderColor: color } : undefined}
+                >
+                  {u.unit}
+                </button>
+              ))}
+            </div>
+          )}
+
+          <div className="flex items-center gap-3">
+            <label className="text-xs text-tx-3">Qty:</label>
+            <div className="flex items-center gap-2">
+              <button onClick={() => setQty(q => String(Math.max(0.25, (parseFloat(q) || 1) - 0.25)))} className="w-7 h-7 rounded-lg bg-card-2 text-tx text-sm press-scale">-</button>
+              <input
+                type="number"
+                value={qty}
+                onChange={e => setQty(e.target.value)}
+                className="w-14 text-center px-1 py-1 rounded-lg border border-hair text-sm text-tx bg-card focus:outline-none"
+                step="0.25"
+                min="0.25"
+              />
+              <button onClick={() => setQty(q => String((parseFloat(q) || 1) + 0.25))} className="w-7 h-7 rounded-lg bg-card-2 text-tx text-sm press-scale">+</button>
+            </div>
+            {multiplied && (
+              <span className="text-xs text-tx-3 ml-auto">{multiplied.cal} kcal · {multiplied.pro}g pro</span>
+            )}
+          </div>
+
+          <button
+            onClick={handleSave}
+            disabled={saving}
+            className="w-full py-3 text-white rounded-card text-sm disabled:opacity-40 press-scale"
+            style={{ backgroundColor: color }}
+          >
+            {saving ? 'Saving...' : 'Save changes'}
+          </button>
+
+          <button
+            onClick={handleDelete}
+            className="w-full py-2.5 text-sm text-danger press-scale"
+          >
+            Delete entry
+          </button>
+        </div>
+      )}
+    </Sheet>
+  );
+}
+
+export { MEAL_TYPES, MEAL_LABELS, MEAL_COLORS, MealSection, FoodSearchSheet, EditEntrySheet, CustomFoodSheet };

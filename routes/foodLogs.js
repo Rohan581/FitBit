@@ -149,6 +149,53 @@ router.post('/copy-yesterday', (req, res) => {
   res.status(201).json({ copied: ids.length, meal_type });
 });
 
+// PUT /api/food-logs/:id — update quantity/unit of an existing entry
+router.put('/:id', (req, res) => {
+  const db = getDB();
+  const log = db.prepare('SELECT * FROM food_logs WHERE id = ?').get(req.params.id);
+  if (!log) return res.status(404).json({ error: 'Log entry not found' });
+
+  const qty = parseFloat(req.body.quantity) || log.quantity;
+  const unitUsed = req.body.unit_used !== undefined ? req.body.unit_used : log.unit_used;
+
+  // If linked to a food, recalculate nutrition from the food's base values
+  const food = log.food_id ? db.prepare('SELECT * FROM foods WHERE id = ?').get(log.food_id) : null;
+
+  if (food) {
+    let multiplier = qty;
+    if (unitUsed && food.units) {
+      const units = JSON.parse(food.units);
+      const unitDef = units.find(u => u.unit === unitUsed);
+      if (unitDef) {
+        multiplier = qty * unitDef.multiplier;
+      }
+    }
+    db.prepare(`
+      UPDATE food_logs SET quantity=?, unit_used=?, calories=?, protein_g=?, carbs_g=?, fat_g=?, fiber_g=?, sugar_g=?
+      WHERE id=?
+    `).run(
+      qty, unitUsed,
+      food.calories * multiplier, food.protein_g * multiplier, food.carbs_g * multiplier, food.fat_g * multiplier,
+      (food.fiber_g || 0) * multiplier, (food.sugar_g || 0) * multiplier,
+      req.params.id
+    );
+  } else {
+    // Manual entry — just update quantity (can't recalculate without base food)
+    const scale = qty / (log.quantity || 1);
+    db.prepare(`
+      UPDATE food_logs SET quantity=?, calories=?, protein_g=?, carbs_g=?, fat_g=?, fiber_g=?, sugar_g=?
+      WHERE id=?
+    `).run(
+      qty,
+      log.calories * scale, log.protein_g * scale, log.carbs_g * scale, log.fat_g * scale,
+      (log.fiber_g || 0) * scale, (log.sugar_g || 0) * scale,
+      req.params.id
+    );
+  }
+
+  res.json(db.prepare('SELECT * FROM food_logs WHERE id = ?').get(req.params.id));
+});
+
 // DELETE /api/food-logs/:id
 router.delete('/:id', (req, res) => {
   const db = getDB();

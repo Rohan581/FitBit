@@ -108,6 +108,14 @@ router.get('/favorites', (req, res) => {
   res.json(favs);
 });
 
+// GET /api/foods/:id — single food by ID
+router.get('/:id', (req, res) => {
+  const db = getDB();
+  const food = db.prepare('SELECT * FROM foods WHERE id = ?').get(req.params.id);
+  if (!food) return res.status(404).json({ error: 'Food not found' });
+  res.json(food);
+});
+
 // POST /api/foods — add custom food
 router.post('/', (req, res) => {
   const { name, category = 'custom', serving_unit, serving_size = 1, calories, protein_g = 0, carbs_g = 0, fat_g = 0, fiber_g = 0, sugar_g = 0, units } = req.body;
