@@ -18,9 +18,9 @@ export const api = {
   getDashboard: () => req('GET', '/dashboard'),
 
   // Foods
-  searchFoods: (q, category) => req('GET', `/foods?${new URLSearchParams({ ...(q && { q }), ...(category && { category }) })}`),
-  getRecents: () => req('GET', '/foods/recents'),
-  getFavorites: () => req('GET', '/foods/favorites'),
+  searchFoods: (q, categories) => req('GET', `/foods?${new URLSearchParams({ ...(q && { q }), ...(categories && { categories }) })}`),
+  getRecents: (categories) => req('GET', `/foods/recents?${new URLSearchParams({ ...(categories && { categories }) })}`),
+  getFavorites: (categories) => req('GET', `/foods/favorites?${new URLSearchParams({ ...(categories && { categories }) })}`),
   addCustomFood: (food) => req('POST', '/foods', food),
   updateFood: (id, food) => req('PUT', `/foods/${id}`, food),
   toggleFavorite: (id) => req('PATCH', `/foods/${id}/favorite`),

@@ -10,7 +10,7 @@ router.get('/', (req, res) => {
   const logs = db.prepare('SELECT * FROM food_logs WHERE date = ? ORDER BY logged_at').all(date);
 
   // Group by meal_type
-  const grouped = { breakfast: [], lunch: [], dinner: [], snack: [] };
+  const grouped = { breakfast: [], lunch: [], dinner: [], snack: [], drinks: [] };
   for (const log of logs) {
     const key = grouped[log.meal_type] ? log.meal_type : 'snack';
     grouped[key].push(log);

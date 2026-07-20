@@ -85,19 +85,19 @@ export default function Dashboard() {
   const streak = daily_points?.streak || 0;
   const pctWeek = threshold > 0 ? Math.round((weekly_points / threshold) * 100) : 0;
 
-  // Water — 8 segments
+  // Water — dynamic segments: each segment = 1 glass (250ml)
   const waterGlasses = water?.glasses || 0;
-  const waterTargetGlasses = water?.target_glasses || 12;
-  const filledSegments = Math.min(8, Math.round(waterGlasses / waterTargetGlasses * 8));
+  const waterTargetMl = water?.target_ml || goal?.water_target_ml || 3000;
+  const glassCount = Math.ceil(waterTargetMl / 250);
 
   function handleSegmentTap(segNum) {
-    let target;
-    if (segNum <= filledSegments) {
-      target = Math.round((segNum - 1) * waterTargetGlasses / 8);
+    if (segNum <= waterGlasses) {
+      // Tapping a filled segment undoes it
+      setWaterTo(segNum - 1);
     } else {
-      target = Math.round(segNum * waterTargetGlasses / 8);
+      // Tapping an unfilled segment fills up to it
+      setWaterTo(segNum);
     }
-    setWaterTo(target);
   }
 
   // Weight trend
@@ -242,12 +242,12 @@ export default function Dashboard() {
             <WaterIcon />
             <span className="text-sm text-tx-2">Water</span>
           </div>
-          <span className="text-sm font-num text-drinks">{filledSegments} of 8 glasses</span>
+          <span className="text-sm font-num text-drinks">{waterGlasses} of {glassCount} glasses</span>
         </div>
         <div className="grid grid-cols-8 gap-1.5">
-          {Array.from({ length: 8 }, (_, i) => {
+          {Array.from({ length: glassCount }, (_, i) => {
             const segNum = i + 1;
-            const filled = segNum <= filledSegments;
+            const filled = segNum <= waterGlasses;
             return (
               <button
                 key={i}

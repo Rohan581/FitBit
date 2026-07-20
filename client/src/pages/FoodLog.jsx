@@ -363,13 +363,16 @@ function FoodSearchSheet({ open, onClose, mealType, onLogged }) {
   const [saving, setSaving] = useState(false);
   const inputRef = useRef(null);
 
+  // When Drinks meal slot is active, only show alcohol + beverage categories
+  const drinkCategories = mealType === 'drinks' ? 'alcohol,beverage' : undefined;
+
   useEffect(() => {
     if (open) {
       setTimeout(() => inputRef.current?.focus(), 100);
       Promise.all([
-        api.searchFoods(''),
-        api.getFavorites(),
-        api.getRecents(),
+        api.searchFoods('', drinkCategories),
+        api.getFavorites(drinkCategories),
+        api.getRecents(drinkCategories),
       ]).then(([all, favs, rec]) => {
         setResults(all);
         setFavorites(favs);
@@ -387,7 +390,7 @@ function FoodSearchSheet({ open, onClose, mealType, onLogged }) {
     if (!open) return;
     const timer = setTimeout(async () => {
       setSearching(true);
-      const r = await api.searchFoods(query);
+      const r = await api.searchFoods(query, drinkCategories);
       setResults(r);
       setSearching(false);
     }, 200);
@@ -414,7 +417,7 @@ function FoodSearchSheet({ open, onClose, mealType, onLogged }) {
   async function handleToggleFavorite(food, e) {
     e.stopPropagation();
     await api.toggleFavorite(food.id);
-    const [favs, all] = await Promise.all([api.getFavorites(), api.searchFoods(query)]);
+    const [favs, all] = await Promise.all([api.getFavorites(drinkCategories), api.searchFoods(query, drinkCategories)]);
     setFavorites(favs);
     setResults(all);
   }

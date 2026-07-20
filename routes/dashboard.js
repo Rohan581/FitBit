@@ -101,6 +101,7 @@ router.get('/', (req, res) => {
     water: {
       glasses: waterLog?.glasses || 0,
       target_glasses: waterTargetGlasses,
+      target_ml: waterTarget,
     },
     daily_points: dailyPoints,
     weekly_points: weeklyPoints,

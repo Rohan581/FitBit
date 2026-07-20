@@ -1,6 +1,6 @@
 const Database = require('better-sqlite3');
 const path = require('path');
-const { seedDatabase } = require('./seed');
+const { seedFoods, seedInitialData, toSeedKey } = require('./seed');
 
 const DB_PATH = process.env.DATABASE_PATH || path.join(__dirname, '..', 'data', 'earned.db');
 
@@ -35,6 +35,7 @@ function initDB() {
       is_favorite INTEGER NOT NULL DEFAULT 0,
       units TEXT,
       default_unit TEXT,
+      seed_key TEXT UNIQUE,
       created_at TEXT DEFAULT (datetime('now'))
     );
 
@@ -143,10 +144,15 @@ function initDB() {
   // Run migrations for existing databases
   runMigrations(db);
 
-  // Seed if empty
-  const count = db.prepare('SELECT COUNT(*) as c FROM foods').get();
-  if (count.c === 0) {
-    seedDatabase(db);
+  // Check if first run (for saved meal / goal / milestone seeding)
+  const countBefore = db.prepare('SELECT COUNT(*) as c FROM foods').get().c;
+
+  // Idempotent per-item food seeding — runs every startup
+  seedFoods(db);
+
+  // First-run-only seeding (saved meal, goal, milestones)
+  if (countBefore === 0) {
+    seedInitialData(db);
   }
 
   return db;
@@ -166,6 +172,20 @@ function runMigrations(db) {
   if (!foodCols.includes('units')) {
     db.exec(`ALTER TABLE foods ADD COLUMN units TEXT`);
     db.exec(`ALTER TABLE foods ADD COLUMN default_unit TEXT`);
+  }
+
+  // seed_key column for idempotent per-item seeding
+  if (!foodCols.includes('seed_key')) {
+    db.exec(`ALTER TABLE foods ADD COLUMN seed_key TEXT`);
+    db.exec(`CREATE UNIQUE INDEX IF NOT EXISTS idx_foods_seed_key ON foods(seed_key) WHERE seed_key IS NOT NULL`);
+    // Backfill seed_keys for existing non-custom foods
+    const unseeded = db.prepare(`SELECT id, name FROM foods WHERE is_custom = 0 AND seed_key IS NULL`).all();
+    if (unseeded.length > 0) {
+      const update = db.prepare('UPDATE foods SET seed_key = ? WHERE id = ?');
+      for (const f of unseeded) {
+        update.run(toSeedKey(f.name), f.id);
+      }
+    }
   }
 
   // food_logs columns

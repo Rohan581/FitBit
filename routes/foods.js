@@ -2,53 +2,109 @@ const express = require('express');
 const router = express.Router();
 const { getDB } = require('../db/database');
 
-// GET /api/foods?q=search&category=staple
+function searchRank(name, query) {
+  if (name === query) return 0;
+  if (name.startsWith(query)) return 1;
+  if (name.split(/[\s(\/,]+/).some(w => w.startsWith(query))) return 2;
+  return 3;
+}
+
+// GET /api/foods?q=search&category=staple&categories=alcohol,beverage
 router.get('/', (req, res) => {
   const db = getDB();
-  const { q, category } = req.query;
+  const { q, category, categories } = req.query;
+  const trimmedQ = (q || '').trim();
 
   let sql = 'SELECT * FROM foods WHERE 1=1';
   const params = [];
 
-  if (q) {
-    sql += ' AND name LIKE ?';
-    params.push(`%${q}%`);
+  if (trimmedQ) {
+    sql += ' AND LOWER(name) LIKE ?';
+    params.push(`%${trimmedQ.toLowerCase()}%`);
   }
   if (category) {
     sql += ' AND category = ?';
     params.push(category);
   }
+  if (categories) {
+    const catList = categories.split(',').map(c => c.trim()).filter(Boolean);
+    if (catList.length > 0) {
+      sql += ` AND category IN (${catList.map(() => '?').join(',')})`;
+      params.push(...catList);
+    }
+  }
 
-  // Sort: favorites first, then staples, then by name
   sql += ` ORDER BY is_favorite DESC, CASE category
     WHEN 'staple' THEN 1
     WHEN 'home-cooked' THEN 2
     WHEN 'snack' THEN 3
-    WHEN 'restaurant' THEN 4
-    ELSE 5
+    WHEN 'beverage' THEN 4
+    WHEN 'alcohol' THEN 5
+    WHEN 'restaurant' THEN 6
+    ELSE 7
   END, name`;
 
-  const foods = db.prepare(sql).all(...params);
+  let foods = db.prepare(sql).all(...params);
+
+  // Rank and cap when searching
+  if (trimmedQ) {
+    const ql = trimmedQ.toLowerCase();
+    foods.sort((a, b) => {
+      const rankA = searchRank(a.name.toLowerCase(), ql);
+      const rankB = searchRank(b.name.toLowerCase(), ql);
+      if (rankA !== rankB) return rankA - rankB;
+      if (b.is_favorite !== a.is_favorite) return b.is_favorite - a.is_favorite;
+      return a.name.toLowerCase().localeCompare(b.name.toLowerCase());
+    });
+    foods = foods.slice(0, 20);
+  }
+
   res.json(foods);
 });
 
 // GET /api/foods/recents — last 10 distinct logged foods
 router.get('/recents', (req, res) => {
   const db = getDB();
-  const recents = db.prepare(`
+  const { categories } = req.query;
+
+  let sql = `
     SELECT DISTINCT f.* FROM food_logs fl
     JOIN foods f ON f.id = fl.food_id
     WHERE fl.food_id IS NOT NULL
-    ORDER BY fl.logged_at DESC
-    LIMIT 10
-  `).all();
+  `;
+  const params = [];
+
+  if (categories) {
+    const catList = categories.split(',').map(c => c.trim()).filter(Boolean);
+    if (catList.length > 0) {
+      sql += ` AND f.category IN (${catList.map(() => '?').join(',')})`;
+      params.push(...catList);
+    }
+  }
+
+  sql += ' ORDER BY fl.logged_at DESC LIMIT 10';
+  const recents = db.prepare(sql).all(...params);
   res.json(recents);
 });
 
 // GET /api/foods/favorites
 router.get('/favorites', (req, res) => {
   const db = getDB();
-  const favs = db.prepare('SELECT * FROM foods WHERE is_favorite = 1 ORDER BY name').all();
+  const { categories } = req.query;
+
+  let sql = 'SELECT * FROM foods WHERE is_favorite = 1';
+  const params = [];
+
+  if (categories) {
+    const catList = categories.split(',').map(c => c.trim()).filter(Boolean);
+    if (catList.length > 0) {
+      sql += ` AND category IN (${catList.map(() => '?').join(',')})`;
+      params.push(...catList);
+    }
+  }
+
+  sql += ' ORDER BY name';
+  const favs = db.prepare(sql).all(...params);
   res.json(favs);
 });
 
