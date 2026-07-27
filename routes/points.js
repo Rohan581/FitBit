@@ -111,8 +111,13 @@ function calculateDailyPoints(db, date) {
   }
 
   // ── Full-day logging bonus ──────────────────────────────────────
-  if (foodLogs.length > 0 && exerciseLogs.length > 0 && sleepLog && weightLog) {
-    breakdown.push({ category: 'streak', points: 10, reason: 'All 4 categories logged today' });
+  // Measurements are an optional contributor — they count toward the bonus
+  // when logged, but their absence never blocks it.
+  const coreLogged = foodLogs.length > 0 && exerciseLogs.length > 0 && sleepLog && weightLog;
+  if (coreLogged) {
+    const measurementLog = db.prepare('SELECT id FROM measurement_logs WHERE date = ? LIMIT 1').get(date);
+    const categories = measurementLog ? 5 : 4;
+    breakdown.push({ category: 'streak', points: 10, reason: `All ${categories} categories logged today` });
     total += 10;
   }
 

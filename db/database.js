@@ -131,13 +131,25 @@ function initDB() {
       protein_override INTEGER DEFAULT 0,
       fat_override INTEGER DEFAULT 0,
       carb_override INTEGER DEFAULT 0,
-      weekly_point_threshold INTEGER DEFAULT 350
+      weekly_point_threshold INTEGER DEFAULT 350,
+      deficit_pct REAL DEFAULT 0.25,
+      enable_chest_measurement INTEGER DEFAULT 0,
+      enable_hips_measurement INTEGER DEFAULT 0
     );
 
     CREATE TABLE IF NOT EXISTS milestones (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       weight_kg_threshold REAL NOT NULL,
       achieved_date TEXT
+    );
+
+    CREATE TABLE IF NOT EXISTS measurement_logs (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      date TEXT NOT NULL,
+      waist_cm REAL NOT NULL,
+      chest_cm REAL,
+      hips_cm REAL,
+      logged_at TEXT DEFAULT (datetime('now'))
     );
   `);
 
@@ -223,6 +235,32 @@ function runMigrations(db) {
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         date TEXT NOT NULL UNIQUE,
         glasses INTEGER NOT NULL DEFAULT 0
+      )
+    `);
+  }
+
+  // deficit_pct column for percentage-based deficit
+  if (!goalCols.includes('deficit_pct')) {
+    db.exec(`ALTER TABLE goal ADD COLUMN deficit_pct REAL DEFAULT 0.25`);
+    db.exec(`UPDATE goal SET deficit_pct = 0.25 WHERE deficit_pct IS NULL`);
+  }
+
+  // measurement toggles
+  if (!goalCols.includes('enable_chest_measurement')) {
+    db.exec(`ALTER TABLE goal ADD COLUMN enable_chest_measurement INTEGER DEFAULT 0`);
+    db.exec(`ALTER TABLE goal ADD COLUMN enable_hips_measurement INTEGER DEFAULT 0`);
+  }
+
+  // measurement_logs table
+  if (!tables.includes('measurement_logs')) {
+    db.exec(`
+      CREATE TABLE measurement_logs (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        date TEXT NOT NULL,
+        waist_cm REAL NOT NULL,
+        chest_cm REAL,
+        hips_cm REAL,
+        logged_at TEXT DEFAULT (datetime('now'))
       )
     `);
   }

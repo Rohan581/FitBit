@@ -93,13 +93,7 @@ export default function FoodLog() {
   const fiberTarget = goal?.current_fiber_target_g || 32;
   const sugarLimit = goal?.current_sugar_limit_g || 50;
 
-  // Determine which nutrient has the biggest gap for the suggestion card
-  const gaps = [
-    { key: 'fiber', label: 'Fiber', gap: fiberTarget - (totals.fiber_g || 0), color: 'var(--fiber)', token: 'fiber' },
-    { key: 'protein', label: 'Protein', gap: proTarget - (totals.protein_g || 0), color: 'var(--protein)', token: 'protein' },
-    { key: 'calories', label: 'Calories', gap: calTarget - (totals.calories || 0), color: 'var(--cal)', token: 'cal' },
-  ];
-  const biggestGap = gaps.reduce((a, b) => (b.gap / (b.key === 'calories' ? calTarget : b.key === 'protein' ? proTarget : fiberTarget)) > (a.gap / (a.key === 'calories' ? calTarget : a.key === 'protein' ? proTarget : fiberTarget)) ? b : a);
+  const suggestionCards = suggestions?.cards || [];
 
   return (
     <div className="px-4 pb-4">
@@ -121,52 +115,15 @@ export default function FoodLog() {
         <MacroCard label="SUGAR" value={totals.sugar_g} target={sugarLimit} unit="g" token="sugar" direction="limit" />
       </div>
 
-      {/* Gap suggestion card */}
-      {suggestions?.suggestions?.length > 0 && (
-        <div className="bg-card rounded-card overflow-hidden mb-3 stagger-enter">
-          <div className="flex">
-            <div className="w-[5px] flex-shrink-0" style={{ backgroundColor: biggestGap.color }} />
-            <div className="flex-1 p-4">
-              <p className="text-[10px] font-semibold uppercase tracking-wider mb-1" style={{ color: biggestGap.color }}>
-                Close the gap
-              </p>
-              <p className="text-sm text-tx mb-2">
-                You're short on <span className="font-semibold" style={{ color: biggestGap.color }}>{biggestGap.label.toLowerCase()}</span>
-                {suggestions.primary_gap && suggestions.primary_gap !== biggestGap.key && (
-                  <> and <span className="font-semibold" style={{ color: gaps.find(g => g.key === suggestions.primary_gap)?.color }}>{suggestions.primary_gap}</span></>
-                )}
-                {' '}({suggestions.gap_amount}g remaining)
-              </p>
-              <div className="space-y-2">
-                {suggestions.suggestions.map(s => (
-                  <div key={s.food_id} className="flex items-center justify-between bg-card-2 rounded-xl px-3 py-2.5">
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm text-tx truncate">{s.food_name}</p>
-                      <p className="text-xs text-tx-3">{s.description}</p>
-                    </div>
-                    <button
-                      onClick={() => handleAddSuggestion(s)}
-                      className="ml-2 px-3 py-1.5 rounded-full text-xs press-scale flex-shrink-0 font-medium"
-                      style={{
-                        background: `color-mix(in oklab, ${biggestGap.color} 14%, transparent)`,
-                        color: biggestGap.color,
-                      }}
-                    >
-                      Add
-                    </button>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {suggestions?.reason === 'low_calories' && (
-        <div className="bg-card rounded-card px-4 py-3 mb-3 stagger-enter">
-          <p className="text-xs text-tx-3">{suggestions.message}</p>
-        </div>
-      )}
+      {/* Suggestion cards (max 2) */}
+      {suggestionCards.map((card, idx) => (
+        <SuggestionCard
+          key={card.type + idx}
+          card={card}
+          onAddSuggestion={handleAddSuggestion}
+          defaultMealType={suggestions?.default_meal_type}
+        />
+      ))}
 
       {/* Saved meals quick-log */}
       {savedMeals.length > 0 && (
@@ -272,6 +229,100 @@ export default function FoodLog() {
       </Sheet>
     </div>
   );
+}
+
+function SuggestionCard({ card, onAddSuggestion }) {
+  const color = card.color || 'var(--text-3)';
+
+  // Type D: over-target
+  if (card.type === 'over_target') {
+    return (
+      <div className="bg-card rounded-card overflow-hidden mb-3 stagger-enter">
+        <div className="flex">
+          <div className="w-[5px] flex-shrink-0" style={{ backgroundColor: 'var(--text-3)' }} />
+          <div className="flex-1 p-4">
+            <p className="text-[10px] font-semibold uppercase tracking-wider text-tx-3 mb-1">
+              {card.title}
+            </p>
+            <p className="text-sm text-tx-2">{card.message}</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Type A: swap
+  if (card.type === 'swap') {
+    return (
+      <div className="bg-card rounded-card overflow-hidden mb-3 stagger-enter">
+        <div className="flex">
+          <div className="w-[5px] flex-shrink-0" style={{ backgroundColor: color }} />
+          <div className="flex-1 p-4">
+            <p className="text-[10px] font-semibold uppercase tracking-wider mb-1" style={{ color }}>
+              {card.title}
+            </p>
+            <p className="text-sm text-tx-2">{card.message}</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Type E: cooking fat
+  if (card.type === 'cooking_fat') {
+    return (
+      <div className="bg-card rounded-card overflow-hidden mb-3 stagger-enter">
+        <div className="flex">
+          <div className="w-[5px] flex-shrink-0" style={{ backgroundColor: color }} />
+          <div className="flex-1 p-4">
+            <p className="text-[10px] font-semibold uppercase tracking-wider mb-1" style={{ color }}>
+              {card.title}
+            </p>
+            <p className="text-sm text-tx-2">{card.message}</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Type B (gap) and C (headroom) — both have suggestions
+  if (card.suggestions?.length > 0) {
+    return (
+      <div className="bg-card rounded-card overflow-hidden mb-3 stagger-enter">
+        <div className="flex">
+          <div className="w-[5px] flex-shrink-0" style={{ backgroundColor: color }} />
+          <div className="flex-1 p-4">
+            <p className="text-[10px] font-semibold uppercase tracking-wider mb-1" style={{ color }}>
+              {card.title}
+            </p>
+            <p className="text-sm text-tx mb-2">{card.message}</p>
+            <div className="space-y-2">
+              {card.suggestions.map(s => (
+                <div key={s.food_id} className="flex items-center justify-between bg-card-2 rounded-xl px-3 py-2.5">
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm text-tx truncate">{s.food_name}</p>
+                    <p className="text-xs text-tx-3">{s.description}</p>
+                  </div>
+                  <button
+                    onClick={() => onAddSuggestion(s)}
+                    className="ml-2 px-3 py-1.5 rounded-full text-xs press-scale flex-shrink-0 font-medium"
+                    style={{
+                      background: `color-mix(in oklab, ${color} 14%, transparent)`,
+                      color,
+                    }}
+                  >
+                    Add
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return null;
 }
 
 function MacroCard({ label, value, target, unit, token, direction }) {

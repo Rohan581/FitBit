@@ -30,6 +30,8 @@ app.use('/api/goal', require('./routes/goal'));
 app.use('/api/weekly-summary', require('./routes/weeklySummary'));
 app.use('/api/trends', require('./routes/trends'));
 app.use('/api/suggestions', require('./routes/suggestions'));
+app.use('/api/measurements', require('./routes/measurementLogs'));
+app.use('/api/planning', require('./routes/planning'));
 app.use('/api/dashboard', require('./routes/dashboard'));
 
 // Serve React app in production

@@ -78,6 +78,15 @@ export const api = {
   // Suggestions
   getSuggestions: (date, force) => req('GET', `/suggestions?${new URLSearchParams({ ...(date && { date }), ...(force && { force: 'true' }) })}`),
 
+  // Measurements
+  getMeasurement: (date) => req('GET', `/measurements?${new URLSearchParams({ ...(date && { date }) })}`),
+  getMeasurementTrend: (days) => req('GET', `/measurements/trend?${new URLSearchParams({ ...(days && { days }) })}`),
+  logMeasurement: (data) => req('POST', '/measurements', data),
+  deleteMeasurement: (id) => req('DELETE', `/measurements/${id}`),
+
+  // Planning
+  getPlanning: () => req('GET', '/planning'),
+
   // Trends
   getWeightTrend: (days) => req('GET', `/trends/weight?${new URLSearchParams({ ...(days && { days }) })}`),
   getMacroTrend: (days) => req('GET', `/trends/macros?${new URLSearchParams({ ...(days && { days }) })}`),

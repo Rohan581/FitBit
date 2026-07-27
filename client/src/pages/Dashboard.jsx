@@ -4,6 +4,7 @@ import { MacroBar, PointsRing, CountUp } from '../components/MacroBar';
 import ExerciseSheet from '../components/ExerciseSheet';
 import SleepSheet from '../components/SleepSheet';
 import WeightSheet from '../components/WeightSheet';
+import MeasurementSheet from '../components/MeasurementSheet';
 import { Link, useNavigate } from 'react-router-dom';
 
 function getGreeting() {
@@ -32,6 +33,7 @@ export default function Dashboard() {
   const [showExercise, setShowExercise] = useState(false);
   const [showSleep, setShowSleep] = useState(false);
   const [showWeight, setShowWeight] = useState(false);
+  const [showMeasurement, setShowMeasurement] = useState(false);
   const navigate = useNavigate();
 
   const load = useCallback(async () => {
@@ -207,7 +209,7 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* Quick-log 2x2 grid */}
+      {/* Quick-log grid */}
       <div className="grid grid-cols-2 gap-3 mb-3 stagger-enter">
         <Link to="/food" className="bg-card rounded-card p-3 flex flex-col items-center gap-2 press-scale">
           <div className="w-[34px] h-[34px] rounded-lg bg-cal flex items-center justify-center">
@@ -232,6 +234,12 @@ export default function Dashboard() {
             <ScaleIcon />
           </div>
           <span className="text-xs text-tx-2">Log weight</span>
+        </button>
+        <button onClick={() => setShowMeasurement(true)} className="col-span-2 bg-card rounded-card p-3 flex items-center justify-center gap-2 press-scale">
+          <div className="w-[34px] h-[34px] rounded-lg bg-fiber flex items-center justify-center">
+            <TapeIcon />
+          </div>
+          <span className="text-xs text-tx-2">Log measurements</span>
         </button>
       </div>
 
@@ -298,6 +306,13 @@ export default function Dashboard() {
       <ExerciseSheet open={showExercise} onClose={() => setShowExercise(false)} onLogged={load} />
       <SleepSheet open={showSleep} onClose={() => setShowSleep(false)} onLogged={load} existing={data.sleep_log} />
       <WeightSheet open={showWeight} onClose={() => setShowWeight(false)} onLogged={load} existing={data.weight_log} />
+      <MeasurementSheet
+        open={showMeasurement}
+        onClose={() => setShowMeasurement(false)}
+        onLogged={load}
+        enableChest={!!goal?.enable_chest_measurement}
+        enableHips={!!goal?.enable_hips_measurement}
+      />
     </div>
   );
 }
@@ -338,6 +353,14 @@ function SleepIcon() {
   return (
     <svg className="w-4.5 h-4.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
       <path strokeLinecap="round" strokeLinejoin="round" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
+    </svg>
+  );
+}
+
+function TapeIcon() {
+  return (
+    <svg className="w-4.5 h-4.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 12c0 4.14-3.36 7.5-7.5 7.5S4.5 16.14 4.5 12 7.86 4.5 12 4.5s7.5 3.36 7.5 7.5zm0 0h-3m-1.5-3v6" />
     </svg>
   );
 }

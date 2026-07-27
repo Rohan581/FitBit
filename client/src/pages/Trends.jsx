@@ -10,6 +10,7 @@ export default function Trends() {
   const [weightData, setWeightData] = useState(null);
   const [macroData, setMacroData] = useState(null);
   const [pointsData, setPointsData] = useState(null);
+  const [planningData, setPlanningData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [weightRange, setWeightRange] = useState(60);
 
@@ -26,6 +27,9 @@ export default function Trends() {
         } else if (tab === 'points') {
           const d = await api.getPointsTrend(12);
           setPointsData(d);
+        } else if (tab === 'planning') {
+          const d = await api.getPlanning();
+          setPlanningData(d);
         }
       } finally {
         setLoading(false);
@@ -47,6 +51,7 @@ export default function Trends() {
             { id: 'weight', label: 'Weight' },
             { id: 'macros', label: 'Macros' },
             { id: 'points', label: 'Points' },
+            { id: 'planning', label: 'Plan' },
           ].map(t => (
             <button
               key={t.id}
@@ -70,6 +75,7 @@ export default function Trends() {
           {tab === 'weight' && weightData && <WeightChart data={weightData} range={weightRange} onRangeChange={setWeightRange} />}
           {tab === 'macros' && macroData && <MacrosChart data={macroData} />}
           {tab === 'points' && pointsData && <PointsChart data={pointsData} />}
+          {tab === 'planning' && planningData && <PlanningSection data={planningData} />}
           {!loading && ((tab === 'weight' && !weightData?.weights?.length) ||
             (tab === 'macros' && !macroData?.length) ||
             (tab === 'points' && !pointsData?.length)) && (
@@ -85,17 +91,24 @@ export default function Trends() {
 }
 
 function WeightChart({ data, range, onRangeChange }) {
-  const { weights, milestones, goal } = data;
+  const { weights, milestones, goal, measurements } = data;
+
+  // Build a map of date -> waist_cm for merging
+  const waistMap = {};
+  (measurements || []).forEach(m => { waistMap[m.date] = m.waist_cm; });
 
   const chartData = weights.map(w => ({
     date: w.date,
     label: formatDate(w.date),
     actual: w.weight_kg,
     avg: w.rolling_avg,
+    waist: waistMap[w.date] || null,
   }));
 
   const yMin = weights.length > 0 ? Math.min(...weights.map(w => w.weight_kg)) - 1 : 75;
   const yMax = weights.length > 0 ? Math.max(...weights.map(w => w.weight_kg)) + 1 : 95;
+
+  const hasWaistData = (measurements || []).length > 0;
 
   const latestAvg = weights.length > 0 ? weights[weights.length - 1].rolling_avg : null;
   const goalWeight = goal?.goal_weight_kg;
@@ -143,6 +156,30 @@ function WeightChart({ data, range, onRangeChange }) {
         </div>
       )}
 
+      {hasWaistData && (
+        <div className="bg-card rounded-card p-4 stagger-enter">
+          <div className="grid grid-cols-2 gap-4 text-center">
+            <div>
+              <div className="text-lg font-num font-semibold" style={{ color: 'var(--fiber)' }}>
+                {measurements[measurements.length - 1].waist_cm} cm
+              </div>
+              <div className="text-[11px] text-tx-3">latest waist</div>
+            </div>
+            {measurements.length >= 2 && (
+              <div>
+                <div className="text-lg font-num font-semibold" style={{ color: 'var(--fiber)' }}>
+                  {(() => {
+                    const diff = Math.round((measurements[measurements.length - 1].waist_cm - measurements[0].waist_cm) * 10) / 10;
+                    return `${diff > 0 ? '+' : ''}${diff} cm`;
+                  })()}
+                </div>
+                <div className="text-[11px] text-tx-3">waist change</div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
       {milestones?.some(m => m.achieved_date) && (
         <div className="bg-card rounded-card p-4 stagger-enter">
           <p className="text-xs text-tx-3 mb-2">Milestones</p>
@@ -174,19 +211,31 @@ function WeightChart({ data, range, onRangeChange }) {
       {chartData.length > 0 ? (
         <div className="bg-card rounded-card p-4 stagger-enter">
           <ResponsiveContainer width="100%" height={220}>
-            <LineChart data={chartData} margin={{ top: 5, right: 5, left: -20, bottom: 5 }}>
+            <LineChart data={chartData} margin={{ top: 5, right: hasWaistData ? 10 : 5, left: -20, bottom: 5 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="var(--hair)" />
               <XAxis dataKey="label" tick={{ fontSize: 10, fill: 'var(--text-3)' }} tickLine={false} interval="preserveStartEnd" />
               <YAxis tick={{ fontSize: 10, fill: 'var(--text-3)' }} tickLine={false} domain={[yMin, yMax]} />
-              <Tooltip contentStyle={tooltipStyle} formatter={(val, name) => [val ? `${val} kg` : '-', name === 'avg' ? '7-day avg' : 'Daily']} />
+              {hasWaistData && (
+                <YAxis yAxisId="right" orientation="right" tick={{ fontSize: 10, fill: 'var(--fiber)' }} tickLine={false} domain={['auto', 'auto']} />
+              )}
+              <Tooltip contentStyle={tooltipStyle} formatter={(val, name) => {
+                if (!val) return ['-', name];
+                if (name === 'waist') return [`${val} cm`, 'Waist'];
+                return [`${val} kg`, name === 'avg' ? '7-day avg' : 'Daily'];
+              }} />
               {goalWeight && (
                 <ReferenceLine y={goalWeight} stroke="var(--cal)" strokeDasharray="4 2" label={{ value: `Goal ${goalWeight} kg`, position: 'insideTopRight', fontSize: 10, fill: 'var(--cal)' }} />
               )}
               <Line type="monotone" dataKey="actual" stroke="var(--hair)" strokeWidth={1} dot={{ r: 2, fill: 'var(--text-3)' }} name="daily" />
               <Line type="monotone" dataKey="avg" stroke="var(--cal)" strokeWidth={2.5} dot={false} name="avg" />
+              {hasWaistData && (
+                <Line type="monotone" dataKey="waist" stroke="var(--fiber)" strokeWidth={2} dot={{ r: 2.5, fill: 'var(--fiber)' }} name="waist" connectNulls yAxisId="right" />
+              )}
             </LineChart>
           </ResponsiveContainer>
-          <p className="text-[10px] text-tx-3 text-center mt-2">Colored line = 7-day rolling average</p>
+          <p className="text-[10px] text-tx-3 text-center mt-2">
+            {hasWaistData ? 'Orange = weight avg, green = waist (cm)' : 'Colored line = 7-day rolling average'}
+          </p>
         </div>
       ) : (
         <div className="bg-card rounded-card p-8 text-center text-tx-3 text-sm">
@@ -275,6 +324,94 @@ function PointsChart({ data }) {
           <Bar dataKey="Points" fill="var(--points)" radius={[3, 3, 0, 0]} />
         </BarChart>
       </ResponsiveContainer>
+    </div>
+  );
+}
+
+function PlanningSection({ data }) {
+  if (data.insufficient_data) {
+    return (
+      <div className="bg-card rounded-card p-6 text-center stagger-enter">
+        <p className="text-sm text-tx-2">{data.message}</p>
+      </div>
+    );
+  }
+
+  const paceColors = {
+    ahead: 'var(--points)',
+    on_track: 'var(--points)',
+    slightly_behind: 'var(--star)',
+    behind: 'var(--cal)',
+  };
+
+  const paceColor = paceColors[data.pace_verdict] || 'var(--text-2)';
+
+  return (
+    <div className="space-y-3">
+      {/* Pace verdict */}
+      <div className="bg-card rounded-card p-4 stagger-enter">
+        <p className="text-[10px] font-semibold uppercase tracking-wider text-tx-3 mb-2">Weekly pace</p>
+        <div className="flex items-baseline gap-2">
+          <span className="text-xl font-semibold" style={{ color: paceColor }}>{data.pace_label}</span>
+          <span className="text-sm font-num text-tx-3">
+            {data.gap_kg > 0 ? `${data.gap_kg} kg above` : `${Math.abs(data.gap_kg)} kg below`} expected
+          </span>
+        </div>
+        <div className="mt-2 text-xs text-tx-3">
+          Current avg: <span className="font-num text-tx">{data.latest_avg} kg</span>
+          {' '} | Expected: <span className="font-num text-tx">{data.expected_weight} kg</span>
+        </div>
+      </div>
+
+      {/* This week's target */}
+      <div className="bg-card rounded-card p-4 stagger-enter">
+        <p className="text-[10px] font-semibold uppercase tracking-wider text-tx-3 mb-1">This week's target</p>
+        <div className="flex items-baseline gap-2">
+          <span className="text-2xl font-num font-semibold text-tx">{data.week_target_weight} kg</span>
+          <span className="text-xs text-tx-3">rolling average by Sunday</span>
+        </div>
+      </div>
+
+      {/* Projected finish */}
+      <div className="bg-card rounded-card p-4 stagger-enter">
+        <p className="text-[10px] font-semibold uppercase tracking-wider text-tx-3 mb-1">Projected finish</p>
+        {!data.projection_available ? (
+          <p className="text-sm text-tx-3">Gathering data — projection available after 3 weeks.</p>
+        ) : data.projected_finish === 'not_losing' ? (
+          <p className="text-sm text-tx-2">Weight trend is flat or rising. Keep at it — the trend needs time to establish.</p>
+        ) : (
+          <div className="flex items-baseline gap-2">
+            <span className="text-lg font-num font-semibold text-tx">
+              {new Date(data.projected_finish + 'T12:00:00Z').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+            </span>
+            <span className="text-xs text-tx-3">at current pace to {data.goal_weight} kg</span>
+          </div>
+        )}
+      </div>
+
+      {/* Diagnostic */}
+      {data.diagnostic && (
+        <div className="bg-card rounded-card p-4 border border-hair stagger-enter">
+          <p className="text-[10px] font-semibold uppercase tracking-wider text-tx-3 mb-1">What might be off</p>
+          <p className="text-sm text-tx-2">{data.diagnostic.message}</p>
+        </div>
+      )}
+
+      {/* Milestone countdown */}
+      {data.milestone_countdown && (
+        <div className="bg-card rounded-card p-4 stagger-enter">
+          <p className="text-[10px] font-semibold uppercase tracking-wider text-tx-3 mb-1">Next milestone</p>
+          <div className="flex items-baseline gap-2">
+            <span className="text-lg font-num font-semibold text-points">{data.milestone_countdown.weight} kg</span>
+            <span className="text-sm font-num text-tx-3">{data.milestone_countdown.kg_remaining} kg to go</span>
+          </div>
+          {data.milestone_countdown.estimated_date && (
+            <p className="text-xs text-tx-3 mt-1">
+              Estimated: {new Date(data.milestone_countdown.estimated_date + 'T12:00:00Z').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} at current pace
+            </p>
+          )}
+        </div>
+      )}
     </div>
   );
 }

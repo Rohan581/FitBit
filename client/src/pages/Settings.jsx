@@ -33,6 +33,9 @@ export default function Settings() {
         protein_override: g.protein_override,
         fat_override: g.fat_override,
         carb_override: g.carb_override,
+        deficit_pct: g.deficit_pct ?? 0.25,
+        enable_chest_measurement: g.enable_chest_measurement || 0,
+        enable_hips_measurement: g.enable_hips_measurement || 0,
       });
     });
   }, []);
@@ -58,6 +61,9 @@ export default function Settings() {
         current_sugar_limit_g: parseFloat(form.current_sugar_limit_g),
         water_target_ml: parseInt(form.water_target_ml),
         weekly_point_threshold: parseInt(form.weekly_point_threshold),
+        deficit_pct: parseFloat(form.deficit_pct),
+        enable_chest_measurement: form.enable_chest_measurement ? 1 : 0,
+        enable_hips_measurement: form.enable_hips_measurement ? 1 : 0,
       });
       setGoal(updated);
       setSaved(true);
@@ -148,6 +154,38 @@ export default function Settings() {
           <p className="text-xs text-tx-3 px-1">1.2 = sedentary, 1.375 = light, 1.45 = moderate, 1.55 = very active</p>
         </Section>
 
+        <Section title="Deficit">
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <label className="text-sm text-tx-2">Deficit percentage</label>
+              <span className="text-sm font-num text-tx">{Math.round((parseFloat(form.deficit_pct) || 0.25) * 100)}%</span>
+            </div>
+            <input
+              type="range"
+              min="0.15"
+              max="0.28"
+              step="0.01"
+              value={form.deficit_pct || 0.25}
+              onChange={e => set('deficit_pct', parseFloat(e.target.value))}
+              className="w-full accent-[var(--points)]"
+            />
+            <div className="flex justify-between text-[10px] text-tx-3">
+              <span>15% (gentle)</span>
+              <span>28% (aggressive)</span>
+            </div>
+            <p className="text-xs text-tx-3 px-1">Target = TDEE x (1 - deficit%). Default: 25%. Higher values risk muscle loss.</p>
+            {computed_targets?.floored && (
+              <p className="text-xs text-amber-500 px-1">Target was floored to BMR x 1.1 to prevent going below safe intake.</p>
+            )}
+          </div>
+        </Section>
+
+        <Section title="Measurements">
+          <p className="text-xs text-tx-3 mb-2">Waist is always tracked. Enable optional measurements below.</p>
+          <ToggleRow label="Chest measurement" checked={!!form.enable_chest_measurement} onChange={v => set('enable_chest_measurement', v ? 1 : 0)} />
+          <ToggleRow label="Hips measurement" checked={!!form.enable_hips_measurement} onChange={v => set('enable_hips_measurement', v ? 1 : 0)} />
+        </Section>
+
         <Section title="Daily targets">
           <div className="space-y-3">
             <TargetRow label="Calories (kcal)" value={form.current_calorie_target} onChange={v => set('current_calorie_target', v)} override={form.calorie_override} onOverride={v => set('calorie_override', v)} />
@@ -231,6 +269,20 @@ function Row({ label, value, onChange, type = 'text', step }) {
         step={step}
         className="w-28 px-3 py-1.5 rounded-card border border-hair text-sm text-right font-num text-tx focus:outline-none bg-card-2"
       />
+    </div>
+  );
+}
+
+function ToggleRow({ label, checked, onChange }) {
+  return (
+    <div className="flex items-center justify-between">
+      <label className="text-sm text-tx-2">{label}</label>
+      <button
+        onClick={() => onChange(!checked)}
+        className={`w-10 h-6 rounded-full transition-colors ${checked ? 'bg-points' : 'bg-card-2 border border-hair'}`}
+      >
+        <div className={`w-4 h-4 rounded-full bg-white shadow transition-transform mx-1 ${checked ? 'translate-x-4' : ''}`} />
+      </button>
     </div>
   );
 }

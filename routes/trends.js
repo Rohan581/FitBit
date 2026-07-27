@@ -36,7 +36,10 @@ router.get('/weight', (req, res) => {
   // Milestone data
   const milestones = db.prepare('SELECT * FROM milestones ORDER BY weight_kg_threshold DESC').all();
 
-  res.json({ weights: recent, trajectory, milestones, goal });
+  // Measurement data (waist trend)
+  const measurements = db.prepare('SELECT date, waist_cm FROM measurement_logs ORDER BY date ASC').all();
+
+  res.json({ weights: recent, trajectory, milestones, goal, measurements });
 });
 
 // GET /api/trends/macros?days=60

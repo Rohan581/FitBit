@@ -3,14 +3,18 @@ const router = express.Router();
 const { getDB } = require('../db/database');
 const { todayIST } = require('../dateUtils');
 
-function computeMacros(weight_kg, height_cm, age, activity_multiplier) {
+function computeMacros(weight_kg, height_cm, age, activity_multiplier, deficit_pct) {
+  const defPct = typeof deficit_pct === 'number' ? deficit_pct : 0.25;
   const bmr = 10 * weight_kg + 6.25 * height_cm - 5 * age + 5;
   const tdee = bmr * activity_multiplier;
-  const calorie_target = Math.round(tdee - 550);
+  let calorie_target = Math.round(tdee * (1 - defPct));
+  const bmrFloor = Math.round(bmr * 1.1);
+  const floored = calorie_target < bmrFloor;
+  if (floored) calorie_target = bmrFloor;
   const protein_target = Math.round(2 * weight_kg);
   const fat_target = Math.round((calorie_target * 0.25) / 9);
   const carb_target = Math.round((calorie_target - protein_target * 4 - fat_target * 9) / 4);
-  return { bmr: Math.round(bmr), tdee: Math.round(tdee), calorie_target, protein_target, fat_target, carb_target };
+  return { bmr: Math.round(bmr), tdee: Math.round(tdee), calorie_target, protein_target, fat_target, carb_target, floored };
 }
 
 function get7DayRollingAvg(db) {
@@ -38,7 +42,7 @@ router.get('/', (req, res) => {
 
   const rollingAvg = get7DayRollingAvg(db);
   const computed = rollingAvg
-    ? computeMacros(rollingAvg, goal.height_cm, goal.age, goal.activity_multiplier)
+    ? computeMacros(rollingAvg, goal.height_cm, goal.age, goal.activity_multiplier, goal.deficit_pct)
     : null;
 
   res.json({ ...goal, rolling_avg_weight: rollingAvg, computed_targets: computed });
@@ -62,7 +66,8 @@ router.put('/', (req, res) => {
       current_calorie_target=?, current_protein_target_g=?, current_fat_target_g=?, current_carb_target_g=?,
       current_fiber_target_g=?, current_sugar_limit_g=?, water_target_ml=?,
       calorie_override=?, protein_override=?, fat_override=?, carb_override=?,
-      weekly_point_threshold=?
+      weekly_point_threshold=?, deficit_pct=?,
+      enable_chest_measurement=?, enable_hips_measurement=?
     WHERE id=1
   `).run(
     updates.start_weight_kg, updates.goal_weight_kg, updates.start_date, updates.target_date,
@@ -71,7 +76,9 @@ router.put('/', (req, res) => {
     updates.current_fiber_target_g || 32, updates.current_sugar_limit_g || 50, updates.water_target_ml || 3000,
     updates.calorie_override ? 1 : 0, updates.protein_override ? 1 : 0,
     updates.fat_override ? 1 : 0, updates.carb_override ? 1 : 0,
-    updates.weekly_point_threshold || 350
+    updates.weekly_point_threshold || 350,
+    Math.max(0.15, Math.min(0.28, parseFloat(updates.deficit_pct) || 0.25)),
+    updates.enable_chest_measurement ? 1 : 0, updates.enable_hips_measurement ? 1 : 0
   );
 
   res.json(db.prepare('SELECT * FROM goal WHERE id = 1').get());
@@ -85,7 +92,7 @@ router.post('/recalculate', (req, res) => {
 
   if (!rollingAvg) return res.status(400).json({ error: 'No weight data yet to recalculate from' });
 
-  const computed = computeMacros(rollingAvg, goal.height_cm, goal.age, goal.activity_multiplier);
+  const computed = computeMacros(rollingAvg, goal.height_cm, goal.age, goal.activity_multiplier, goal.deficit_pct);
   const changes = [];
   const today = todayIST();
 
