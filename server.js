@@ -33,6 +33,7 @@ app.use('/api/suggestions', require('./routes/suggestions'));
 app.use('/api/measurements', require('./routes/measurementLogs'));
 app.use('/api/planning', require('./routes/planning'));
 app.use('/api/dashboard', require('./routes/dashboard'));
+app.use('/api/training', require('./routes/training'));
 
 // Serve React app in production
 if (process.env.NODE_ENV === 'production') {

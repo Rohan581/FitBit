@@ -143,6 +143,30 @@ router.get('/', (req, res) => {
     }
   }
 
+  // --- Waist context for pace verdict ---
+  let waist_context = null;
+  const threeWeeksAgo = daysAgoIST(21);
+  const recentMeasurements = db.prepare(
+    'SELECT waist_cm, date FROM measurement_logs WHERE date >= ? ORDER BY date ASC'
+  ).all(threeWeeksAgo);
+
+  if (recentMeasurements.length >= 2) {
+    const firstWaist = recentMeasurements[0].waist_cm;
+    const lastWaist = recentMeasurements[recentMeasurements.length - 1].waist_cm;
+    const waistChange = Math.round((lastWaist - firstWaist) * 10) / 10;
+
+    // Weight and waist disagree — mention it
+    if (pace_verdict === 'on_track' || pace_verdict === 'slightly_behind') {
+      if (waistChange < -0.5) {
+        waist_context = `Waist is down ${Math.abs(waistChange)} cm over recent measurements — fat loss is happening even if the scale is slow.`;
+      } else if (waistChange > 0.5 && (pace_verdict === 'ahead' || pace_verdict === 'on_track')) {
+        waist_context = `Weight is moving but waist is up ${waistChange} cm — check if the loss is mostly water or muscle. Keep protein high.`;
+      }
+    } else if (pace_verdict === 'ahead' && waistChange < -1) {
+      waist_context = `Waist is also down ${Math.abs(waistChange)} cm — excellent all-round progress.`;
+    }
+  }
+
   res.json({
     pace_verdict,
     pace_label,
@@ -155,6 +179,7 @@ router.get('/', (req, res) => {
     diagnostic,
     milestone_countdown,
     goal_weight: goalWeight,
+    waist_context,
   });
 });
 

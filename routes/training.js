@@ -1,0 +1,349 @@
+const express = require('express');
+const router = express.Router();
+const { getDB } = require('../db/database');
+const { todayIST, daysAgoIST, getMondayIST, getDaysOfWeek } = require('../dateUtils');
+const { getNextWorkout, getRotation } = require('../db/workoutTemplates');
+
+// GET /api/training — current state: next workout, frequency, recent sessions
+router.get('/', (req, res) => {
+  const db = getDB();
+  const goal = db.prepare('SELECT gym_frequency, current_workout_index FROM goal WHERE id = 1').get();
+  const frequency = goal?.gym_frequency || 3;
+  const index = goal?.current_workout_index || 0;
+
+  const nextWorkout = getNextWorkout(frequency, index);
+
+  // Resolve exercise IDs for the template
+  const exercises = nextWorkout.exercises.map(ex => {
+    const dbEx = db.prepare('SELECT id, name, primary_muscles, secondary_muscles FROM exercises WHERE name = ?').get(ex.name);
+    return {
+      ...ex,
+      exercise_id: dbEx?.id || null,
+      primary_muscles: dbEx ? JSON.parse(dbEx.primary_muscles) : [],
+      secondary_muscles: dbEx ? JSON.parse(dbEx.secondary_muscles) : [],
+    };
+  });
+
+  // Last session numbers for each exercise
+  const lastNumbers = {};
+  for (const ex of exercises) {
+    if (!ex.exercise_id) continue;
+    const lastSession = db.prepare(`
+      SELECT ws.id FROM workout_sessions ws
+      JOIN workout_sets wset ON wset.session_id = ws.id
+      WHERE wset.exercise_id = ? AND ws.completed = 1
+      ORDER BY ws.date DESC LIMIT 1
+    `).get(ex.exercise_id);
+
+    if (lastSession) {
+      const sets = db.prepare('SELECT set_number, weight_kg, reps FROM workout_sets WHERE session_id = ? AND exercise_id = ? ORDER BY set_number')
+        .all(lastSession.id, ex.exercise_id);
+      lastNumbers[ex.exercise_id] = sets;
+    }
+  }
+
+  // Recent completed sessions
+  const recentSessions = db.prepare(`
+    SELECT id, date, workout_type, duration_min, logged_at
+    FROM workout_sessions WHERE completed = 1
+    ORDER BY date DESC LIMIT 10
+  `).all();
+
+  // This week's stats
+  const today = todayIST();
+  const monday = getMondayIST(today);
+  const weekDays = getDaysOfWeek(monday);
+  const weekGymSessions = db.prepare(`
+    SELECT COUNT(*) as cnt FROM workout_sessions
+    WHERE completed = 1 AND date >= ? AND date <= ?
+  `).get(weekDays[0], weekDays[6])?.cnt || 0;
+
+  // Swim sessions this week
+  const weekSwimSessions = db.prepare(`
+    SELECT COUNT(*) as cnt FROM exercise_logs
+    WHERE LOWER(type) = 'swimming' AND date >= ? AND date <= ?
+  `).get(weekDays[0], weekDays[6])?.cnt || 0;
+
+  // Check if there's a heavy lower-body session yesterday
+  const yesterday = daysAgoIST(1);
+  const yesterdayLower = db.prepare(`
+    SELECT id, workout_type FROM workout_sessions
+    WHERE completed = 1 AND date = ? AND (workout_type LIKE '%lower%' OR workout_type IN ('fullbody_a', 'fullbody_b'))
+  `).get(yesterday);
+
+  // Check if swim is logged today
+  const todaySwim = db.prepare(`
+    SELECT id FROM exercise_logs WHERE LOWER(type) = 'swimming' AND date = ?
+  `).get(today);
+
+  let swimNote = null;
+  if (yesterdayLower && todaySwim) {
+    swimNote = 'You had a heavy leg session yesterday — consider keeping today\'s swim easy on the legs, or adjust intensity.';
+  }
+
+  res.json({
+    frequency,
+    workout_index: index,
+    next_workout: { ...nextWorkout, exercises },
+    last_numbers: lastNumbers,
+    recent_sessions: recentSessions,
+    week_gym_sessions: weekGymSessions,
+    week_swim_sessions: weekSwimSessions,
+    swim_note: swimNote,
+    rotation: getRotation(frequency).map(w => ({ type: w.type, label: w.label, subtitle: w.subtitle })),
+  });
+});
+
+// PUT /api/training/frequency — change gym frequency (3 or 4)
+router.put('/frequency', (req, res) => {
+  const db = getDB();
+  const { frequency } = req.body;
+  if (frequency !== 3 && frequency !== 4) {
+    return res.status(400).json({ error: 'Frequency must be 3 or 4' });
+  }
+
+  // Reset workout index to 0 when switching frequency
+  db.prepare('UPDATE goal SET gym_frequency = ?, current_workout_index = 0 WHERE id = 1').run(frequency);
+  res.json({ ok: true, frequency });
+});
+
+// POST /api/training/sessions — start a workout session
+router.post('/sessions', (req, res) => {
+  const db = getDB();
+  const today = todayIST();
+  const goal = db.prepare('SELECT gym_frequency, current_workout_index FROM goal WHERE id = 1').get();
+  const frequency = goal?.gym_frequency || 3;
+  const index = goal?.current_workout_index || 0;
+  const workout = getNextWorkout(frequency, index);
+
+  const result = db.prepare(`
+    INSERT INTO workout_sessions (date, workout_type, completed) VALUES (?, ?, 0)
+  `).run(today, workout.type);
+
+  res.json({ session_id: result.lastInsertRowid, workout_type: workout.type, date: today });
+});
+
+// POST /api/training/sessions/:id/sets — log a set
+router.post('/sessions/:id/sets', (req, res) => {
+  const db = getDB();
+  const sessionId = req.params.id;
+  const { exercise_id, set_number, weight_kg, reps } = req.body;
+
+  // Upsert: if this set_number already exists for this exercise in this session, update it
+  const existing = db.prepare(
+    'SELECT id FROM workout_sets WHERE session_id = ? AND exercise_id = ? AND set_number = ?'
+  ).get(sessionId, exercise_id, set_number);
+
+  if (existing) {
+    db.prepare('UPDATE workout_sets SET weight_kg = ?, reps = ? WHERE id = ?')
+      .run(weight_kg, reps, existing.id);
+    res.json({ id: existing.id, updated: true });
+  } else {
+    const result = db.prepare(
+      'INSERT INTO workout_sets (session_id, exercise_id, set_number, weight_kg, reps) VALUES (?, ?, ?, ?, ?)'
+    ).run(sessionId, exercise_id, set_number, weight_kg, reps);
+    res.json({ id: result.lastInsertRowid, updated: false });
+  }
+});
+
+// DELETE /api/training/sessions/:id/sets/:setId
+router.delete('/sessions/:id/sets/:setId', (req, res) => {
+  const db = getDB();
+  db.prepare('DELETE FROM workout_sets WHERE id = ? AND session_id = ?').run(req.params.setId, req.params.id);
+  res.json({ ok: true });
+});
+
+// GET /api/training/sessions/:id — get session with all sets
+router.get('/sessions/:id', (req, res) => {
+  const db = getDB();
+  const session = db.prepare('SELECT * FROM workout_sessions WHERE id = ?').get(req.params.id);
+  if (!session) return res.status(404).json({ error: 'Session not found' });
+
+  const sets = db.prepare('SELECT * FROM workout_sets WHERE session_id = ? ORDER BY exercise_id, set_number').all(req.params.id);
+  res.json({ ...session, sets });
+});
+
+// POST /api/training/sessions/:id/complete — mark session as completed, advance queue
+router.post('/sessions/:id/complete', (req, res) => {
+  const db = getDB();
+  const session = db.prepare('SELECT * FROM workout_sessions WHERE id = ?').get(req.params.id);
+  if (!session) return res.status(404).json({ error: 'Session not found' });
+
+  const duration = req.body.duration_min || null;
+  db.prepare('UPDATE workout_sessions SET completed = 1, duration_min = ? WHERE id = ?').run(duration, req.params.id);
+
+  // Advance the rolling queue
+  const goal = db.prepare('SELECT gym_frequency, current_workout_index FROM goal WHERE id = 1').get();
+  const frequency = goal?.gym_frequency || 3;
+  const rotation = getRotation(frequency);
+  const nextIndex = ((goal?.current_workout_index || 0) + 1) % rotation.length;
+  db.prepare('UPDATE goal SET current_workout_index = ? WHERE id = 1').run(nextIndex);
+
+  // Also create an exercise_logs entry so points system keeps working
+  const today = todayIST();
+  const existingLog = db.prepare(
+    'SELECT id FROM exercise_logs WHERE date = ? AND type = ? AND notes LIKE ?'
+  ).get(session.date, 'Gym', `%session:${req.params.id}%`);
+
+  if (!existingLog) {
+    db.prepare(
+      'INSERT INTO exercise_logs (date, type, duration_min, intensity, notes) VALUES (?, ?, ?, ?, ?)'
+    ).run(session.date, 'Gym', duration || 60, 'moderate', `Gym session: ${session.workout_type} (session:${req.params.id})`);
+  }
+
+  res.json({ ok: true, next_index: nextIndex });
+});
+
+// GET /api/training/exercises — full exercise library
+router.get('/exercises', (req, res) => {
+  const db = getDB();
+  const exercises = db.prepare('SELECT * FROM exercises ORDER BY name').all();
+  res.json(exercises.map(ex => ({
+    ...ex,
+    primary_muscles: JSON.parse(ex.primary_muscles),
+    secondary_muscles: JSON.parse(ex.secondary_muscles),
+    form_cues: JSON.parse(ex.form_cues),
+    common_mistakes: JSON.parse(ex.common_mistakes),
+    substitutes: JSON.parse(ex.substitutes),
+  })));
+});
+
+// GET /api/training/exercises/:id
+router.get('/exercises/:id', (req, res) => {
+  const db = getDB();
+  const ex = db.prepare('SELECT * FROM exercises WHERE id = ?').get(req.params.id);
+  if (!ex) return res.status(404).json({ error: 'Exercise not found' });
+  res.json({
+    ...ex,
+    primary_muscles: JSON.parse(ex.primary_muscles),
+    secondary_muscles: JSON.parse(ex.secondary_muscles),
+    form_cues: JSON.parse(ex.form_cues),
+    common_mistakes: JSON.parse(ex.common_mistakes),
+    substitutes: JSON.parse(ex.substitutes),
+  });
+});
+
+// GET /api/training/exercises/:id/history — per-exercise progression
+router.get('/exercises/:id/history', (req, res) => {
+  const db = getDB();
+  const exerciseId = req.params.id;
+
+  // Get all completed sessions with sets for this exercise
+  const sessions = db.prepare(`
+    SELECT ws.date, ws.workout_type, wset.set_number, wset.weight_kg, wset.reps
+    FROM workout_sets wset
+    JOIN workout_sessions ws ON ws.id = wset.session_id
+    WHERE wset.exercise_id = ? AND ws.completed = 1
+    ORDER BY ws.date ASC, wset.set_number ASC
+  `).all(exerciseId);
+
+  // Group by date — compute top set and estimated 1RM per session
+  const byDate = {};
+  for (const s of sessions) {
+    if (!byDate[s.date]) byDate[s.date] = [];
+    byDate[s.date].push(s);
+  }
+
+  const history = Object.entries(byDate).map(([date, sets]) => {
+    // Top set = heaviest weight
+    const topSet = sets.reduce((best, s) => (s.weight_kg > best.weight_kg ? s : best), sets[0]);
+    // Estimated 1RM = weight × (1 + reps/30) (Epley formula)
+    const e1rm = topSet.weight_kg && topSet.reps
+      ? Math.round(topSet.weight_kg * (1 + topSet.reps / 30) * 10) / 10
+      : null;
+    return {
+      date,
+      top_weight: topSet.weight_kg,
+      top_reps: topSet.reps,
+      e1rm,
+      total_sets: sets.length,
+    };
+  });
+
+  // Get current body weight for relative strength context
+  const latestWeight = db.prepare('SELECT weight_kg FROM weight_logs ORDER BY date DESC LIMIT 1').get();
+  const fourWeeksAgoWeight = db.prepare('SELECT weight_kg FROM weight_logs WHERE date <= ? ORDER BY date DESC LIMIT 1')
+    .get(daysAgoIST(28));
+
+  // Deficit-appropriate messaging
+  let progression_note = null;
+  if (history.length >= 4) {
+    const recent4 = history.slice(-4);
+    const topWeights = recent4.map(h => h.top_weight).filter(Boolean);
+    if (topWeights.length >= 3) {
+      const avgRecent = topWeights.reduce((s, w) => s + w, 0) / topWeights.length;
+      const firstWeight = topWeights[0];
+      const weightDiff = avgRecent - firstWeight;
+
+      if (latestWeight && fourWeeksAgoWeight) {
+        const bodyWeightDrop = fourWeeksAgoWeight.weight_kg - latestWeight.weight_kg;
+        if (bodyWeightDrop > 1 && Math.abs(weightDiff) < 2.5) {
+          progression_note = `Same weight at ${Math.round(bodyWeightDrop * 10) / 10} kg lighter — that's relative strength going up.`;
+        } else if (weightDiff < -5) {
+          progression_note = 'Load has dropped noticeably over recent sessions. Consider checking recovery, sleep, and protein intake.';
+        }
+      }
+    }
+  }
+
+  res.json({ exercise_id: parseInt(exerciseId), history, progression_note });
+});
+
+// GET /api/training/volume — weekly volume summary
+router.get('/volume', (req, res) => {
+  const db = getDB();
+  const today = todayIST();
+  const monday = getMondayIST(today);
+  const weekDays = getDaysOfWeek(monday);
+
+  // Gym sessions this week
+  const gymSessions = db.prepare(`
+    SELECT ws.id, ws.date, ws.workout_type, ws.duration_min
+    FROM workout_sessions ws
+    WHERE ws.completed = 1 AND ws.date >= ? AND ws.date <= ?
+    ORDER BY ws.date
+  `).all(weekDays[0], weekDays[6]);
+
+  // Sets per muscle group this week
+  const setsPerMuscle = {};
+  for (const session of gymSessions) {
+    const sets = db.prepare(`
+      SELECT wset.exercise_id, COUNT(*) as set_count, e.primary_muscles
+      FROM workout_sets wset
+      JOIN exercises e ON e.id = wset.exercise_id
+      WHERE wset.session_id = ?
+      GROUP BY wset.exercise_id
+    `).all(session.id);
+
+    for (const s of sets) {
+      const muscles = JSON.parse(s.primary_muscles);
+      for (const m of muscles) {
+        setsPerMuscle[m] = (setsPerMuscle[m] || 0) + s.set_count;
+      }
+    }
+  }
+
+  // Swim sessions this week
+  const swimSessions = db.prepare(`
+    SELECT date, duration_min FROM exercise_logs
+    WHERE LOWER(type) = 'swimming' AND date >= ? AND date <= ?
+  `).all(weekDays[0], weekDays[6]);
+
+  // All exercise sessions this week (for total count)
+  const allExercise = db.prepare(`
+    SELECT date, type, duration_min FROM exercise_logs
+    WHERE date >= ? AND date <= ?
+  `).all(weekDays[0], weekDays[6]);
+
+  res.json({
+    week_start: monday,
+    gym_sessions: gymSessions.length,
+    swim_sessions: swimSessions.length,
+    total_exercise_sessions: allExercise.length,
+    sets_per_muscle: setsPerMuscle,
+    gym_details: gymSessions,
+    swim_details: swimSessions,
+  });
+});
+
+module.exports = router;

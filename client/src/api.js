@@ -92,4 +92,17 @@ export const api = {
   getMacroTrend: (days) => req('GET', `/trends/macros?${new URLSearchParams({ ...(days && { days }) })}`),
   getPointsTrend: (weeks) => req('GET', `/trends/points?${new URLSearchParams({ ...(weeks && { weeks }) })}`),
   getHistoryDay: (date) => req('GET', `/trends/history/${date}`),
+
+  // Training
+  getTraining: () => req('GET', '/training'),
+  setFrequency: (frequency) => req('PUT', '/training/frequency', { frequency }),
+  startSession: () => req('POST', '/training/sessions'),
+  getSession: (id) => req('GET', `/training/sessions/${id}`),
+  logSet: (sessionId, data) => req('POST', `/training/sessions/${sessionId}/sets`, data),
+  deleteSet: (sessionId, setId) => req('DELETE', `/training/sessions/${sessionId}/sets/${setId}`),
+  completeSession: (sessionId, duration_min) => req('POST', `/training/sessions/${sessionId}/complete`, { duration_min }),
+  getExercises: () => req('GET', '/training/exercises'),
+  getExercise: (id) => req('GET', `/training/exercises/${id}`),
+  getExerciseHistory: (id) => req('GET', `/training/exercises/${id}/history`),
+  getVolumeSummary: () => req('GET', '/training/volume'),
 };

@@ -55,14 +55,68 @@ router.get('/', (req, res) => {
   // Notifications
   const notifications = [];
 
-  // Stall detection
+  // Stall detection — waist-aware
   if (rolling_avg_weight) {
     const twoWeeksAgo = db.prepare('SELECT weight_kg FROM weight_logs ORDER BY date DESC, logged_at DESC LIMIT 14').all();
     if (twoWeeksAgo.length >= 10) {
       const oldAvg = twoWeeksAgo.slice(-7).reduce((s, w) => s + w.weight_kg, 0) / Math.min(7, twoWeeksAgo.slice(-7).length);
-      const diff = Math.abs(rolling_avg_weight - oldAvg);
-      if (diff < 0.3) {
-        notifications.push({ type: 'stall', message: 'Your weight average has been stable for 2+ weeks. Consider checking portion sizes or logging accuracy — not a failure, just a data check.' });
+      const weightDiff = Math.abs(rolling_avg_weight - oldAvg);
+      const weightFlat = weightDiff < 0.3;
+
+      if (weightFlat) {
+        // Check waist measurements over the last 3 weeks
+        const threeWeeksAgoDate = new Date(Date.now() + 330 * 60000);
+        threeWeeksAgoDate.setUTCDate(threeWeeksAgoDate.getUTCDate() - 21);
+        const threeWeeksStr = threeWeeksAgoDate.toISOString().split('T')[0];
+
+        const recentMeasurements = db.prepare(
+          'SELECT waist_cm, date FROM measurement_logs WHERE date >= ? ORDER BY date ASC'
+        ).all(threeWeeksStr);
+
+        if (recentMeasurements.length >= 2) {
+          const firstWaist = recentMeasurements[0].waist_cm;
+          const lastWaist = recentMeasurements[recentMeasurements.length - 1].waist_cm;
+          const waistChange = lastWaist - firstWaist;
+
+          if (waistChange < -0.5) {
+            // Weight flat but waist shrinking — NOT a stall
+            notifications.push({
+              type: 'waist_progress',
+              message: `Scale is flat but your waist is down ${Math.abs(Math.round(waistChange * 10) / 10)} cm over ${recentMeasurements.length} measurements — you're losing fat, water retention is masking it on the scale. Keep going.`,
+            });
+          } else {
+            // Weight flat and waist flat — genuine stall
+            notifications.push({
+              type: 'stall',
+              message: 'Your weight and waist measurements have both been stable for 2+ weeks. Consider checking portion sizes or logging accuracy — not a failure, just a data check.',
+            });
+          }
+        } else {
+          // No waist data — fall back to original stall message
+          notifications.push({
+            type: 'stall',
+            message: 'Your weight average has been stable for 2+ weeks. Log a waist measurement to check if you\'re still losing fat despite the scale.',
+          });
+        }
+      }
+
+      // Weight dropping but waist flat — possible muscle loss
+      const weightDropping = (oldAvg - rolling_avg_weight) > 0.5;
+      if (weightDropping) {
+        const threeWeeksStr2 = new Date(Date.now() + 330 * 60000 - 21 * 86400000).toISOString().split('T')[0];
+        const recentM = db.prepare(
+          'SELECT waist_cm FROM measurement_logs WHERE date >= ? ORDER BY date ASC'
+        ).all(threeWeeksStr2);
+
+        if (recentM.length >= 2) {
+          const waistChange2 = recentM[recentM.length - 1].waist_cm - recentM[0].waist_cm;
+          if (Math.abs(waistChange2) < 0.5) {
+            notifications.push({
+              type: 'check_protein',
+              message: 'Weight is dropping but waist is unchanged — this could indicate some muscle loss. Make sure you\'re hitting your protein target and keeping training intensity up.',
+            });
+          }
+        }
       }
     }
 
@@ -75,6 +129,21 @@ router.get('/', (req, res) => {
         notifications.push({ type: 'fast_loss', message: 'You\'re losing weight quickly — great progress, but make sure you\'re hitting your protein target. Fast loss without enough protein can mean muscle loss.' });
       }
     }
+  }
+
+  // Measurement reminder — weekly, only if no measurement in 7+ days
+  const sevenDaysAgo = new Date(Date.now() + 330 * 60000);
+  sevenDaysAgo.setUTCDate(sevenDaysAgo.getUTCDate() - 7);
+  const sevenDaysStr = sevenDaysAgo.toISOString().split('T')[0];
+  const recentMeasurement = db.prepare(
+    'SELECT id FROM measurement_logs WHERE date >= ? LIMIT 1'
+  ).get(sevenDaysStr);
+  if (!recentMeasurement) {
+    notifications.push({
+      type: 'measurement_reminder',
+      message: 'It\'s been a week since your last measurement. A quick waist measurement helps track fat loss even when the scale is flat.',
+      dismissible: true,
+    });
   }
 
   // Milestone check

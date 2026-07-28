@@ -1,6 +1,7 @@
 const Database = require('better-sqlite3');
 const path = require('path');
 const { seedFoods, seedInitialData, toSeedKey } = require('./seed');
+const { seedExercises } = require('./exerciseSeed');
 
 const DB_PATH = process.env.DATABASE_PATH || path.join(__dirname, '..', 'data', 'earned.db');
 
@@ -151,6 +152,37 @@ function initDB() {
       hips_cm REAL,
       logged_at TEXT DEFAULT (datetime('now'))
     );
+
+    CREATE TABLE IF NOT EXISTS exercises (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      name TEXT NOT NULL UNIQUE,
+      primary_muscles TEXT NOT NULL DEFAULT '[]',
+      secondary_muscles TEXT NOT NULL DEFAULT '[]',
+      form_cues TEXT NOT NULL DEFAULT '[]',
+      common_mistakes TEXT NOT NULL DEFAULT '[]',
+      substitutes TEXT NOT NULL DEFAULT '[]',
+      youtube_search_term TEXT
+    );
+
+    CREATE TABLE IF NOT EXISTS workout_sessions (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      date TEXT NOT NULL,
+      workout_type TEXT NOT NULL,
+      completed INTEGER NOT NULL DEFAULT 0,
+      duration_min INTEGER,
+      logged_at TEXT DEFAULT (datetime('now'))
+    );
+
+    CREATE TABLE IF NOT EXISTS workout_sets (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      session_id INTEGER NOT NULL,
+      exercise_id INTEGER NOT NULL,
+      set_number INTEGER NOT NULL,
+      weight_kg REAL,
+      reps INTEGER,
+      FOREIGN KEY (session_id) REFERENCES workout_sessions(id) ON DELETE CASCADE,
+      FOREIGN KEY (exercise_id) REFERENCES exercises(id)
+    );
   `);
 
   // Run migrations for existing databases
@@ -270,6 +302,51 @@ function runMigrations(db) {
   if (needsBackfill.c > 0) {
     backfillFiberSugar(db);
   }
+
+  // Training tables migration
+  const tablesAfter = db.prepare("SELECT name FROM sqlite_master WHERE type='table'").all().map(t => t.name);
+  if (!tablesAfter.includes('exercises')) {
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS exercises (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT NOT NULL UNIQUE,
+        primary_muscles TEXT NOT NULL DEFAULT '[]',
+        secondary_muscles TEXT NOT NULL DEFAULT '[]',
+        form_cues TEXT NOT NULL DEFAULT '[]',
+        common_mistakes TEXT NOT NULL DEFAULT '[]',
+        substitutes TEXT NOT NULL DEFAULT '[]',
+        youtube_search_term TEXT
+      );
+      CREATE TABLE IF NOT EXISTS workout_sessions (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        date TEXT NOT NULL,
+        workout_type TEXT NOT NULL,
+        completed INTEGER NOT NULL DEFAULT 0,
+        duration_min INTEGER,
+        logged_at TEXT DEFAULT (datetime('now'))
+      );
+      CREATE TABLE IF NOT EXISTS workout_sets (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        session_id INTEGER NOT NULL,
+        exercise_id INTEGER NOT NULL,
+        set_number INTEGER NOT NULL,
+        weight_kg REAL,
+        reps INTEGER,
+        FOREIGN KEY (session_id) REFERENCES workout_sessions(id) ON DELETE CASCADE,
+        FOREIGN KEY (exercise_id) REFERENCES exercises(id)
+      );
+    `);
+  }
+
+  // Training config columns in goal
+  const goalColsAfter = db.prepare("PRAGMA table_info(goal)").all().map(c => c.name);
+  if (!goalColsAfter.includes('gym_frequency')) {
+    db.exec(`ALTER TABLE goal ADD COLUMN gym_frequency INTEGER DEFAULT 3`);
+    db.exec(`ALTER TABLE goal ADD COLUMN current_workout_index INTEGER DEFAULT 0`);
+  }
+
+  // Seed exercises
+  seedExercises(db);
 }
 
 function backfillFiberSugar(db) {

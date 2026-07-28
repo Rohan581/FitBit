@@ -34,6 +34,7 @@ export default function Dashboard() {
   const [showSleep, setShowSleep] = useState(false);
   const [showWeight, setShowWeight] = useState(false);
   const [showMeasurement, setShowMeasurement] = useState(false);
+  const [dismissedNotifs, setDismissedNotifs] = useState([]);
   const navigate = useNavigate();
 
   const load = useCallback(async () => {
@@ -120,9 +121,24 @@ export default function Dashboard() {
       {/* Notifications */}
       {notifications?.length > 0 && (
         <div className="mb-3 stagger-enter">
-          {notifications.map((n, i) => (
-            <div key={i} className="px-4 py-3 rounded-card tint-points border border-points/20 text-sm text-tx-2 mb-2">
-              {n.message}
+          {notifications.filter(n => !dismissedNotifs.includes(n.type)).map((n, i) => (
+            <div key={i} className={`px-4 py-3 rounded-card text-sm text-tx-2 mb-2 flex items-start gap-2 ${
+              n.type === 'waist_progress' ? 'tint-fiber border border-fiber/20' :
+              n.type === 'check_protein' ? 'tint-cal border border-cal/20' :
+              n.type === 'measurement_reminder' ? 'tint-fiber border border-fiber/20' :
+              'tint-points border border-points/20'
+            }`}>
+              <span className="flex-1">{n.message}</span>
+              {n.dismissible && (
+                <button
+                  onClick={() => setDismissedNotifs(d => [...d, n.type])}
+                  className="text-tx-3 flex-shrink-0 mt-0.5"
+                >
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              )}
             </div>
           ))}
         </div>

@@ -180,6 +180,23 @@ function WeightChart({ data, range, onRangeChange }) {
         </div>
       )}
 
+      {/* Dedicated waist trend chart */}
+      {hasWaistData && measurements.length >= 2 && (
+        <div className="bg-card rounded-card p-4 stagger-enter">
+          <p className="text-xs text-tx-3 mb-3">Waist trend</p>
+          <ResponsiveContainer width="100%" height={160}>
+            <LineChart data={measurements.map(m => ({ date: formatDate(m.date), waist: m.waist_cm }))} margin={{ top: 5, right: 5, left: -20, bottom: 5 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="var(--hair)" />
+              <XAxis dataKey="date" tick={{ fontSize: 10, fill: 'var(--text-3)' }} tickLine={false} />
+              <YAxis tick={{ fontSize: 10, fill: 'var(--fiber)' }} tickLine={false} domain={['auto', 'auto']} />
+              <Tooltip contentStyle={tooltipStyle} formatter={(val) => [`${val} cm`, 'Waist']} />
+              <Line type="monotone" dataKey="waist" stroke="var(--fiber)" strokeWidth={2.5} dot={{ r: 3, fill: 'var(--fiber)' }} connectNulls />
+            </LineChart>
+          </ResponsiveContainer>
+          <p className="text-[10px] text-tx-3 text-center mt-1">Raw measurements — log weekly for best tracking</p>
+        </div>
+      )}
+
       {milestones?.some(m => m.achieved_date) && (
         <div className="bg-card rounded-card p-4 stagger-enter">
           <p className="text-xs text-tx-3 mb-2">Milestones</p>
@@ -388,6 +405,14 @@ function PlanningSection({ data }) {
           </div>
         )}
       </div>
+
+      {/* Waist context */}
+      {data.waist_context && (
+        <div className="bg-card rounded-card p-4 border border-fiber/20 stagger-enter">
+          <p className="text-[10px] font-semibold uppercase tracking-wider text-tx-3 mb-1">Body composition</p>
+          <p className="text-sm text-tx-2">{data.waist_context}</p>
+        </div>
+      )}
 
       {/* Diagnostic */}
       {data.diagnostic && (

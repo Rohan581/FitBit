@@ -7,6 +7,7 @@ import Points from './pages/Points';
 import Trends from './pages/Trends';
 import History from './pages/History';
 import Settings from './pages/Settings';
+import Training from './pages/Training';
 import { initThemeListener } from './theme';
 
 export default function App() {
@@ -19,6 +20,7 @@ export default function App() {
           <Routes>
             <Route path="/" element={<Dashboard />} />
             <Route path="/food" element={<FoodLog />} />
+            <Route path="/training" element={<Training />} />
             <Route path="/trends" element={<Trends />} />
             <Route path="/rewards" element={<Points />} />
             <Route path="/history" element={<History />} />
