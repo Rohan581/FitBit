@@ -64,6 +64,16 @@ router.get('/', (req, res) => {
     WHERE LOWER(type) = 'swimming' AND date >= ? AND date <= ?
   `).get(weekDays[0], weekDays[6])?.cnt || 0;
 
+  const weekStrip = weekDays.map(day => {
+    const gymOnDay = db.prepare('SELECT id, workout_type FROM workout_sessions WHERE completed = 1 AND date = ?').get(day);
+    const swimOnDay = db.prepare("SELECT id FROM exercise_logs WHERE LOWER(type) = 'swimming' AND date = ?").get(day);
+    const d = new Date(day + 'T12:00:00Z');
+    const dayLabel = ['M','T','W','T','F','S','S'][d.getUTCDay() === 0 ? 6 : d.getUTCDay() - 1];
+    return { date: day, label: dayLabel, gym: !!gymOnDay, swim: !!swimOnDay, workout_type: gymOnDay?.workout_type || null };
+  });
+
+  const targetGymThisWeek = frequency;
+
   // Check if there's a heavy lower-body session yesterday
   const yesterday = daysAgoIST(1);
   const yesterdayLower = db.prepare(`
@@ -91,6 +101,8 @@ router.get('/', (req, res) => {
     week_swim_sessions: weekSwimSessions,
     swim_note: swimNote,
     rotation: getRotation(frequency).map(w => ({ type: w.type, label: w.label, subtitle: w.subtitle })),
+    week_strip: weekStrip,
+    target_gym_this_week: targetGymThisWeek,
   });
 });
 
@@ -179,19 +191,24 @@ router.post('/sessions/:id/complete', (req, res) => {
   const nextIndex = ((goal?.current_workout_index || 0) + 1) % rotation.length;
   db.prepare('UPDATE goal SET current_workout_index = ? WHERE id = 1').run(nextIndex);
 
-  // Also create an exercise_logs entry so points system keeps working
-  const today = todayIST();
-  const existingLog = db.prepare(
-    'SELECT id FROM exercise_logs WHERE date = ? AND type = ? AND notes LIKE ?'
-  ).get(session.date, 'Gym', `%session:${req.params.id}%`);
+  // Double-count guard: check for ANY gym log today (not just this session)
+  const existingGymLog = db.prepare(
+    "SELECT id, notes FROM exercise_logs WHERE date = ? AND LOWER(type) = 'gym'"
+  ).get(session.date);
 
-  if (!existingLog) {
+  let exercise_log_action = 'created';
+  if (existingGymLog) {
+    // Replace the manual entry with the session-linked one
+    db.prepare('UPDATE exercise_logs SET duration_min = ?, notes = ? WHERE id = ?')
+      .run(duration || 60, `Gym session: ${session.workout_type} (session:${req.params.id})`, existingGymLog.id);
+    exercise_log_action = 'replaced_existing';
+  } else {
     db.prepare(
       'INSERT INTO exercise_logs (date, type, duration_min, intensity, notes) VALUES (?, ?, ?, ?, ?)'
     ).run(session.date, 'Gym', duration || 60, 'moderate', `Gym session: ${session.workout_type} (session:${req.params.id})`);
   }
 
-  res.json({ ok: true, next_index: nextIndex });
+  res.json({ ok: true, next_index: nextIndex, exercise_log_action });
 });
 
 // GET /api/training/exercises — full exercise library
@@ -335,6 +352,13 @@ router.get('/volume', (req, res) => {
     WHERE date >= ? AND date <= ?
   `).all(weekDays[0], weekDays[6]);
 
+  // Conditioning: all non-gym exercise logs this week
+  const conditioning = db.prepare(`
+    SELECT date, type, duration_min FROM exercise_logs
+    WHERE date >= ? AND date <= ? AND LOWER(type) != 'gym'
+    ORDER BY date DESC
+  `).all(weekDays[0], weekDays[6]);
+
   res.json({
     week_start: monday,
     gym_sessions: gymSessions.length,
@@ -343,7 +367,21 @@ router.get('/volume', (req, res) => {
     sets_per_muscle: setsPerMuscle,
     gym_details: gymSessions,
     swim_details: swimSessions,
+    conditioning,
   });
+});
+
+// GET /api/training/check-duplicate?type=gym&date=2026-07-29
+router.get('/check-duplicate', (req, res) => {
+  const db = getDB();
+  const type = (req.query.type || '').toLowerCase();
+  const date = req.query.date || todayIST();
+
+  const existing = db.prepare(
+    'SELECT id, type, duration_min, notes FROM exercise_logs WHERE date = ? AND LOWER(type) = ?'
+  ).get(date, type);
+
+  res.json({ exists: !!existing, existing: existing || null });
 });
 
 module.exports = router;

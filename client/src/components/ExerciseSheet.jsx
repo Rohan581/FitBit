@@ -7,7 +7,6 @@ const EXERCISE_TYPES = [
   { id: 'running', label: 'Running' },
   { id: 'swimming', label: 'Swimming' },
   { id: 'cycling', label: 'Cycling' },
-  { id: 'walking', label: 'Walking' },
   { id: 'hiking', label: 'Hiking' },
   { id: 'other', label: 'Other' },
 ];

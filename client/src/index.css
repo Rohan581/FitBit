@@ -238,6 +238,14 @@ strong, b {
   }
 }
 
+/* ─── Pop-in ─── */
+@media (prefers-reduced-motion: no-preference) {
+  @keyframes popin {
+    from { transform: scale(.6); opacity: 0; }
+    to { transform: scale(1); opacity: 1; }
+  }
+}
+
 /* ─── Ring celebration pulse ─── */
 @media (prefers-reduced-motion: no-preference) {
   @keyframes ringPulse {
@@ -277,7 +285,11 @@ strong, b {
 /* ─── Input ─── */
 input[type="number"]::-webkit-inner-spin-button,
 input[type="number"]::-webkit-outer-spin-button {
-  opacity: 1;
+  -webkit-appearance: none;
+  margin: 0;
+}
+input[type="number"] {
+  -moz-appearance: textfield;
 }
 
 /* ─── Hide scrollbar ─── */

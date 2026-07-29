@@ -105,4 +105,5 @@ export const api = {
   getExercise: (id) => req('GET', `/training/exercises/${id}`),
   getExerciseHistory: (id) => req('GET', `/training/exercises/${id}/history`),
   getVolumeSummary: () => req('GET', '/training/volume'),
+  checkDuplicate: (type, date) => req('GET', `/training/check-duplicate?${new URLSearchParams({ type, ...(date && { date }) })}`),
 };
