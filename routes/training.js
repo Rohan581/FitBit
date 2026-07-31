@@ -4,6 +4,96 @@ const { getDB } = require('../db/database');
 const { todayIST, daysAgoIST, getMondayIST, getDaysOfWeek } = require('../dateUtils');
 const { getNextWorkout, getRotation } = require('../db/workoutTemplates');
 
+// ─── Catch-up logic ───────────────────────────────────────────
+// Target weekly frequency per muscle group (minimum sets)
+const MUSCLE_FREQ_TARGETS = {
+  chest: 6, lats: 6, upper_back: 4, traps: 2,
+  front_delts: 4, side_delts: 4, rear_delts: 3,
+  quads: 6, hamstrings: 5, glutes: 4,
+  biceps: 4, triceps: 4, abs: 3, calves: 3, lower_back: 2,
+};
+const CATCH_UP_COMPOUNDS = {
+  chest: 'Incline Dumbbell Press', lats: 'Lat Pulldown', upper_back: 'Seated Cable Row',
+  front_delts: 'Standing Overhead Press', side_delts: 'Dumbbell Lateral Raise', rear_delts: 'Face Pull',
+  quads: 'Leg Press', hamstrings: 'Lying Leg Curl', glutes: 'Hip Thrust',
+  biceps: 'Cable Bicep Curl', triceps: 'Cable Tricep Pushdown', abs: 'Cable Crunch',
+  calves: 'Standing Calf Raise', lower_back: 'Romanian Deadlift', traps: 'Face Pull',
+};
+const SESSION_CAP = 8;
+
+function computeCatchUp(db, weekDays, templateExercises) {
+  // Get completed sets per muscle this week
+  const gymSessions = db.prepare(`
+    SELECT ws.id FROM workout_sessions ws
+    WHERE ws.completed = 1 AND ws.date >= ? AND ws.date <= ?
+  `).all(weekDays[0], weekDays[6]);
+
+  const setsPerMuscle = {};
+  for (const s of gymSessions) {
+    const sets = db.prepare(`
+      SELECT wset.exercise_id, COUNT(*) as set_count, e.primary_muscles
+      FROM workout_sets wset
+      JOIN exercises e ON e.id = wset.exercise_id
+      WHERE wset.session_id = ?
+      GROUP BY wset.exercise_id
+    `).all(s.id);
+    for (const row of sets) {
+      const muscles = JSON.parse(row.primary_muscles);
+      for (const m of muscles) {
+        setsPerMuscle[m] = (setsPerMuscle[m] || 0) + row.set_count;
+      }
+    }
+  }
+
+  // Find lagging muscles
+  const lagging = [];
+  for (const [muscle, target] of Object.entries(MUSCLE_FREQ_TARGETS)) {
+    const current = setsPerMuscle[muscle] || 0;
+    if (current < target * 0.5) { // behind by more than 50%
+      lagging.push({ muscle, current, target, deficit: target - current });
+    }
+  }
+
+  if (lagging.length === 0) return { exercises: [], notes: {}, setsPerMuscle };
+
+  // Sort by largest deficit
+  lagging.sort((a, b) => b.deficit - a.deficit);
+
+  // Determine which day the muscle was missed
+  const catchUpExercises = [];
+  const notes = {};
+  const templateNames = new Set(templateExercises.map(e => e.name));
+
+  for (const lag of lagging.slice(0, 3)) {
+    const exName = CATCH_UP_COMPOUNDS[lag.muscle];
+    if (!exName || templateNames.has(exName)) continue;
+    // Find the day it was supposed to be hit
+    const dayNames = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
+    const today = todayIST();
+    const todayIdx = weekDays.indexOf(today);
+    const missedDay = todayIdx > 0 ? dayNames[Math.max(0, todayIdx - 1)] : 'earlier';
+
+    const dbEx = db.prepare('SELECT id, name, primary_muscles, secondary_muscles, rest_seconds FROM exercises WHERE name = ?').get(exName);
+    if (dbEx) {
+      catchUpExercises.push({
+        name: dbEx.name,
+        exercise_id: dbEx.id,
+        sets: 3,
+        reps: '8-12',
+        primary_muscles: JSON.parse(dbEx.primary_muscles),
+        secondary_muscles: JSON.parse(dbEx.secondary_muscles),
+        rest_seconds: dbEx.rest_seconds || 75,
+        is_catchup: true,
+        catchup_reason: `${lag.muscle.replace(/_/g, ' ')} were missed ${missedDay}`,
+      });
+      templateNames.add(exName);
+    }
+    notes[lag.muscle] = `${lag.current}/${lag.target} sets — behind`;
+  }
+
+  return { exercises: catchUpExercises, notes, setsPerMuscle };
+}
+
 // GET /api/training — current state: next workout, frequency, recent sessions
 router.get('/', (req, res) => {
   const db = getDB();
@@ -15,12 +105,13 @@ router.get('/', (req, res) => {
 
   // Resolve exercise IDs for the template
   const exercises = nextWorkout.exercises.map(ex => {
-    const dbEx = db.prepare('SELECT id, name, primary_muscles, secondary_muscles FROM exercises WHERE name = ?').get(ex.name);
+    const dbEx = db.prepare('SELECT id, name, primary_muscles, secondary_muscles, rest_seconds FROM exercises WHERE name = ?').get(ex.name);
     return {
       ...ex,
       exercise_id: dbEx?.id || null,
       primary_muscles: dbEx ? JSON.parse(dbEx.primary_muscles) : [],
       secondary_muscles: dbEx ? JSON.parse(dbEx.secondary_muscles) : [],
+      rest_seconds: dbEx?.rest_seconds || 75,
     };
   });
 
@@ -64,6 +155,44 @@ router.get('/', (req, res) => {
     WHERE LOWER(type) = 'swimming' AND date >= ? AND date <= ?
   `).get(weekDays[0], weekDays[6])?.cnt || 0;
 
+  // Dynamic catch-up
+  const catchUp = computeCatchUp(db, weekDays, exercises);
+  let finalExercises = [...exercises];
+  if (catchUp.exercises.length > 0) {
+    // If catch-up would push past cap, trim template accessories
+    const totalAfter = exercises.length + catchUp.exercises.length;
+    if (totalAfter > SESSION_CAP) {
+      // Remove accessories from the end (never remove catch-up compounds)
+      const trimCount = totalAfter - SESSION_CAP;
+      finalExercises = exercises.slice(0, exercises.length - trimCount);
+    }
+    // Append catch-up exercises
+    finalExercises = [...finalExercises, ...catchUp.exercises];
+    // Also fetch last numbers for catch-up exercises
+    for (const ex of catchUp.exercises) {
+      if (!ex.exercise_id || lastNumbers[ex.exercise_id]) continue;
+      const lastSession = db.prepare(`
+        SELECT ws.id FROM workout_sessions ws
+        JOIN workout_sets wset ON wset.session_id = ws.id
+        WHERE wset.exercise_id = ? AND ws.completed = 1
+        ORDER BY ws.date DESC LIMIT 1
+      `).get(ex.exercise_id);
+      if (lastSession) {
+        lastNumbers[ex.exercise_id] = db.prepare(
+          'SELECT set_number, weight_kg, reps FROM workout_sets WHERE session_id = ? AND exercise_id = ? ORDER BY set_number'
+        ).all(lastSession.id, ex.exercise_id);
+      }
+    }
+  }
+
+  // Build subtitle reflecting catch-up
+  const catchUpCount = catchUp.exercises.length;
+  const templateCount = finalExercises.length - catchUpCount;
+  const estMin = finalExercises.length * 7;
+  const subtitle = catchUpCount > 0
+    ? `${templateCount} exercises + ${catchUpCount} catch-up · ~${estMin} min`
+    : `${nextWorkout.subtitle} · ${finalExercises.length} exercises · ~${estMin} min`;
+
   const weekStrip = weekDays.map(day => {
     const gymOnDay = db.prepare('SELECT id, workout_type FROM workout_sessions WHERE completed = 1 AND date = ?').get(day);
     const swimOnDay = db.prepare("SELECT id FROM exercise_logs WHERE LOWER(type) = 'swimming' AND date = ?").get(day);
@@ -91,10 +220,34 @@ router.get('/', (req, res) => {
     swimNote = 'You had a heavy leg session yesterday — consider keeping today\'s swim easy on the legs, or adjust intensity.';
   }
 
+  // Check for an active (incomplete) session
+  const activeSession = db.prepare(`
+    SELECT id, date, workout_type, logged_at FROM workout_sessions
+    WHERE completed = 0 ORDER BY logged_at DESC LIMIT 1
+  `).get();
+
+  let activeSessionInfo = null;
+  if (activeSession) {
+    const setsCompleted = db.prepare(
+      'SELECT COUNT(*) as cnt FROM workout_sets WHERE session_id = ?'
+    ).get(activeSession.id)?.cnt || 0;
+    const startedAtMs = new Date(activeSession.logged_at + 'Z').getTime();
+    const elapsedHours = (Date.now() - startedAtMs) / (1000 * 60 * 60);
+    activeSessionInfo = {
+      session_id: activeSession.id,
+      date: activeSession.date,
+      workout_type: activeSession.workout_type,
+      started_at: activeSession.logged_at,
+      sets_completed: setsCompleted,
+      elapsed_hours: Math.round(elapsedHours * 10) / 10,
+      stale: elapsedHours >= 12,
+    };
+  }
+
   res.json({
     frequency,
     workout_index: index,
-    next_workout: { ...nextWorkout, exercises },
+    next_workout: { ...nextWorkout, exercises: finalExercises, subtitle },
     last_numbers: lastNumbers,
     recent_sessions: recentSessions,
     week_gym_sessions: weekGymSessions,
@@ -103,6 +256,9 @@ router.get('/', (req, res) => {
     rotation: getRotation(frequency).map(w => ({ type: w.type, label: w.label, subtitle: w.subtitle })),
     week_strip: weekStrip,
     target_gym_this_week: targetGymThisWeek,
+    catch_up: catchUpCount > 0 ? { count: catchUpCount, notes: catchUp.notes } : null,
+    volume_notes: catchUp.notes,
+    active_session: activeSessionInfo,
   });
 });
 
@@ -359,6 +515,21 @@ router.get('/volume', (req, res) => {
     ORDER BY date DESC
   `).all(weekDays[0], weekDays[6]);
 
+  // In-session cardio this week
+  const sessionCardio = db.prepare(`
+    SELECT wc.type, wc.duration_min, ws.date
+    FROM workout_cardio wc
+    JOIN workout_sessions ws ON ws.id = wc.session_id
+    WHERE ws.completed = 1 AND ws.date >= ? AND ws.date <= ?
+    ORDER BY ws.date DESC
+  `).all(weekDays[0], weekDays[6]);
+
+  // Merge session cardio into conditioning
+  const allConditioning = [
+    ...conditioning,
+    ...sessionCardio.map(c => ({ date: c.date, type: c.type, duration_min: c.duration_min, in_session: true })),
+  ].sort((a, b) => b.date.localeCompare(a.date));
+
   res.json({
     week_start: monday,
     gym_sessions: gymSessions.length,
@@ -367,7 +538,7 @@ router.get('/volume', (req, res) => {
     sets_per_muscle: setsPerMuscle,
     gym_details: gymSessions,
     swim_details: swimSessions,
-    conditioning,
+    conditioning: allConditioning,
   });
 });
 
@@ -382,6 +553,53 @@ router.get('/check-duplicate', (req, res) => {
   ).get(date, type);
 
   res.json({ exists: !!existing, existing: existing || null });
+});
+
+// POST /api/training/sessions/:id/cardio — add in-session cardio
+router.post('/sessions/:id/cardio', (req, res) => {
+  const db = getDB();
+  const sessionId = req.params.id;
+  const { type, duration_min } = req.body;
+
+  if (!type || !duration_min) {
+    return res.status(400).json({ error: 'type and duration_min are required' });
+  }
+
+  const result = db.prepare(
+    'INSERT INTO workout_cardio (session_id, type, duration_min) VALUES (?, ?, ?)'
+  ).run(sessionId, type, duration_min);
+
+  res.json({ id: result.lastInsertRowid });
+});
+
+// DELETE /api/training/sessions/:id/cardio/:cardioId — remove in-session cardio
+router.delete('/sessions/:id/cardio/:cardioId', (req, res) => {
+  const db = getDB();
+  db.prepare('DELETE FROM workout_cardio WHERE id = ? AND session_id = ?')
+    .run(req.params.cardioId, req.params.id);
+  res.json({ ok: true });
+});
+
+// GET /api/training/sessions/:id/cardio — list cardio for a session
+router.get('/sessions/:id/cardio', (req, res) => {
+  const db = getDB();
+  const rows = db.prepare('SELECT * FROM workout_cardio WHERE session_id = ? ORDER BY id')
+    .all(req.params.id);
+  res.json(rows);
+});
+
+// DELETE /api/training/sessions/:id — cancel/discard a session
+router.delete('/sessions/:id', (req, res) => {
+  const db = getDB();
+  const session = db.prepare('SELECT * FROM workout_sessions WHERE id = ?').get(req.params.id);
+  if (!session) return res.status(404).json({ error: 'Session not found' });
+
+  // Delete all sets and cardio for this session, then the session itself
+  db.prepare('DELETE FROM workout_sets WHERE session_id = ?').run(req.params.id);
+  db.prepare('DELETE FROM workout_cardio WHERE session_id = ?').run(req.params.id);
+  db.prepare('DELETE FROM workout_sessions WHERE id = ?').run(req.params.id);
+
+  res.json({ ok: true, discarded: true });
 });
 
 module.exports = router;

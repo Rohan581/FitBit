@@ -76,11 +76,12 @@ export default function Dashboard() {
   if (loading) return <LoadingState />;
   if (!data) return <ErrorState onRetry={load} />;
 
-  const { food_totals, goal, daily_points, weekly_points, threshold, treat_earned, rolling_avg_weight, notifications, water } = data;
+  const { food_totals, goal, daily_points, weekly_points, threshold, treat_earned, rolling_avg_weight, notifications, water, rest_day } = data;
 
-  const calTarget = goal?.current_calorie_target || 2240;
+  const isRestDay = !!rest_day?.is_rest_day;
+  const calTarget = isRestDay ? rest_day.calorie_target : (goal?.current_calorie_target || 2240);
   const proTarget = goal?.current_protein_target_g || 180;
-  const carbTarget = goal?.current_carb_target_g || 250;
+  const carbTarget = isRestDay ? rest_day.carb_target : (goal?.current_carb_target_g || 250);
   const fatTarget = goal?.current_fat_target_g || 60;
   const fiberTarget = goal?.current_fiber_target_g || 32;
   const sugarLimit = goal?.current_sugar_limit_g || 50;
@@ -147,7 +148,23 @@ export default function Dashboard() {
       {/* Header */}
       <div className="flex items-start justify-between pt-5 pb-5 stagger-enter">
         <div>
-          <p className="text-xs text-tx-3">{formatTodayDate()}</p>
+          <div className="flex items-center gap-2">
+            <p className="text-xs text-tx-3">{formatTodayDate()}</p>
+            <button
+              onClick={async () => {
+                await api.toggleRestDay();
+                load();
+              }}
+              className="text-[11px] font-bold px-2.5 py-0.5 rounded-full press-scale"
+              style={{
+                background: isRestDay ? 'var(--accent-surface)' : 'transparent',
+                border: isRestDay ? '1px solid var(--points)' : '1px solid var(--hair)',
+                color: isRestDay ? 'var(--points)' : 'var(--text-3)',
+              }}
+            >
+              {isRestDay ? 'Rest day ✓' : 'Rest day'}
+            </button>
+          </div>
           <h1 className="text-[26px] font-bold text-tx mt-0.5">{getGreeting()}, Rohan</h1>
         </div>
         {rolling_avg_weight && (
@@ -214,7 +231,13 @@ export default function Dashboard() {
 
       {/* Today's fuel macro card */}
       <div className="bg-card rounded-card p-4 mb-3 stagger-enter">
-        <h2 className="text-sm font-semibold text-tx mb-3">Today's fuel</h2>
+        <h2 className="text-sm font-semibold text-tx mb-1">{isRestDay ? 'Rest-day targets' : "Today's fuel"}</h2>
+        {isRestDay && (
+          <p className="text-[12px] text-tx-3 mb-3 rounded-[10px] px-3 py-2" style={{ background: 'var(--accent-surface)' }}>
+            Planned adjustment — calories {calTarget.toLocaleString()} and carbs {carbTarget}g while you recover. Back to normal tomorrow.
+          </p>
+        )}
+        {!isRestDay && <div className="mb-2" />}
         <div className="space-y-3">
           <MacroBar label="Calories" current={food_totals.calories} target={calTarget} token="cal" unit="kcal" />
           <MacroBar label="Protein" current={food_totals.protein_g} target={proTarget} token="protein" />

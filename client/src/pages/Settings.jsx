@@ -36,6 +36,7 @@ export default function Settings() {
         deficit_pct: g.deficit_pct ?? 0.25,
         enable_chest_measurement: g.enable_chest_measurement || 0,
         enable_hips_measurement: g.enable_hips_measurement || 0,
+        rest_day_reduction: g.rest_day_reduction || 150,
       });
     });
   }, []);
@@ -64,6 +65,7 @@ export default function Settings() {
         deficit_pct: parseFloat(form.deficit_pct),
         enable_chest_measurement: form.enable_chest_measurement ? 1 : 0,
         enable_hips_measurement: form.enable_hips_measurement ? 1 : 0,
+        rest_day_reduction: parseInt(form.rest_day_reduction) || 150,
       });
       setGoal(updated);
       setSaved(true);
@@ -184,6 +186,22 @@ export default function Settings() {
           <p className="text-xs text-tx-3 mb-2">Waist is always tracked. Enable optional measurements below.</p>
           <ToggleRow label="Chest measurement" checked={!!form.enable_chest_measurement} onChange={v => set('enable_chest_measurement', v ? 1 : 0)} />
           <ToggleRow label="Hips measurement" checked={!!form.enable_hips_measurement} onChange={v => set('enable_hips_measurement', v ? 1 : 0)} />
+        </Section>
+
+        <Section title="Rest-day cycling">
+          <p className="text-xs text-tx-3 mb-2">Calorie reduction on rest days. Taken from carbs; protein and fat stay the same.</p>
+          <div className="flex items-center gap-3">
+            <input
+              type="range"
+              min="100"
+              max="250"
+              step="25"
+              value={form.rest_day_reduction || 150}
+              onChange={e => set('rest_day_reduction', parseInt(e.target.value))}
+              className="flex-1"
+            />
+            <span className="text-sm font-num text-tx w-16 text-right">−{form.rest_day_reduction || 150} kcal</span>
+          </div>
         </Section>
 
         <Section title="Daily targets">

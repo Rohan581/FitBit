@@ -50,7 +50,6 @@ function fmtTime(secs) {
 }
 
 // ─── Constants ───────────────────────────────────────────────
-const REST_DURATIONS = { compound: 150, accessory: 75 }; // seconds
 const COMPOUND_EXERCISES = new Set([
   'Barbell Back Squat', 'Barbell Bench Press', 'Conventional Deadlift',
   'Romanian Deadlift', 'Standing Overhead Press', 'Barbell Row',
@@ -63,6 +62,19 @@ const ACTIVITY_TYPES = [
   { id: 'running', label: 'Run', color: 'var(--cal)' },
   { id: 'cycling', label: 'Cycle', color: 'var(--carbs)' },
   { id: 'hiking', label: 'Hike', color: 'var(--fiber)' },
+  { id: 'rowing', label: 'Rowing', color: 'var(--protein)' },
+  { id: 'treadmill', label: 'Treadmill', color: 'var(--cal)' },
+  { id: 'elliptical', label: 'Elliptical', color: 'var(--fat)' },
+  { id: 'stair_machine', label: 'Stair machine', color: 'var(--carbs)' },
+  { id: 'cycling_machine', label: 'Cycling machine', color: 'var(--fiber)' },
+];
+
+const GYM_CARDIO_TYPES = [
+  { id: 'Rowing', label: 'Rowing' },
+  { id: 'Treadmill', label: 'Treadmill' },
+  { id: 'Elliptical', label: 'Elliptical' },
+  { id: 'Stair machine', label: 'Stair machine' },
+  { id: 'Cycling machine', label: 'Cycling machine' },
 ];
 
 // ─── Main component ─────────────────────────────────────────
@@ -81,9 +93,17 @@ export default function Training() {
   // Rest timer
   const [restStartedAt, setRestStartedAt] = useState(null);
   const [restDuration, setRestDuration] = useState(150);
+  const [restExerciseName, setRestExerciseName] = useState('');
+
+  // In-session cardio
+  const [sessionCardio, setSessionCardio] = useState([]);
+  const [showCardioAdd, setShowCardioAdd] = useState(false);
+
+  // Cancel confirmation
+  const [showCancelConfirm, setShowCancelConfirm] = useState(false);
 
   // Sheets
-  const [detailExercise, setDetailExercise] = useState(null); // { id, name } or null
+  const [detailExercise, setDetailExercise] = useState(null);
   const [swapExercise, setSwapExercise] = useState(null);
   const [progExercise, setProgExercise] = useState(null);
   const [activitySheetOpen, setActivitySheetOpen] = useState(false);
@@ -112,6 +132,7 @@ export default function Training() {
       setSessionSets(saved.sets || {});
       setStartedAt(saved.startedAt);
       setCompletedExercises(new Set(saved.completedExercises || []));
+      setSessionCardio(saved.cardio || []);
       setScreen('workout');
     }
   }, []);
@@ -124,18 +145,20 @@ export default function Training() {
         sets: sessionSets,
         startedAt,
         completedExercises: [...completedExercises],
+        cardio: sessionCardio,
       });
     }
-  }, [session, sessionSets, startedAt, completedExercises]);
+  }, [session, sessionSets, startedAt, completedExercises, sessionCardio]);
 
   const elapsedSecs = useTimestamp(startedAt);
   const restSecs = useTimestamp(restStartedAt);
   const restRemaining = restStartedAt ? Math.max(0, restDuration - restSecs) : 0;
 
-  // Auto-dismiss rest timer
+  // Auto-dismiss rest timer when complete (quiet visual, no auto-clear for 3s)
   useEffect(() => {
     if (restStartedAt && restRemaining <= 0) {
-      setRestStartedAt(null);
+      const timeout = setTimeout(() => setRestStartedAt(null), 3000);
+      return () => clearTimeout(timeout);
     }
   }, [restStartedAt, restRemaining]);
 
@@ -151,6 +174,7 @@ export default function Training() {
     setSession(newSession);
     setStartedAt(Date.now());
     setCompletedExercises(new Set());
+    setSessionCardio([]);
 
     // Initialize all sets from prescription, pre-filling from last session
     const initial = {};
@@ -173,6 +197,10 @@ export default function Training() {
     setScreen('workout');
   }
 
+  function handleResumeWorkout() {
+    setScreen('workout');
+  }
+
   function handleSetChange(exId, setNum, field, value) {
     setSessionSets(prev => {
       const exSets = (prev[exId] || []).map(s =>
@@ -191,7 +219,7 @@ export default function Training() {
     const weight = parseFloat(set.weight_kg) || 0;
     const reps = parseInt(set.reps) || 0;
 
-    // Save to server (fire and forget for offline resilience)
+    // Save to server
     try {
       await api.logSet(session.session_id, {
         exercise_id: exId,
@@ -209,10 +237,12 @@ export default function Training() {
       return { ...prev, [exId]: exSets };
     });
 
-    // Start rest timer
-    const isCompound = COMPOUND_EXERCISES.has(exName);
-    setRestDuration(isCompound ? REST_DURATIONS.compound : REST_DURATIONS.accessory);
+    // Start rest timer — use per-exercise rest_seconds from the template
+    const exerciseData = next_workout.exercises.find(e => e.exercise_id === exId);
+    const restSecs = exerciseData?.rest_seconds || (COMPOUND_EXERCISES.has(exName) ? 150 : 75);
+    setRestDuration(restSecs);
     setRestStartedAt(Date.now());
+    setRestExerciseName(exName);
   }
 
   function handleAddSet(exId) {
@@ -235,20 +265,34 @@ export default function Training() {
   function handleDeleteSet(exId, setNum) {
     setSessionSets(prev => {
       const exSets = (prev[exId] || []);
-      // Don't delete the last remaining set
       if (exSets.length <= 1) return prev;
       const filtered = exSets.filter(s => s.set_number !== setNum);
-      // Resequence 1..n
       const resequenced = filtered.map((s, i) => ({ ...s, set_number: i + 1 }));
       return { ...prev, [exId]: resequenced };
     });
+  }
+
+  async function handleAddCardio(type, durationMin) {
+    if (!session) return;
+    try {
+      const result = await api.addSessionCardio(session.session_id, { type, duration_min: durationMin });
+      setSessionCardio(prev => [...prev, { id: result.id, type, duration_min: durationMin }]);
+    } catch { /* offline fallback */ }
+    setShowCardioAdd(false);
+  }
+
+  async function handleRemoveCardio(cardioId) {
+    if (!session) return;
+    try {
+      await api.removeSessionCardio(session.session_id, cardioId);
+    } catch {}
+    setSessionCardio(prev => prev.filter(c => c.id !== cardioId));
   }
 
   async function handleFinishWorkout() {
     if (!session) return;
     const duration = startedAt ? Math.round((Date.now() - startedAt) / 60000) : 60;
 
-    // Count total volume and sets
     let totalSets = 0;
     let totalVolume = 0;
     for (const exSets of Object.values(sessionSets)) {
@@ -270,9 +314,9 @@ export default function Training() {
         nextIndex: result.next_index,
         gymThisWeek: (data.week_gym_sessions || 0) + 1,
         targetGym: data.target_gym_this_week || frequency,
+        cardio: sessionCardio,
       });
     } catch {
-      // Offline — still show completion
       setCompletionData({
         workout: next_workout,
         duration,
@@ -281,6 +325,7 @@ export default function Training() {
         nextIndex: null,
         gymThisWeek: (data.week_gym_sessions || 0) + 1,
         targetGym: data.target_gym_this_week || frequency,
+        cardio: sessionCardio,
       });
     }
 
@@ -289,7 +334,52 @@ export default function Training() {
     setSessionSets({});
     setStartedAt(null);
     setRestStartedAt(null);
+    setSessionCardio([]);
     setScreen('complete');
+  }
+
+  async function handleCancelWorkout() {
+    if (!session) return;
+    try {
+      await api.cancelSession(session.session_id);
+    } catch { /* offline */ }
+    clearSession();
+    setSession(null);
+    setSessionSets({});
+    setStartedAt(null);
+    setRestStartedAt(null);
+    setSessionCardio([]);
+    setShowCancelConfirm(false);
+    setScreen('home');
+    load();
+  }
+
+  async function handleDiscardStale() {
+    const activeSession = data?.active_session;
+    if (!activeSession) return;
+    try {
+      await api.cancelSession(activeSession.session_id);
+    } catch {}
+    clearSession();
+    setSession(null);
+    setSessionSets({});
+    setStartedAt(null);
+    load();
+  }
+
+  async function handleFinishStale() {
+    const activeSession = data?.active_session;
+    if (!activeSession) return;
+    // Complete it with whatever was logged
+    try {
+      const elapsedMin = Math.round(activeSession.elapsed_hours * 60);
+      await api.completeSession(activeSession.session_id, Math.min(elapsedMin, 120));
+    } catch {}
+    clearSession();
+    setSession(null);
+    setSessionSets({});
+    setStartedAt(null);
+    load();
   }
 
   function handleBackToHome() {
@@ -314,11 +404,18 @@ export default function Training() {
       ex => ex.exercise_id && (sessionSets[ex.exercise_id] || []).every(s => s.done) && (sessionSets[ex.exercise_id] || []).length > 0
     ).length;
 
+    // Separate catch-up and template exercises
+    const catchUpExercises = next_workout.exercises.filter(e => e.is_catchup);
+    const templateExercises = next_workout.exercises.filter(e => !e.is_catchup);
+
+    const isLastTenSecs = restRemaining > 0 && restRemaining <= 10;
+    const isRestComplete = restStartedAt && restRemaining <= 0;
+
     return (
       <div className="flex flex-col h-full">
         {/* Header */}
         <div className="flex items-center justify-between px-5 pt-5 pb-2.5 border-b border-hair flex-shrink-0">
-          <button onClick={handleBackToHome} className="text-[15px] font-semibold text-tx-2 press-scale py-2">
+          <button onClick={() => setScreen('home')} className="text-[15px] font-semibold text-tx-2 press-scale py-2">
             ‹ Train
           </button>
           <div className="text-center">
@@ -331,142 +428,120 @@ export default function Training() {
         {/* Exercise cards */}
         <div className="flex-1 overflow-y-auto px-4 pt-3 pb-32" style={{ WebkitOverflowScrolling: 'touch' }}>
           <div className="flex flex-col gap-3">
-            {next_workout.exercises.map((ex, i) => {
-              const exId = ex.exercise_id;
-              const sets = sessionSets[exId] || [];
-              const last = last_numbers[exId] || [];
-              const allDone = sets.length > 0 && sets.every(s => s.done);
-              const lastTxt = last.length > 0
-                ? last.map(l => `${l.weight_kg}×${l.reps}`).join(', ')
-                : '—';
+            {/* Template exercises */}
+            {templateExercises.map((ex, i) => (
+              <ExerciseCard
+                key={ex.exercise_id || i}
+                ex={ex}
+                sets={sessionSets[ex.exercise_id] || []}
+                last={last_numbers[ex.exercise_id] || []}
+                onSetChange={handleSetChange}
+                onCompleteSet={handleCompleteSet}
+                onAddSet={handleAddSet}
+                onDeleteSet={handleDeleteSet}
+                onDetail={setDetailExercise}
+                onProg={setProgExercise}
+                onSwap={setSwapExercise}
+              />
+            ))}
 
-              return (
-                <div key={exId || i} className="bg-card rounded-[20px] border border-hair p-4" style={allDone ? { borderColor: 'color-mix(in oklab, var(--points) 30%, var(--hair))' } : undefined}>
-                  {/* Exercise header */}
-                  <div className="flex items-start gap-2.5">
-                    <div className="flex-1 min-w-0 cursor-pointer" onClick={() => exId && setDetailExercise({ id: exId, name: ex.name })}>
-                      <div className="flex items-center gap-2">
-                        <span className="text-[16.5px] font-bold text-tx truncate">{ex.name}</span>
-                        <span className="text-tx-3 text-[13px] flex-shrink-0">›</span>
-                      </div>
-                      <div className="text-[13px] font-semibold text-tx-3 mt-0.5">
-                        {ex.sets}×{ex.reps} · last: {lastTxt}
-                      </div>
-                    </div>
-                    <button onClick={() => exId && setProgExercise(exId)} title="Progression" className="w-[38px] h-[38px] rounded-[11px] border border-hair bg-card-2 text-tx-2 text-[14px] press-scale flex-shrink-0 flex items-center justify-center">
-                      ▁▄▆
-                    </button>
-                    <button onClick={() => setSwapExercise(ex)} title="Swap" className="w-[38px] h-[38px] rounded-[11px] border border-hair bg-card-2 text-tx-2 text-[15px] press-scale flex-shrink-0 flex items-center justify-center">
-                      ⇄
-                    </button>
+            {/* Catch-up block */}
+            {catchUpExercises.length > 0 && (
+              <>
+                <div className="rounded-[14px] px-4 py-2.5 mt-1" style={{ background: 'var(--accent-surface)' }}>
+                  <div className="text-[12.5px] font-bold text-points">Catch-up</div>
+                  <div className="text-[11.5px] text-tx-2 mt-0.5">
+                    {catchUpExercises.map(e => e.catchup_reason).filter(Boolean).join(' · ')}
                   </div>
-
-                  {/* Set header row */}
-                  <div className="grid gap-2 items-center mt-3.5 px-0.5" style={{ gridTemplateColumns: '22px 54px 1fr 1fr 42px 24px' }}>
-                    <span className="text-[11px] font-bold text-tx-3">set</span>
-                    <span className="text-[11px] font-bold text-tx-3">prev</span>
-                    <span className="text-[11px] font-bold text-tx-3 text-center">kg</span>
-                    <span className="text-[11px] font-bold text-tx-3 text-center">reps</span>
-                    <span className="text-[11px] font-bold text-tx-3 text-center">✓</span>
-                    <span />
-                  </div>
-
-                  {/* Set rows */}
-                  <div className="flex flex-col gap-2 mt-1.5">
-                    {sets.map((set) => {
-                      const prev = last.find(l => l.set_number === set.set_number);
-                      const prevTxt = prev ? `${prev.weight_kg}×${prev.reps}` : '—';
-                      return (
-                        <div key={`${exId}-${set.set_number}`} className="grid gap-2 items-center" style={{ gridTemplateColumns: '22px 54px 1fr 1fr 42px 24px' }}>
-                          <span className="text-[14px] font-semibold font-num text-tx-3">{set.set_number}</span>
-                          <span className="text-[13px] font-medium font-num text-tx-3 truncate">{prevTxt}</span>
-                          <input
-                            type="number"
-                            inputMode="decimal"
-                            step="0.5"
-                            value={set.weight_kg}
-                            onChange={e => handleSetChange(exId, set.set_number, 'weight_kg', e.target.value)}
-                            placeholder={prev?.weight_kg != null ? String(prev.weight_kg) : '—'}
-                            className="h-[52px] w-full rounded-[13px] border border-hair text-[18px] font-semibold text-center text-tx font-num min-w-0"
-                            style={{ background: set.done ? 'color-mix(in oklab, var(--points) 8%, var(--card-2))' : 'var(--card-2)' }}
-                          />
-                          <input
-                            type="number"
-                            inputMode="numeric"
-                            step="1"
-                            value={set.reps}
-                            onChange={e => handleSetChange(exId, set.set_number, 'reps', e.target.value)}
-                            placeholder={prev?.reps != null ? String(prev.reps) : '—'}
-                            className="h-[52px] w-full rounded-[13px] border border-hair text-[18px] font-semibold text-center text-tx font-num min-w-0"
-                            style={{ background: set.done ? 'color-mix(in oklab, var(--points) 8%, var(--card-2))' : 'var(--card-2)' }}
-                          />
-                          <button
-                            onClick={() => handleCompleteSet(exId, set.set_number, ex.name)}
-                            className="h-[52px] rounded-[13px] text-[18px] press-scale flex items-center justify-center"
-                            style={{
-                              background: set.done ? 'var(--points)' : 'transparent',
-                              border: set.done ? '1px solid var(--points)' : '1px solid var(--hair)',
-                              color: set.done ? 'oklch(0.15 0.02 165)' : 'var(--text-3)',
-                            }}
-                          >
-                            ✓
-                          </button>
-                          <button
-                            onClick={() => handleDeleteSet(exId, set.set_number)}
-                            className="h-[52px] text-[17px] text-tx-3 press-scale flex items-center justify-center"
-                            style={{ opacity: sets.length <= 1 ? 0.3 : 1 }}
-                            disabled={sets.length <= 1}
-                          >
-                            ✕
-                          </button>
-                        </div>
-                      );
-                    })}
-                  </div>
-
-                  {/* Add set */}
-                  <button
-                    onClick={() => handleAddSet(exId)}
-                    className="mt-2.5 h-[44px] w-full rounded-[12px] border border-dashed border-hair text-[14px] font-bold text-tx-2 press-scale"
-                  >
-                    + add set
-                  </button>
                 </div>
-              );
-            })}
+                {catchUpExercises.map((ex, i) => (
+                  <ExerciseCard
+                    key={ex.exercise_id || `catch-${i}`}
+                    ex={ex}
+                    sets={sessionSets[ex.exercise_id] || []}
+                    last={last_numbers[ex.exercise_id] || []}
+                    onSetChange={handleSetChange}
+                    onCompleteSet={handleCompleteSet}
+                    onAddSet={handleAddSet}
+                    onDeleteSet={handleDeleteSet}
+                    onDetail={setDetailExercise}
+                    onProg={setProgExercise}
+                    onSwap={setSwapExercise}
+                  />
+                ))}
+              </>
+            )}
+
+            {/* In-session cardio */}
+            {sessionCardio.length > 0 && (
+              <div className="bg-card rounded-[20px] border border-hair p-4">
+                <div className="text-[13px] font-bold text-tx-3 mb-2">Cardio</div>
+                {sessionCardio.map(c => (
+                  <div key={c.id} className="flex items-center justify-between py-2">
+                    <span className="text-[14px] text-tx-2">{c.type} · {c.duration_min} min</span>
+                    <button onClick={() => handleRemoveCardio(c.id)} className="text-tx-3 text-[16px] press-scale">✕</button>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Add cardio button */}
+            <button
+              onClick={() => setShowCardioAdd(true)}
+              className="h-[48px] rounded-[14px] border border-dashed border-hair text-[14px] font-semibold text-tx-2 press-scale"
+            >
+              + Add cardio · rower, treadmill…
+            </button>
 
             {/* Finish button */}
             <button
               onClick={handleFinishWorkout}
               className="h-[56px] rounded-[16px] text-[16.5px] font-bold press-scale mt-1"
-              style={{ background: 'var(--points)', color: 'oklch(0.15 0.02 165)' }}
+              style={{ background: 'var(--points)', color: 'var(--accent-surface)' }}
             >
               Finish workout
+            </button>
+
+            {/* Cancel button */}
+            <button
+              onClick={() => setShowCancelConfirm(true)}
+              className="h-[44px] text-[14px] font-semibold text-tx-3 press-scale mb-4"
+            >
+              Cancel workout
             </button>
           </div>
         </div>
 
-        {/* Rest timer */}
-        {restStartedAt && restRemaining > 0 && (
+        {/* Rest timer — docked above tab bar */}
+        {restStartedAt && (
           <div
-            className="fixed left-4 right-4 bottom-5 rounded-[18px] border border-hair p-3 px-4 flex items-center gap-3.5"
+            className="fixed left-4 right-4 rounded-[18px] border border-hair p-3 px-4 flex items-center gap-3.5"
             style={{
-              background: 'var(--card-2)',
+              bottom: 'calc(68px + env(safe-area-inset-bottom))',
+              background: 'var(--accent-surface)',
               boxShadow: '0 12px 32px -12px rgba(0,0,0,.5)',
               animation: 'popin .18s ease-out',
               zIndex: 40,
             }}
           >
             <div className="flex-none">
-              <div className="text-[12px] font-bold text-tx-3">Rest</div>
-              <div className="text-[26px] font-bold font-num text-points leading-tight">{fmtTime(restRemaining)}</div>
+              <div className="text-[11px] font-bold text-tx-3 truncate max-w-[80px]">{restExerciseName || 'Rest'}</div>
+              <div
+                className="text-[26px] font-bold font-num leading-tight"
+                style={{
+                  color: isRestComplete ? 'var(--text-3)' : isLastTenSecs ? 'var(--cal)' : 'var(--points)',
+                  transition: 'color 0.3s',
+                }}
+              >
+                {isRestComplete ? 'Done' : fmtTime(restRemaining)}
+              </div>
             </div>
             <div className="flex-[2] h-2 rounded-full overflow-hidden" style={{ background: 'var(--bg)' }}>
               <div
                 className="h-full rounded-full"
                 style={{
-                  background: 'var(--points)',
-                  width: `${(restRemaining / restDuration) * 100}%`,
+                  background: isLastTenSecs ? 'var(--cal)' : 'var(--points)',
+                  width: isRestComplete ? '0%' : `${(restRemaining / restDuration) * 100}%`,
                   transition: 'width 1s linear',
                 }}
               />
@@ -480,6 +555,34 @@ export default function Training() {
           </div>
         )}
 
+        {/* Cancel confirmation dialog */}
+        {showCancelConfirm && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ background: 'rgba(0,0,0,0.5)' }}>
+            <div className="bg-card rounded-[20px] p-6 mx-8 max-w-sm w-full">
+              <h3 className="text-[17px] font-bold text-tx">Discard this session?</h3>
+              <p className="text-[14px] text-tx-2 mt-2">Logged sets will be deleted.</p>
+              <div className="flex gap-3 mt-5">
+                <button
+                  onClick={() => setShowCancelConfirm(false)}
+                  className="flex-1 h-[48px] rounded-[13px] border border-hair text-[15px] font-bold text-tx-2 press-scale"
+                >
+                  Keep going
+                </button>
+                <button
+                  onClick={handleCancelWorkout}
+                  className="flex-1 h-[48px] rounded-[13px] text-[15px] font-bold press-scale"
+                  style={{ background: 'var(--danger)', color: 'white' }}
+                >
+                  Discard
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Cardio add sheet */}
+        {showCardioAdd && <CardioAddSheet onAdd={handleAddCardio} onClose={() => setShowCardioAdd(false)} />}
+
         {/* Sheets */}
         {detailExercise && <ExerciseDetailSheet exerciseId={detailExercise.id || detailExercise} exerciseName={detailExercise.name} onClose={() => setDetailExercise(null)} />}
         {swapExercise && <SwapSheet exercise={swapExercise} onClose={() => setSwapExercise(null)} />}
@@ -492,6 +595,15 @@ export default function Training() {
   const weekStrip = data.week_strip || [];
   const gymCount = data.week_gym_sessions || 0;
   const swimCount = data.week_swim_sessions || 0;
+  const activeSession = data.active_session;
+  const catchUpData = data.catch_up;
+  const volumeNotes = data.volume_notes || {};
+
+  // Determine hero card state
+  let heroState = 'next_up'; // next_up | in_progress | left_open
+  if (activeSession) {
+    heroState = activeSession.stale ? 'left_open' : 'in_progress';
+  }
 
   return (
     <div className="flex flex-col h-full">
@@ -505,33 +617,94 @@ export default function Training() {
 
       <div className="flex-1 overflow-y-auto px-4 pt-3 pb-4" style={{ WebkitOverflowScrolling: 'touch' }}>
         <div className="flex flex-col gap-3">
-          {/* Next Up hero card */}
-          <div className="bg-card rounded-[20px] border border-hair p-[18px]">
-            <div className="flex items-center justify-between">
-              <span className="text-[12.5px] font-bold text-points">Next up</span>
-              <span className="text-[12.5px] font-semibold text-tx-3">Session {gymCount + 1} of {data.target_gym_this_week || frequency} this week</span>
+          {/* Hero card — three states */}
+          {heroState === 'next_up' && (
+            <div className="rounded-[20px] border border-hair p-[18px]" style={{ background: 'var(--accent-surface)' }}>
+              <div className="flex items-center justify-between">
+                <span className="text-[12.5px] font-bold text-points">Next up</span>
+                <span className="text-[12.5px] font-semibold text-tx-3">Session {gymCount + 1} of {data.target_gym_this_week || frequency} this week</span>
+              </div>
+              <div className="text-[22px] font-bold mt-2" style={{ fontFamily: "'Space Grotesk', system-ui, sans-serif", letterSpacing: '-0.01em' }}>
+                {next_workout.label}
+              </div>
+              <div className="text-[14px] font-medium text-tx-2 mt-0.5">
+                {next_workout.subtitle}
+              </div>
+              <div className="flex flex-wrap gap-1.5 mt-3.5">
+                {next_workout.exercises.map((ex, i) => (
+                  <span
+                    key={i}
+                    className="text-[12.5px] font-semibold text-tx-2 rounded-full px-2.5 py-1"
+                    style={{
+                      background: ex.is_catchup
+                        ? 'color-mix(in oklab, var(--points) 20%, transparent)'
+                        : 'var(--card-2)',
+                      color: ex.is_catchup ? 'var(--points)' : undefined,
+                    }}
+                  >
+                    {ex.name}{ex.is_catchup ? ' ↺' : ''}
+                  </span>
+                ))}
+              </div>
+              <button
+                onClick={handleStartWorkout}
+                className="w-full mt-4 h-[54px] rounded-[14px] text-[16.5px] font-bold press-scale"
+                style={{ background: 'var(--points)', color: 'var(--accent-surface)' }}
+              >
+                Start workout
+              </button>
             </div>
-            <div className="text-[22px] font-bold mt-2" style={{ fontFamily: "'Space Grotesk', system-ui, sans-serif", letterSpacing: '-0.01em' }}>
-              {next_workout.label}
-            </div>
-            <div className="text-[14px] font-medium text-tx-2 mt-0.5">
-              {next_workout.subtitle} · {next_workout.exercises.length} exercises · ~{next_workout.exercises.length * 7} min
-            </div>
-            <div className="flex flex-wrap gap-1.5 mt-3.5">
-              {next_workout.exercises.map((ex, i) => (
-                <span key={i} className="text-[12.5px] font-semibold text-tx-2 bg-card-2 rounded-full px-2.5 py-1">
-                  {ex.name}
+          )}
+
+          {heroState === 'in_progress' && (
+            <div className="rounded-[20px] border border-hair p-[18px]" style={{ background: 'var(--accent-surface)' }}>
+              <div className="flex items-center justify-between">
+                <span className="text-[12.5px] font-bold text-points">In progress</span>
+                <span className="text-[12.5px] font-semibold font-num text-tx-3">
+                  {Math.floor(activeSession.elapsed_hours * 60)} min · {activeSession.sets_completed} sets
                 </span>
-              ))}
+              </div>
+              <div className="text-[22px] font-bold mt-2" style={{ fontFamily: "'Space Grotesk', system-ui, sans-serif", letterSpacing: '-0.01em' }}>
+                {formatWorkoutType(activeSession.workout_type)}
+              </div>
+              <button
+                onClick={handleResumeWorkout}
+                className="w-full mt-4 h-[54px] rounded-[14px] text-[16.5px] font-bold press-scale"
+                style={{ background: 'var(--points)', color: 'var(--accent-surface)' }}
+              >
+                Resume
+              </button>
             </div>
-            <button
-              onClick={handleStartWorkout}
-              className="w-full mt-4 h-[54px] rounded-[14px] text-[16.5px] font-bold press-scale"
-              style={{ background: 'var(--points)', color: 'oklch(0.15 0.02 165)' }}
-            >
-              Start workout
-            </button>
-          </div>
+          )}
+
+          {heroState === 'left_open' && (
+            <div className="rounded-[20px] border border-hair p-[18px]" style={{ background: 'var(--accent-surface)' }}>
+              <div className="flex items-center justify-between">
+                <span className="text-[12.5px] font-bold text-cal">Left open</span>
+              </div>
+              <div className="text-[22px] font-bold mt-2" style={{ fontFamily: "'Space Grotesk', system-ui, sans-serif", letterSpacing: '-0.01em' }}>
+                {formatWorkoutType(activeSession.workout_type)}
+              </div>
+              <p className="text-[13px] text-tx-3 mt-1">
+                Started {new Date(activeSession.started_at + 'Z').toLocaleString('en-US', { weekday: 'short', hour: 'numeric', minute: '2-digit' })} · {activeSession.sets_completed} sets logged
+              </p>
+              <div className="flex gap-3 mt-4">
+                <button
+                  onClick={handleFinishStale}
+                  className="flex-1 h-[48px] rounded-[14px] text-[15px] font-bold press-scale"
+                  style={{ background: 'var(--points)', color: 'var(--accent-surface)' }}
+                >
+                  Finish with what you logged
+                </button>
+                <button
+                  onClick={handleDiscardStale}
+                  className="h-[48px] px-5 rounded-[14px] border border-hair text-[15px] font-bold text-tx-3 press-scale"
+                >
+                  Discard
+                </button>
+              </div>
+            </div>
+          )}
 
           {/* Log other activity */}
           <button
@@ -596,9 +769,9 @@ export default function Training() {
           </div>
 
           {/* Weekly volume + conditioning */}
-          <WeeklyVolumeCard volume={volume} />
+          <WeeklyVolumeCard volume={volume} volumeNotes={volumeNotes} />
 
-          {/* Frequency selector (collapsed) */}
+          {/* Frequency selector */}
           <div className="bg-card rounded-[20px] border border-hair p-[18px]">
             <p className="text-[12.5px] font-bold text-tx-3 mb-2">Gym frequency</p>
             <div className="flex gap-2">
@@ -621,8 +794,6 @@ export default function Training() {
         </div>
       </div>
 
-      {/* Bottom nav placeholder (handled by BottomNav component) */}
-
       {/* Sheets */}
       {detailExercise && <ExerciseDetailSheet exerciseId={detailExercise.id || detailExercise} exerciseName={detailExercise.name} onClose={() => setDetailExercise(null)} />}
       {activitySheetOpen && <LogActivitySheet onClose={() => { setActivitySheetOpen(false); load(); }} />}
@@ -630,8 +801,178 @@ export default function Training() {
   );
 }
 
+// ─── Exercise Card (reusable for template + catch-up) ───────
+function ExerciseCard({ ex, sets, last, onSetChange, onCompleteSet, onAddSet, onDeleteSet, onDetail, onProg, onSwap }) {
+  const exId = ex.exercise_id;
+  const allDone = sets.length > 0 && sets.every(s => s.done);
+  const lastTxt = last.length > 0
+    ? last.map(l => `${l.weight_kg}×${l.reps}`).join(', ')
+    : '—';
+
+  return (
+    <div className="bg-card rounded-[20px] border border-hair p-4" style={allDone ? { borderColor: 'color-mix(in oklab, var(--points) 30%, var(--hair))' } : undefined}>
+      {/* Exercise header */}
+      <div className="flex items-start gap-2.5">
+        <div className="flex-1 min-w-0 cursor-pointer" onClick={() => exId && onDetail({ id: exId, name: ex.name })}>
+          <div className="flex items-center gap-2">
+            <span className="text-[16.5px] font-bold text-tx truncate">{ex.name}</span>
+            <span className="text-tx-3 text-[13px] flex-shrink-0">›</span>
+          </div>
+          <div className="text-[13px] font-semibold text-tx-3 mt-0.5">
+            {ex.sets}×{ex.reps} · last: {lastTxt}
+          </div>
+        </div>
+        <button onClick={() => exId && onProg(exId)} title="Progression" className="w-[38px] h-[38px] rounded-[11px] border border-hair bg-card-2 text-tx-2 text-[14px] press-scale flex-shrink-0 flex items-center justify-center">
+          ▁▄▆
+        </button>
+        <button onClick={() => onSwap(ex)} title="Swap" className="w-[38px] h-[38px] rounded-[11px] border border-hair bg-card-2 text-tx-2 text-[15px] press-scale flex-shrink-0 flex items-center justify-center">
+          ⇄
+        </button>
+      </div>
+
+      {/* Set header row */}
+      <div className="grid gap-2 items-center mt-3.5 px-0.5" style={{ gridTemplateColumns: '22px 54px 1fr 1fr 42px 24px' }}>
+        <span className="text-[11px] font-bold text-tx-3">set</span>
+        <span className="text-[11px] font-bold text-tx-3">prev</span>
+        <span className="text-[11px] font-bold text-tx-3 text-center">kg</span>
+        <span className="text-[11px] font-bold text-tx-3 text-center">reps</span>
+        <span className="text-[11px] font-bold text-tx-3 text-center">✓</span>
+        <span />
+      </div>
+
+      {/* Set rows */}
+      <div className="flex flex-col gap-2 mt-1.5">
+        {sets.map((set) => {
+          const prev = last.find(l => l.set_number === set.set_number);
+          const prevTxt = prev ? `${prev.weight_kg}×${prev.reps}` : '—';
+          return (
+            <div key={`${exId}-${set.set_number}`} className="grid gap-2 items-center" style={{ gridTemplateColumns: '22px 54px 1fr 1fr 42px 24px' }}>
+              <span className="text-[14px] font-semibold font-num text-tx-3">{set.set_number}</span>
+              <span className="text-[13px] font-medium font-num text-tx-3 truncate">{prevTxt}</span>
+              <input
+                type="number"
+                inputMode="decimal"
+                step="0.5"
+                value={set.weight_kg}
+                onChange={e => onSetChange(exId, set.set_number, 'weight_kg', e.target.value)}
+                placeholder={prev?.weight_kg != null ? String(prev.weight_kg) : '—'}
+                className="h-[52px] w-full rounded-[13px] border border-hair text-[18px] font-semibold text-center text-tx font-num min-w-0"
+                style={{ background: set.done ? 'color-mix(in oklab, var(--points) 8%, var(--card-2))' : 'var(--card-2)' }}
+              />
+              <input
+                type="number"
+                inputMode="numeric"
+                step="1"
+                value={set.reps}
+                onChange={e => onSetChange(exId, set.set_number, 'reps', e.target.value)}
+                placeholder={prev?.reps != null ? String(prev.reps) : '—'}
+                className="h-[52px] w-full rounded-[13px] border border-hair text-[18px] font-semibold text-center text-tx font-num min-w-0"
+                style={{ background: set.done ? 'color-mix(in oklab, var(--points) 8%, var(--card-2))' : 'var(--card-2)' }}
+              />
+              <button
+                onClick={() => onCompleteSet(exId, set.set_number, ex.name)}
+                className="h-[52px] rounded-[13px] text-[18px] press-scale flex items-center justify-center"
+                style={{
+                  background: set.done ? 'var(--points)' : 'transparent',
+                  border: set.done ? '1px solid var(--points)' : '1px solid var(--hair)',
+                  color: set.done ? 'var(--accent-surface)' : 'var(--text-3)',
+                }}
+              >
+                ✓
+              </button>
+              <button
+                onClick={() => onDeleteSet(exId, set.set_number)}
+                className="h-[52px] text-[17px] text-tx-3 press-scale flex items-center justify-center"
+                style={{ opacity: sets.length <= 1 ? 0.3 : 1 }}
+                disabled={sets.length <= 1}
+              >
+                ✕
+              </button>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Add set */}
+      <button
+        onClick={() => onAddSet(exId)}
+        className="mt-2.5 h-[44px] w-full rounded-[12px] border border-dashed border-hair text-[14px] font-bold text-tx-2 press-scale"
+      >
+        + add set
+      </button>
+    </div>
+  );
+}
+
+// ─── Cardio Add Sheet ───────────────────────────────────────
+function CardioAddSheet({ onAdd, onClose }) {
+  const [type, setType] = useState('');
+  const [duration, setDuration] = useState('');
+
+  return (
+    <Sheet open={true} onClose={onClose} title="Add cardio">
+      <div className="px-5 pb-6 space-y-4">
+        <div>
+          <p className="text-[12.5px] font-bold text-tx-3 mb-2">Machine</p>
+          <div className="flex flex-wrap gap-2">
+            {GYM_CARDIO_TYPES.map(ct => (
+              <button
+                key={ct.id}
+                onClick={() => setType(ct.id)}
+                className="px-4 py-2.5 rounded-[13px] text-[14px] font-semibold press-scale"
+                style={{
+                  background: type === ct.id ? 'color-mix(in oklab, var(--points) 14%, transparent)' : 'transparent',
+                  border: type === ct.id ? '2px solid var(--points)' : '1px solid var(--hair)',
+                  color: 'var(--text)',
+                }}
+              >
+                {ct.label}
+              </button>
+            ))}
+          </div>
+        </div>
+        <div>
+          <p className="text-[12.5px] font-bold text-tx-3 mb-2">Duration</p>
+          <div className="flex gap-2">
+            {[10, 15, 20, 30].map(d => (
+              <button
+                key={d}
+                onClick={() => setDuration(String(d))}
+                className="flex-1 h-[48px] rounded-[12px] text-[15px] font-semibold font-num press-scale"
+                style={{
+                  background: duration === String(d) ? 'color-mix(in oklab, var(--points) 14%, transparent)' : 'transparent',
+                  border: duration === String(d) ? '2px solid var(--points)' : '1px solid var(--hair)',
+                  color: 'var(--text)',
+                }}
+              >
+                {d}
+              </button>
+            ))}
+          </div>
+          <input
+            type="number"
+            inputMode="numeric"
+            value={!['10','15','20','30'].includes(duration) ? duration : ''}
+            onChange={e => setDuration(e.target.value)}
+            placeholder="Custom minutes"
+            className="mt-2 w-full px-3 py-2.5 rounded-[13px] border border-hair text-[14px] text-tx bg-card-2"
+          />
+        </div>
+        <button
+          onClick={() => type && duration && onAdd(type, parseInt(duration))}
+          disabled={!type || !duration}
+          className="w-full h-[54px] rounded-[14px] text-[16px] font-bold press-scale disabled:opacity-40"
+          style={{ background: 'var(--points)', color: 'var(--accent-surface)' }}
+        >
+          Add
+        </button>
+      </div>
+    </Sheet>
+  );
+}
+
 // ─── Weekly Volume Card ──────────────────────────────────────
-function WeeklyVolumeCard({ volume }) {
+function WeeklyVolumeCard({ volume, volumeNotes }) {
   if (!volume) return null;
 
   const muscleOrder = ['Chest', 'Back', 'Shoulders', 'Quads', 'Hamstrings', 'Glutes', 'Biceps', 'Triceps', 'Abs', 'Calves'];
@@ -643,7 +984,13 @@ function WeeklyVolumeCard({ volume }) {
     lower_back: 'Back', obliques: 'Abs',
   };
 
-  // Aggregate by display name
+  // Reverse map for notes
+  const muscleKeyMap = {};
+  for (const [key, display] of Object.entries(muscleMap)) {
+    if (!muscleKeyMap[display]) muscleKeyMap[display] = [];
+    muscleKeyMap[display].push(key);
+  }
+
   const grouped = {};
   for (const [muscle, sets] of Object.entries(volume.sets_per_muscle || {})) {
     const display = muscleMap[muscle] || muscle;
@@ -651,12 +998,18 @@ function WeeklyVolumeCard({ volume }) {
   }
 
   const maxSets = Math.max(1, ...Object.values(grouped));
-  const volumeRows = muscleOrder.filter(m => grouped[m]).map(m => ({
-    name: m,
-    sets: grouped[m],
-    pct: `${Math.round((grouped[m] / maxSets) * 100)}%`,
-    sessions: Math.ceil(grouped[m] / 6), // rough "times hit" estimate
-  }));
+  const volumeRows = muscleOrder.filter(m => grouped[m]).map(m => {
+    // Check if any sub-muscle has a note
+    const keys = muscleKeyMap[m] || [];
+    const note = keys.map(k => volumeNotes?.[k]).filter(Boolean)[0] || null;
+    return {
+      name: m,
+      sets: grouped[m],
+      pct: `${Math.round((grouped[m] / maxSets) * 100)}%`,
+      sessions: Math.ceil(grouped[m] / 6),
+      note,
+    };
+  });
 
   const conditioning = volume.conditioning || [];
 
@@ -669,17 +1022,22 @@ function WeeklyVolumeCard({ volume }) {
       {volumeRows.length > 0 ? (
         <div className="flex flex-col gap-2.5 mt-3.5">
           {volumeRows.map(v => (
-            <div key={v.name} className="grid items-center gap-2.5" style={{ gridTemplateColumns: '80px 1fr 30px 36px' }}>
-              <span className="text-[13.5px] font-semibold text-tx-2">{v.name}</span>
-              <div className="h-2 rounded-full overflow-hidden bg-card-2">
-                <div className="h-full rounded-full bg-points progress-fill" style={{ width: v.pct }} />
+            <div key={v.name}>
+              <div className="grid items-center gap-2.5" style={{ gridTemplateColumns: '80px 1fr 30px 36px' }}>
+                <span className="text-[13.5px] font-semibold text-tx-2">{v.name}</span>
+                <div className="h-2 rounded-full overflow-hidden bg-card-2">
+                  <div className="h-full rounded-full bg-points progress-fill" style={{ width: v.pct }} />
+                </div>
+                <span className="text-[13.5px] font-semibold font-num text-right">{v.sets}</span>
+                <div className="flex gap-1 justify-end">
+                  {Array.from({ length: Math.min(v.sessions, 3) }, (_, i) => (
+                    <span key={i} className="w-[9px] h-[9px] rounded-full bg-points" />
+                  ))}
+                </div>
               </div>
-              <span className="text-[13.5px] font-semibold font-num text-right">{v.sets}</span>
-              <div className="flex gap-1 justify-end">
-                {Array.from({ length: Math.min(v.sessions, 3) }, (_, i) => (
-                  <span key={i} className="w-[9px] h-[9px] rounded-full bg-points" />
-                ))}
-              </div>
+              {v.note && (
+                <div className="text-[11px] text-tx-3 ml-[84px] mt-0.5">{v.note}</div>
+              )}
             </div>
           ))}
         </div>
@@ -698,7 +1056,7 @@ function WeeklyVolumeCard({ volume }) {
             {conditioning.map((a, i) => (
               <div key={i} className="grid items-center gap-2.5" style={{ gridTemplateColumns: '20px 1fr 44px 58px' }}>
                 <span className="w-[10px] h-[10px] rounded-full" style={{ background: a.type.toLowerCase() === 'swimming' ? 'var(--drinks)' : 'var(--cal)' }} />
-                <span className="text-[13.5px] font-semibold text-tx-2 capitalize">{a.type}</span>
+                <span className="text-[13.5px] font-semibold text-tx-2 capitalize">{a.type}{a.in_session ? ' (gym)' : ''}</span>
                 <span className="text-[12.5px] font-semibold text-tx-3">{formatDate(a.date)}</span>
                 <span className="text-[13.5px] font-semibold font-num text-right">{a.duration_min} min</span>
               </div>
@@ -719,10 +1077,9 @@ function CompleteScreen({ data: cd, allData, onBack }) {
   return (
     <div className="flex flex-col h-full px-5">
       <div className="flex-1 flex flex-col justify-center items-center text-center">
-        {/* Checkmark */}
         <div
           className="w-[76px] h-[76px] rounded-full flex items-center justify-center text-[34px]"
-          style={{ background: 'var(--points)', color: 'oklch(0.15 0.02 165)', animation: 'popin .3s ease-out' }}
+          style={{ background: 'var(--points)', color: 'var(--accent-surface)', animation: 'popin .3s ease-out' }}
         >
           ✓
         </div>
@@ -753,6 +1110,16 @@ function CompleteScreen({ data: cd, allData, onBack }) {
           ))}
         </div>
 
+        {/* Cardio summary */}
+        {cd.cardio?.length > 0 && (
+          <div className="w-full mt-3 bg-card rounded-[16px] border border-hair p-3.5 text-left">
+            <div className="text-[12px] font-bold text-tx-3 mb-1">Cardio</div>
+            {cd.cardio.map((c, i) => (
+              <div key={i} className="text-[13px] text-tx-2">{c.type} · {c.duration_min} min</div>
+            ))}
+          </div>
+        )}
+
         {/* Up next card */}
         <div className="w-full mt-3.5 bg-card rounded-[18px] border border-hair p-4 text-left flex items-center gap-3">
           <div className="flex-1">
@@ -778,7 +1145,6 @@ function ExerciseDetailSheet({ exerciseId, exerciseName, onClose }) {
   const [ex, setEx] = useState(null);
 
   useEffect(() => {
-    // Try API first, fall back to bundled offline data
     api.getExercise(exerciseId).then(setEx).catch(() => {
       if (exerciseName) {
         const lib = getExerciseLib();
@@ -932,7 +1298,6 @@ function SwapSheet({ exercise, onClose }) {
 
   useEffect(() => {
     if (!exercise.exercise_id) return;
-    // Try API, fall back to bundled data
     api.getExercise(exercise.exercise_id)
       .then(ex => setSubs(ex.substitutes || []))
       .catch(() => {
@@ -1051,7 +1416,7 @@ function LogActivitySheet({ onClose }) {
           onClick={handleLog}
           disabled={!type || !duration || saving}
           className="w-full h-[54px] rounded-[14px] text-[16px] font-bold press-scale disabled:opacity-40"
-          style={{ background: 'var(--points)', color: 'oklch(0.15 0.02 165)' }}
+          style={{ background: 'var(--points)', color: 'var(--accent-surface)' }}
         >
           {saving ? 'Saving...' : 'Log it'}
         </button>

@@ -106,4 +106,16 @@ export const api = {
   getExerciseHistory: (id) => req('GET', `/training/exercises/${id}/history`),
   getVolumeSummary: () => req('GET', '/training/volume'),
   checkDuplicate: (type, date) => req('GET', `/training/check-duplicate?${new URLSearchParams({ type, ...(date && { date }) })}`),
+
+  // Session cardio
+  addSessionCardio: (sessionId, data) => req('POST', `/training/sessions/${sessionId}/cardio`, data),
+  removeSessionCardio: (sessionId, cardioId) => req('DELETE', `/training/sessions/${sessionId}/cardio/${cardioId}`),
+  getSessionCardio: (sessionId) => req('GET', `/training/sessions/${sessionId}/cardio`),
+
+  // Cancel session
+  cancelSession: (sessionId) => req('DELETE', `/training/sessions/${sessionId}`),
+
+  // Rest days
+  getRestDay: (date) => req('GET', `/rest-days?${new URLSearchParams({ ...(date && { date }) })}`),
+  toggleRestDay: (date) => req('POST', '/rest-days/toggle', { date }),
 };

@@ -50,7 +50,13 @@ router.get('/', (req, res) => {
 
   // Get goal targets
   const goal = db.prepare('SELECT * FROM goal WHERE id = 1').get();
-  const calTarget = goal?.current_calorie_target || 2240;
+
+  // Rest-day adjusted targets
+  const isRestDay = !!db.prepare('SELECT id FROM rest_days WHERE date = ?').get(date);
+  const reduction = goal?.rest_day_reduction || 150;
+  const calTarget = isRestDay
+    ? (goal?.current_calorie_target || 2240) - reduction
+    : (goal?.current_calorie_target || 2240);
   const proTarget = goal?.current_protein_target_g || 180;
   const fiberTarget = goal?.current_fiber_target_g || 32;
 
@@ -108,7 +114,7 @@ router.get('/', (req, res) => {
     if (swapCard) cards.push(swapCard);
 
     // --- Type B: Nutrient gap closers ---
-    const gapCard = generateGapSuggestion(db, totals, calTarget, proTarget, fiberTarget, remainingCal);
+    const gapCard = generateGapSuggestion(db, totals, calTarget, proTarget, fiberTarget, remainingCal, isRestDay);
     if (gapCard) cards.push(gapCard);
 
     // --- Type C: Calorie headroom ---
@@ -237,7 +243,7 @@ function generateSwapSuggestion(db, logs, date) {
   return null;
 }
 
-function generateGapSuggestion(db, totals, calTarget, proTarget, fiberTarget, remainingCal) {
+function generateGapSuggestion(db, totals, calTarget, proTarget, fiberTarget, remainingCal, isRestDay = false) {
   if (remainingCal < 150) return null;
 
   const proteinPct = totals.protein_g / proTarget;
@@ -277,7 +283,11 @@ function generateGapSuggestion(db, totals, calTarget, proTarget, fiberTarget, re
       : (food.fiber_g || 0) / food.calories;
     const favBonus = food.is_favorite ? 0.3 : 0;
     const freqBonus = frequentIds.includes(food.id) ? 0.2 : 0;
-    return { food, score: nutrientPerCal + favBonus + freqBonus };
+    // On rest days, boost protein-dense, lower-carb options
+    const restDayBonus = isRestDay
+      ? (food.protein_g / Math.max(1, food.carbs_g)) * 0.15
+      : 0;
+    return { food, score: nutrientPerCal + favBonus + freqBonus + restDayBonus };
   });
 
   scored.sort((a, b) => b.score - a.score);

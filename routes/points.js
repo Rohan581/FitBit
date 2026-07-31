@@ -3,6 +3,26 @@ const router = express.Router();
 const { getDB } = require('../db/database');
 const { todayIST, getMondayIST, getDaysOfWeek } = require('../dateUtils');
 
+function getRestDayTargets(db, date, goal) {
+  const isRestDay = !!db.prepare('SELECT id FROM rest_days WHERE date = ?').get(date);
+  if (!isRestDay) return null;
+
+  const reduction = goal?.rest_day_reduction || 150;
+  const calTarget = (goal?.current_calorie_target || 2240) - reduction;
+  // Reduction comes from carbs: carb_g reduction = reduction / 4 (4 kcal per g carbs)
+  const carbReduction = Math.round(reduction / 4);
+  const carbTarget = Math.max(50, (goal?.current_carb_target_g || 240) - carbReduction);
+
+  return {
+    is_rest_day: true,
+    calorie_target: Math.round(calTarget),
+    protein_target: goal?.current_protein_target_g || 180, // unchanged
+    carb_target: carbTarget,
+    fat_target: goal?.current_fat_target_g || 60, // unchanged
+    reduction,
+  };
+}
+
 function calculateDailyPoints(db, date) {
   const goal = db.prepare('SELECT * FROM goal WHERE id = 1').get();
   const foodLogs = db.prepare('SELECT * FROM food_logs WHERE date = ?').all(date);
@@ -11,13 +31,16 @@ function calculateDailyPoints(db, date) {
   const weightLog = db.prepare('SELECT * FROM weight_logs WHERE date = ? ORDER BY logged_at DESC LIMIT 1').get(date);
   const waterLog = db.prepare('SELECT * FROM water_logs WHERE date = ?').get(date);
 
+  // Rest-day adjusted targets
+  const restDayTargets = getRestDayTargets(db, date, goal);
+
   const breakdown = [];
   let total = 0;
 
   // ── Calorie adherence ───────────────────────────────────────────
   if (foodLogs.length > 0) {
     const totalCal = foodLogs.reduce((s, f) => s + f.calories, 0);
-    const target = goal?.current_calorie_target || 2240;
+    const target = restDayTargets?.calorie_target || goal?.current_calorie_target || 2240;
     const diff = totalCal - target;
     const absDiff = Math.abs(diff);
 
@@ -152,3 +175,4 @@ router.get('/weekly', (req, res) => {
 
 module.exports = router;
 module.exports.calculateDailyPoints = calculateDailyPoints;
+module.exports.getRestDayTargets = getRestDayTargets;

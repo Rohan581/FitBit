@@ -4,6 +4,7 @@ import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   ReferenceLine, BarChart, Bar,
 } from 'recharts';
+import MeasurementSheet from '../components/MeasurementSheet';
 
 export default function Trends() {
   const [tab, setTab] = useState('weight');
@@ -13,6 +14,13 @@ export default function Trends() {
   const [planningData, setPlanningData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [weightRange, setWeightRange] = useState(60);
+  const [measurementDismissed, setMeasurementDismissed] = useState(false);
+  const [showMeasurementSheet, setShowMeasurementSheet] = useState(false);
+  const [goal, setGoal] = useState(null);
+
+  useEffect(() => {
+    api.getGoal().then(setGoal).catch(() => {});
+  }, []);
 
   useEffect(() => {
     async function load() {
@@ -37,6 +45,21 @@ export default function Trends() {
     }
     load();
   }, [tab, weightRange]);
+
+  // Check if measurement reminder should show
+  const measurements = weightData?.measurements || [];
+  const lastMeasurement = measurements.length > 0 ? measurements[measurements.length - 1] : null;
+  const daysSinceLastMeasurement = lastMeasurement
+    ? Math.floor((Date.now() - new Date(lastMeasurement.date + 'T12:00:00Z').getTime()) / 86400000)
+    : 999;
+  const showMeasurementReminder = tab === 'weight' && daysSinceLastMeasurement >= 7 && !measurementDismissed;
+
+  function handleMeasurementLogged() {
+    setShowMeasurementSheet(false);
+    setMeasurementDismissed(true);
+    // Reload weight data to refresh measurements
+    api.getWeightTrend(weightRange).then(setWeightData).catch(() => {});
+  }
 
   return (
     <div className="px-4 pb-4 tab-fade-enter">
@@ -66,6 +89,30 @@ export default function Trends() {
         </div>
       </div>
 
+      {/* Measurement reminder banner */}
+      {showMeasurementReminder && (
+        <div className="mb-3 rounded-[14px] p-3.5 px-4 flex items-center gap-3" style={{ background: 'var(--accent-surface)', border: '1px solid color-mix(in oklab, var(--fiber) 25%, transparent)' }}>
+          <div className="flex-1">
+            <p className="text-[13px] font-semibold text-tx-2">This week's waist measurement is open — 30 seconds, whenever suits.</p>
+          </div>
+          <button
+            onClick={() => setShowMeasurementSheet(true)}
+            className="px-3 py-1.5 rounded-[10px] text-[12px] font-bold text-points press-scale flex-shrink-0"
+            style={{ background: 'color-mix(in oklab, var(--points) 15%, transparent)' }}
+          >
+            Log it
+          </button>
+          <button
+            onClick={() => setMeasurementDismissed(true)}
+            className="text-tx-3 flex-shrink-0"
+          >
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+      )}
+
       {loading ? (
         <div className="flex justify-center items-center h-40">
           <div className="w-7 h-7 border-2 border-hair border-t-points rounded-full animate-spin" />
@@ -73,6 +120,7 @@ export default function Trends() {
       ) : (
         <div className="tab-fade-enter">
           {tab === 'weight' && weightData && <WeightChart data={weightData} range={weightRange} onRangeChange={setWeightRange} />}
+          {tab === 'weight' && weightData && <MeasurementsCard measurements={weightData.measurements || []} />}
           {tab === 'macros' && macroData && <MacrosChart data={macroData} />}
           {tab === 'points' && pointsData && <PointsChart data={pointsData} />}
           {tab === 'planning' && planningData && <PlanningSection data={planningData} />}
@@ -86,33 +134,40 @@ export default function Trends() {
           )}
         </div>
       )}
+
+      {/* Measurement sheet */}
+      <MeasurementSheet
+        open={showMeasurementSheet}
+        onClose={() => setShowMeasurementSheet(false)}
+        onLogged={handleMeasurementLogged}
+        enableChest={!!goal?.enable_chest_measurement}
+        enableHips={!!goal?.enable_hips_measurement}
+      />
     </div>
   );
 }
 
 function WeightChart({ data, range, onRangeChange }) {
-  const { weights, milestones, goal, measurements } = data;
+  const { weights, milestones, goal } = data;
 
-  // Build a map of date -> waist_cm for merging
-  const waistMap = {};
-  (measurements || []).forEach(m => { waistMap[m.date] = m.waist_cm; });
-
+  // Weight-only chart — no waist overlay
   const chartData = weights.map(w => ({
     date: w.date,
     label: formatDate(w.date),
     actual: w.weight_kg,
     avg: w.rolling_avg,
-    waist: waistMap[w.date] || null,
   }));
 
   const yMin = weights.length > 0 ? Math.min(...weights.map(w => w.weight_kg)) - 1 : 75;
   const yMax = weights.length > 0 ? Math.max(...weights.map(w => w.weight_kg)) + 1 : 95;
 
-  const hasWaistData = (measurements || []).length > 0;
-
   const latestAvg = weights.length > 0 ? weights[weights.length - 1].rolling_avg : null;
   const goalWeight = goal?.goal_weight_kg;
   const startWeight = goal?.start_weight_kg;
+
+  // Period change
+  const firstAvg = weights.length > 0 ? weights[0].rolling_avg || weights[0].weight_kg : null;
+  const periodChange = latestAvg && firstAvg ? Math.round((latestAvg - firstAvg) * 10) / 10 : null;
 
   const tooltipStyle = {
     background: 'var(--card)',
@@ -131,12 +186,12 @@ function WeightChart({ data, range, onRangeChange }) {
               <div className="text-lg font-num font-semibold text-tx">{latestAvg} kg</div>
               <div className="text-[11px] text-tx-3">7-day avg</div>
             </div>
-            {startWeight && (
+            {periodChange != null && (
               <div>
                 <div className="text-lg font-num font-semibold text-cal">
-                  {latestAvg < startWeight ? '-' : '+'}{Math.abs(Math.round((latestAvg - startWeight) * 10) / 10)} kg
+                  {periodChange > 0 ? '+' : ''}{periodChange} kg
                 </div>
-                <div className="text-[11px] text-tx-3">from start</div>
+                <div className="text-[11px] text-tx-3">over {range} days</div>
               </div>
             )}
             {goalWeight && (
@@ -153,61 +208,6 @@ function WeightChart({ data, range, onRangeChange }) {
               Goal: {goalWeight} kg by {new Date(goal.target_date + 'T12:00:00Z').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
             </div>
           )}
-        </div>
-      )}
-
-      {hasWaistData && (
-        <div className="bg-card rounded-card p-4 stagger-enter">
-          <div className="grid grid-cols-2 gap-4 text-center">
-            <div>
-              <div className="text-lg font-num font-semibold" style={{ color: 'var(--fiber)' }}>
-                {measurements[measurements.length - 1].waist_cm} cm
-              </div>
-              <div className="text-[11px] text-tx-3">latest waist</div>
-            </div>
-            {measurements.length >= 2 && (
-              <div>
-                <div className="text-lg font-num font-semibold" style={{ color: 'var(--fiber)' }}>
-                  {(() => {
-                    const diff = Math.round((measurements[measurements.length - 1].waist_cm - measurements[0].waist_cm) * 10) / 10;
-                    return `${diff > 0 ? '+' : ''}${diff} cm`;
-                  })()}
-                </div>
-                <div className="text-[11px] text-tx-3">waist change</div>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* Dedicated waist trend chart */}
-      {hasWaistData && measurements.length >= 2 && (
-        <div className="bg-card rounded-card p-4 stagger-enter">
-          <p className="text-xs text-tx-3 mb-3">Waist trend</p>
-          <ResponsiveContainer width="100%" height={160}>
-            <LineChart data={measurements.map(m => ({ date: formatDate(m.date), waist: m.waist_cm }))} margin={{ top: 5, right: 5, left: -20, bottom: 5 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="var(--hair)" />
-              <XAxis dataKey="date" tick={{ fontSize: 10, fill: 'var(--text-3)' }} tickLine={false} />
-              <YAxis tick={{ fontSize: 10, fill: 'var(--fiber)' }} tickLine={false} domain={['auto', 'auto']} />
-              <Tooltip contentStyle={tooltipStyle} formatter={(val) => [`${val} cm`, 'Waist']} />
-              <Line type="monotone" dataKey="waist" stroke="var(--fiber)" strokeWidth={2.5} dot={{ r: 3, fill: 'var(--fiber)' }} connectNulls />
-            </LineChart>
-          </ResponsiveContainer>
-          <p className="text-[10px] text-tx-3 text-center mt-1">Raw measurements — log weekly for best tracking</p>
-        </div>
-      )}
-
-      {milestones?.some(m => m.achieved_date) && (
-        <div className="bg-card rounded-card p-4 stagger-enter">
-          <p className="text-xs text-tx-3 mb-2">Milestones</p>
-          <div className="space-y-1.5">
-            {milestones.map(m => (
-              <div key={m.id} className={`flex items-center justify-between text-sm ${m.achieved_date ? 'text-tx' : 'text-tx-3'}`}>
-                <span>{m.achieved_date ? '✓' : '○'} <span className="font-num">{m.weight_kg_threshold} kg</span></span>
-                {m.achieved_date && <span className="text-xs text-tx-3">{formatDate(m.achieved_date)}</span>}
-              </div>
-            ))}
-          </div>
         </div>
       )}
 
@@ -228,16 +228,12 @@ function WeightChart({ data, range, onRangeChange }) {
       {chartData.length > 0 ? (
         <div className="bg-card rounded-card p-4 stagger-enter">
           <ResponsiveContainer width="100%" height={220}>
-            <LineChart data={chartData} margin={{ top: 5, right: hasWaistData ? 10 : 5, left: -20, bottom: 5 }}>
+            <LineChart data={chartData} margin={{ top: 5, right: 5, left: -20, bottom: 5 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="var(--hair)" />
               <XAxis dataKey="label" tick={{ fontSize: 10, fill: 'var(--text-3)' }} tickLine={false} interval="preserveStartEnd" />
               <YAxis tick={{ fontSize: 10, fill: 'var(--text-3)' }} tickLine={false} domain={[yMin, yMax]} />
-              {hasWaistData && (
-                <YAxis yAxisId="right" orientation="right" tick={{ fontSize: 10, fill: 'var(--fiber)' }} tickLine={false} domain={['auto', 'auto']} />
-              )}
               <Tooltip contentStyle={tooltipStyle} formatter={(val, name) => {
                 if (!val) return ['-', name];
-                if (name === 'waist') return [`${val} cm`, 'Waist'];
                 return [`${val} kg`, name === 'avg' ? '7-day avg' : 'Daily'];
               }} />
               {goalWeight && (
@@ -245,18 +241,98 @@ function WeightChart({ data, range, onRangeChange }) {
               )}
               <Line type="monotone" dataKey="actual" stroke="var(--hair)" strokeWidth={1} dot={{ r: 2, fill: 'var(--text-3)' }} name="daily" />
               <Line type="monotone" dataKey="avg" stroke="var(--cal)" strokeWidth={2.5} dot={false} name="avg" />
-              {hasWaistData && (
-                <Line type="monotone" dataKey="waist" stroke="var(--fiber)" strokeWidth={2} dot={{ r: 2.5, fill: 'var(--fiber)' }} name="waist" connectNulls yAxisId="right" />
-              )}
             </LineChart>
           </ResponsiveContainer>
           <p className="text-[10px] text-tx-3 text-center mt-2">
-            {hasWaistData ? 'Orange = weight avg, green = waist (cm)' : 'Colored line = 7-day rolling average'}
+            Colored line = 7-day rolling average
           </p>
         </div>
       ) : (
         <div className="bg-card rounded-card p-8 text-center text-tx-3 text-sm">
           Log your weight to see the trend
+        </div>
+      )}
+
+      {milestones?.some(m => m.achieved_date) && (
+        <div className="bg-card rounded-card p-4 stagger-enter">
+          <p className="text-xs text-tx-3 mb-2">Milestones</p>
+          <div className="space-y-1.5">
+            {milestones.map(m => (
+              <div key={m.id} className={`flex items-center justify-between text-sm ${m.achieved_date ? 'text-tx' : 'text-tx-3'}`}>
+                <span>{m.achieved_date ? '✓' : '○'} <span className="font-num">{m.weight_kg_threshold} kg</span></span>
+                {m.achieved_date && <span className="text-xs text-tx-3">{formatDate(m.achieved_date)}</span>}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Standalone Measurements Card ────────────────────────────
+function MeasurementsCard({ measurements }) {
+  if (!measurements || measurements.length === 0) return null;
+
+  const latest = measurements[measurements.length - 1];
+  const first = measurements[0];
+  const change = measurements.length >= 2
+    ? Math.round((latest.waist_cm - first.waist_cm) * 10) / 10
+    : null;
+  const weeks = measurements.length >= 2
+    ? Math.max(1, Math.round((new Date(latest.date + 'T12:00:00Z') - new Date(first.date + 'T12:00:00Z')) / (7 * 86400000)))
+    : 0;
+
+  const tooltipStyle = {
+    background: 'var(--card)',
+    border: '1px solid var(--hair)',
+    borderRadius: 12,
+    fontSize: 12,
+    color: 'var(--text-2)',
+  };
+
+  // Supportive context line
+  let contextLine = 'Measurements logged weekly give the clearest picture of progress.';
+  if (change !== null) {
+    if (change < -1) {
+      contextLine = 'Solid progress on waist measurements — fat loss is clearly happening.';
+    } else if (change < 0) {
+      contextLine = 'Trending in the right direction. Consistency is what makes it stick.';
+    } else if (change === 0) {
+      contextLine = 'Holding steady. Keep logging — the trend will tell the story over time.';
+    } else {
+      contextLine = 'A slight increase can reflect water, timing, or measurement variation — keep tracking.';
+    }
+  }
+
+  return (
+    <div className="bg-card rounded-card p-4 mt-3 stagger-enter">
+      <p className="text-[15px] font-bold text-tx mb-3">Measurements</p>
+
+      <div className="flex items-baseline gap-2 mb-1">
+        <span className="text-[22px] font-bold font-num" style={{ color: 'var(--fiber)' }}>
+          {latest.waist_cm} cm
+        </span>
+        {change !== null && (
+          <span className="text-[14px] font-semibold font-num" style={{ color: 'var(--fiber)' }}>
+            · {change > 0 ? '+' : ''}{change} cm over {weeks} week{weeks !== 1 ? 's' : ''}
+          </span>
+        )}
+      </div>
+      <p className="text-[12px] text-tx-3 mb-3">{contextLine}</p>
+
+      {measurements.length >= 2 && (
+        <div className="mt-2">
+          <ResponsiveContainer width="100%" height={160}>
+            <LineChart data={measurements.map(m => ({ date: formatDate(m.date), waist: m.waist_cm }))} margin={{ top: 5, right: 5, left: -20, bottom: 5 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="var(--hair)" />
+              <XAxis dataKey="date" tick={{ fontSize: 10, fill: 'var(--text-3)' }} tickLine={false} />
+              <YAxis tick={{ fontSize: 10, fill: 'var(--fiber)' }} tickLine={false} domain={['auto', 'auto']} />
+              <Tooltip contentStyle={tooltipStyle} formatter={(val) => [`${val} cm`, 'Waist']} />
+              <Line type="monotone" dataKey="waist" stroke="var(--fiber)" strokeWidth={2.5} dot={{ r: 3, fill: 'var(--fiber)' }} connectNulls />
+            </LineChart>
+          </ResponsiveContainer>
+          <p className="text-[10px] text-tx-3 text-center mt-1">Weekly points connected — log weekly for best tracking</p>
         </div>
       )}
     </div>

@@ -184,15 +184,29 @@ router.get('/', (req, res) => {
 });
 
 function computeDiagnostic(db, goal, today) {
-  const calTarget = goal.current_calorie_target || 2240;
+  const baseCalTarget = goal.current_calorie_target || 2240;
   const proTarget = goal.current_protein_target_g || 180;
+  const reduction = goal.rest_day_reduction || 150;
 
-  // Check 14-day calorie average
+  // Check 14-day calorie average against per-day targets
   const twoWeeksAgo = daysAgoIST(14);
   const foodDays = db.prepare(`
     SELECT date, SUM(calories) as total_cal, SUM(protein_g) as total_pro
     FROM food_logs WHERE date >= ? GROUP BY date
   `).all(twoWeeksAgo);
+
+  // Compute per-day target (rest-adjusted or standard)
+  const restDayDates = new Set(
+    db.prepare('SELECT date FROM rest_days WHERE date >= ?').all(twoWeeksAgo).map(r => r.date)
+  );
+  let calTarget = baseCalTarget;
+  if (foodDays.length > 0) {
+    // Use weighted average target based on rest vs non-rest days
+    const totalTarget = foodDays.reduce((s, d) => {
+      return s + (restDayDates.has(d.date) ? baseCalTarget - reduction : baseCalTarget);
+    }, 0);
+    calTarget = totalTarget / foodDays.length;
+  }
 
   // Check logging completeness (days with no food logged)
   const allDates = [];

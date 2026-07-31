@@ -147,7 +147,7 @@ function DayDetail({ data, date, onDataChanged }) {
   if (!data) return <p className="bg-card rounded-card px-4 py-3 text-xs text-tx-3">Loading...</p>;
   if (data.error) return <p className="bg-card rounded-card px-4 py-3 text-xs text-tx-3">Couldn't load this day</p>;
 
-  const { foodLogs, exerciseLogs, sleepLog, weightLog, waterLog, points, foodTotals } = data;
+  const { foodLogs, exerciseLogs, sleepLog, weightLog, waterLog, points, foodTotals, is_rest_day } = data;
 
   // Group food logs by meal type
   const grouped = { breakfast: [], lunch: [], snack: [], dinner: [], drinks: [] };
@@ -175,8 +175,29 @@ function DayDetail({ data, date, onDataChanged }) {
 
   const hasFoodLogs = foodLogs?.length > 0;
 
+  async function handleToggleRestDay() {
+    await api.toggleRestDay(date);
+    onDataChanged?.();
+  }
+
   return (
     <div className="space-y-2">
+      {/* Rest day toggle */}
+      <div className="bg-card rounded-card px-4 py-2.5 flex items-center justify-between">
+        <span className="text-xs text-tx-3">Rest day</span>
+        <button
+          onClick={handleToggleRestDay}
+          className="text-[11px] font-bold px-2.5 py-1 rounded-full press-scale"
+          style={{
+            background: is_rest_day ? 'var(--accent-surface)' : 'transparent',
+            border: is_rest_day ? '1px solid var(--points)' : '1px solid var(--hair)',
+            color: is_rest_day ? 'var(--points)' : 'var(--text-3)',
+          }}
+        >
+          {is_rest_day ? 'On ✓' : 'Off'}
+        </button>
+      </div>
+
       {/* Macro totals summary */}
       {hasFoodLogs && foodTotals && (
         <div className="bg-card rounded-card px-4 py-3">

@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const { getDB } = require('../db/database');
-const { calculateDailyPoints } = require('./points');
+const { calculateDailyPoints, getRestDayTargets } = require('./points');
 const { todayIST, getMondayIST, getDaysOfWeek } = require('../dateUtils');
 
 // GET /api/dashboard
@@ -159,6 +159,9 @@ router.get('/', (req, res) => {
     }
   }
 
+  // Rest day
+  const restDayTargets = getRestDayTargets(db, today, goal);
+
   res.json({
     today,
     week_start: weekStart,
@@ -180,6 +183,7 @@ router.get('/', (req, res) => {
     goal,
     rolling_avg_weight,
     notifications,
+    rest_day: restDayTargets,
   });
 });
 

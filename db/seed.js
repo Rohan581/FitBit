@@ -241,6 +241,8 @@ const SEED_FOODS = [
     JSON.stringify([{unit:'1 cup',multiplier:1},{unit:'2 cups',multiplier:2}]), null],
   ['Pomegranate',                            'snack', '1/2 cup', 1, 72, 1.5, 16, 1, 3.5, 12,
     JSON.stringify([{unit:'1/2 cup',multiplier:1},{unit:'1 cup',multiplier:2}]), null],
+  ['Edamame (shelled, cooked)',              'snack', '1 cup', 1, 188, 18, 14, 8, 8, 3,
+    JSON.stringify([{unit:'1 cup',multiplier:1},{unit:'1/2 cup',multiplier:0.5}]), null],
 
   // ── Cooking fats ──────────────────────────────────────────────
   ['Olive oil',                              'staple', '1 tsp', 1, 40, 0, 0, 4.5, 0, 0,

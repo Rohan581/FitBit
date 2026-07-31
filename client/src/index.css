@@ -36,6 +36,11 @@
   --danger: oklch(0.58 0.22 25);
   --star: oklch(0.82 0.17 90);
 
+  /* Tinted accent surface — state-carrying elements only:
+     hero card, rest timer, catch-up header, rest-day chip/note,
+     measurement reminder. Standard cards use --card. */
+  --accent-surface: oklch(0.92 0.02 165);
+
   --shadow-subtle: 0 1px 2px rgba(0,0,0,0.04);
   --shadow-sheet: 0 -4px 24px rgba(0,0,0,0.12);
   --theme-color: #EAE7E2;
@@ -81,6 +86,8 @@
   --warning: oklch(0.82 0.15 75);
   --danger: oklch(0.68 0.22 28);
   --star: oklch(0.88 0.16 95);
+
+  --accent-surface: oklch(0.15 0.02 165);
 
   --shadow-subtle: 0 1px 2px rgba(0,0,0,0.3);
   --shadow-sheet: 0 -4px 24px rgba(0,0,0,0.6);

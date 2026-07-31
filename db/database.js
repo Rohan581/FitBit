@@ -345,6 +345,54 @@ function runMigrations(db) {
     db.exec(`ALTER TABLE goal ADD COLUMN current_workout_index INTEGER DEFAULT 0`);
   }
 
+  // rest_seconds column on exercises
+  const exCols = db.prepare("PRAGMA table_info(exercises)").all().map(c => c.name);
+  if (!exCols.includes('rest_seconds')) {
+    db.exec(`ALTER TABLE exercises ADD COLUMN rest_seconds INTEGER`);
+    // Backfill: compounds get 150s, accessories get 75s
+    const compounds = [
+      'Barbell Back Squat', 'Barbell Bench Press', 'Conventional Deadlift',
+      'Romanian Deadlift', 'Standing Overhead Press', 'Barbell Row',
+      'Leg Press', 'Bulgarian Split Squat', 'Incline Dumbbell Press',
+      'Pull-Up', 'Hip Thrust', 'Dips',
+    ];
+    db.prepare(`UPDATE exercises SET rest_seconds = 75`).run();
+    if (compounds.length > 0) {
+      db.prepare(`UPDATE exercises SET rest_seconds = 150 WHERE name IN (${compounds.map(() => '?').join(',')})`)
+        .run(...compounds);
+    }
+  }
+
+  // workout_cardio table
+  const tablesLatest = db.prepare("SELECT name FROM sqlite_master WHERE type='table'").all().map(t => t.name);
+  if (!tablesLatest.includes('workout_cardio')) {
+    db.exec(`
+      CREATE TABLE workout_cardio (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        session_id INTEGER NOT NULL,
+        type TEXT NOT NULL,
+        duration_min INTEGER NOT NULL,
+        FOREIGN KEY (session_id) REFERENCES workout_sessions(id) ON DELETE CASCADE
+      )
+    `);
+  }
+
+  // rest_days table
+  if (!tablesLatest.includes('rest_days')) {
+    db.exec(`
+      CREATE TABLE rest_days (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        date TEXT NOT NULL UNIQUE
+      )
+    `);
+  }
+
+  // rest_day_reduction in goal
+  const goalColsFinal = db.prepare("PRAGMA table_info(goal)").all().map(c => c.name);
+  if (!goalColsFinal.includes('rest_day_reduction')) {
+    db.exec(`ALTER TABLE goal ADD COLUMN rest_day_reduction INTEGER DEFAULT 150`);
+  }
+
   // Seed exercises
   seedExercises(db);
 }

@@ -120,7 +120,9 @@ router.get('/history/:date', (req, res) => {
     sugar_g: acc.sugar_g + (l.sugar_g || 0),
   }), { calories: 0, protein_g: 0, carbs_g: 0, fat_g: 0, fiber_g: 0, sugar_g: 0 });
 
-  res.json({ date, foodLogs, exerciseLogs, sleepLog, weightLog, waterLog, points, foodTotals });
+  const isRestDay = !!db.prepare('SELECT id FROM rest_days WHERE date = ?').get(date);
+
+  res.json({ date, foodLogs, exerciseLogs, sleepLog, weightLog, waterLog, points, foodTotals, is_rest_day: isRestDay });
 });
 
 module.exports = router;
