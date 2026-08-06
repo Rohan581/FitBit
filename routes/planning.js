@@ -84,10 +84,11 @@ router.get('/', (req, res) => {
 
   if (weeklyAvgs.length >= 3) {
     projection_available = true;
-    // Linear regression on rolling averages
-    const n = weeklyAvgs.length;
-    const xVals = weeklyAvgs.map((_, i) => i);
-    const yVals = weeklyAvgs.map(w => w.avg);
+    // Linear regression on the full weekly rolling-average series
+    const regressData = weeklyAvgs;
+    const n = regressData.length;
+    const xVals = regressData.map((_, i) => i);
+    const yVals = regressData.map(w => w.avg);
     const xMean = xVals.reduce((s, x) => s + x, 0) / n;
     const yMean = yVals.reduce((s, y) => s + y, 0) / n;
     const num = xVals.reduce((s, x, i) => s + (x - xMean) * (yVals[i] - yMean), 0);
@@ -98,7 +99,24 @@ router.get('/', (req, res) => {
       // Weeks until goal
       const weeksToGoal = (latestAvg - goalWeight) / Math.abs(slope);
       const finishDate = new Date(todayMs + weeksToGoal * 7 * 86400000);
-      projected_finish = finishDate.toISOString().split('T')[0];
+
+      // Plausibility guard: reject if projected finish is beyond 2x the planned duration
+      const targetDate = goal.target_date;
+      let plausible = true;
+      if (targetDate) {
+        const targetMs = new Date(targetDate + 'T12:00:00Z').getTime();
+        const plannedDurationMs = targetMs - startMs;
+        const projectedDurationMs = finishDate.getTime() - startMs;
+        if (projectedDurationMs > plannedDurationMs * 2) {
+          plausible = false;
+        }
+      }
+
+      if (plausible) {
+        projected_finish = finishDate.toISOString().split('T')[0];
+      } else {
+        projected_finish = 'implausible';
+      }
     } else {
       projected_finish = 'not_losing';
     }
@@ -111,36 +129,24 @@ router.get('/', (req, res) => {
   }
 
   // --- Milestone countdown ---
+  // Milestone dates are plan-based targets (deterministic from planned trajectory), NOT projection-derived
   const milestones = db.prepare('SELECT * FROM milestones ORDER BY weight_kg_threshold DESC').all();
   const nextMilestone = milestones.find(m => !m.achieved_date && latestAvg > m.weight_kg_threshold);
   let milestone_countdown = null;
-  if (nextMilestone && projection_available) {
-    const weeklyAvgSlope = weeklyAvgs.length >= 3 ? (() => {
-      const n = weeklyAvgs.length;
-      const xVals = weeklyAvgs.map((_, i) => i);
-      const yVals = weeklyAvgs.map(w => w.avg);
-      const xMean = xVals.reduce((s, x) => s + x, 0) / n;
-      const yMean = yVals.reduce((s, y) => s + y, 0) / n;
-      const num = xVals.reduce((s, x, i) => s + (x - xMean) * (yVals[i] - yMean), 0);
-      const den = xVals.reduce((s, x) => s + (x - xMean) ** 2, 0);
-      return den !== 0 ? num / den : 0;
-    })() : 0;
-
-    if (weeklyAvgSlope < 0) {
-      const weeksToMilestone = (latestAvg - nextMilestone.weight_kg_threshold) / Math.abs(weeklyAvgSlope);
-      const milestoneDate = new Date(todayMs + weeksToMilestone * 7 * 86400000);
-      milestone_countdown = {
-        weight: nextMilestone.weight_kg_threshold,
-        kg_remaining: Math.round((latestAvg - nextMilestone.weight_kg_threshold) * 10) / 10,
-        estimated_date: milestoneDate.toISOString().split('T')[0],
-      };
-    } else {
-      milestone_countdown = {
-        weight: nextMilestone.weight_kg_threshold,
-        kg_remaining: Math.round((latestAvg - nextMilestone.weight_kg_threshold) * 10) / 10,
-        estimated_date: null,
-      };
+  if (nextMilestone) {
+    // Compute plan-based target date: linear interpolation from start weight to goal weight
+    let target_date_str = null;
+    if (weeklyLossRate > 0) {
+      const weeksToMilestone = (startWeight - nextMilestone.weight_kg_threshold) / weeklyLossRate;
+      const milestoneDate = new Date(startMs + weeksToMilestone * 7 * 86400000);
+      target_date_str = milestoneDate.toISOString().split('T')[0];
     }
+
+    milestone_countdown = {
+      weight: nextMilestone.weight_kg_threshold,
+      kg_remaining: Math.round((latestAvg - nextMilestone.weight_kg_threshold) * 10) / 10,
+      target_date: target_date_str,
+    };
   }
 
   // --- Waist context for pace verdict ---
@@ -179,6 +185,9 @@ router.get('/', (req, res) => {
     diagnostic,
     milestone_countdown,
     goal_weight: goalWeight,
+    start_weight: startWeight,
+    start_date: startDate,
+    target_date: goal.target_date,
     waist_context,
   });
 });

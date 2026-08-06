@@ -472,10 +472,12 @@ function PlanningSection({ data }) {
           <p className="text-sm text-tx-3">Gathering data — projection available after 3 weeks.</p>
         ) : data.projected_finish === 'not_losing' ? (
           <p className="text-sm text-tx-2">Weight trend is flat or rising. Keep at it — the trend needs time to establish.</p>
+        ) : data.projected_finish === 'implausible' ? (
+          <p className="text-sm text-tx-2">Not enough of a trend yet — projection firms up as more weeks come in.</p>
         ) : (
           <div className="flex items-baseline gap-2">
             <span className="text-lg font-num font-semibold text-tx">
-              {new Date(data.projected_finish + 'T12:00:00Z').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+              {formatPlanDate(data.projected_finish)}
             </span>
             <span className="text-xs text-tx-3">at current pace to {data.goal_weight} kg</span>
           </div>
@@ -506,15 +508,26 @@ function PlanningSection({ data }) {
             <span className="text-lg font-num font-semibold text-points">{data.milestone_countdown.weight} kg</span>
             <span className="text-sm font-num text-tx-3">{data.milestone_countdown.kg_remaining} kg to go</span>
           </div>
-          {data.milestone_countdown.estimated_date && (
+          {data.milestone_countdown.target_date && (
             <p className="text-xs text-tx-3 mt-1">
-              Estimated: {new Date(data.milestone_countdown.estimated_date + 'T12:00:00Z').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} at current pace
+              Target: hit {data.milestone_countdown.weight} kg by {formatPlanDate(data.milestone_countdown.target_date)} to stay on plan
             </p>
           )}
         </div>
       )}
     </div>
   );
+}
+
+// Format a date for the planning section — includes year when not in the current calendar year
+function formatPlanDate(dateStr) {
+  if (!dateStr) return '';
+  const d = new Date(dateStr + 'T12:00:00Z');
+  const currentYear = new Date().getFullYear();
+  const dateYear = d.getUTCFullYear();
+  const opts = { month: 'short', day: 'numeric' };
+  if (dateYear !== currentYear) opts.year = 'numeric';
+  return d.toLocaleDateString('en-US', opts);
 }
 
 function formatDate(dateStr) {

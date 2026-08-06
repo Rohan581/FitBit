@@ -108,6 +108,9 @@ export default function Training() {
   const [progExercise, setProgExercise] = useState(null);
   const [activitySheetOpen, setActivitySheetOpen] = useState(false);
 
+  // Exercise swaps: { oldExerciseId: { exercise_id, name, sets, reps } }
+  const [swappedExercises, setSwappedExercises] = useState({});
+
   // Completion data
   const [completionData, setCompletionData] = useState(null);
 
@@ -133,6 +136,7 @@ export default function Training() {
       setStartedAt(saved.startedAt);
       setCompletedExercises(new Set(saved.completedExercises || []));
       setSessionCardio(saved.cardio || []);
+      setSwappedExercises(saved.swaps || {});
       setScreen('workout');
     }
   }, []);
@@ -146,9 +150,10 @@ export default function Training() {
         startedAt,
         completedExercises: [...completedExercises],
         cardio: sessionCardio,
+        swaps: swappedExercises,
       });
     }
-  }, [session, sessionSets, startedAt, completedExercises, sessionCardio]);
+  }, [session, sessionSets, startedAt, completedExercises, sessionCardio, swappedExercises]);
 
   const elapsedSecs = useTimestamp(startedAt);
   const restSecs = useTimestamp(restStartedAt);
@@ -175,6 +180,7 @@ export default function Training() {
     setStartedAt(Date.now());
     setCompletedExercises(new Set());
     setSessionCardio([]);
+    setSwappedExercises({});
 
     // Initialize all sets from prescription, pre-filling from last session
     const initial = {};
@@ -270,6 +276,61 @@ export default function Training() {
       const resequenced = filtered.map((s, i) => ({ ...s, set_number: i + 1 }));
       return { ...prev, [exId]: resequenced };
     });
+  }
+
+  async function handleSwapExercise(oldEx, newExName) {
+    // Look up the new exercise by name to get its ID
+    let newExId = null;
+    try {
+      const allExercises = await api.getExercises();
+      const found = allExercises.find(e => e.name === newExName);
+      if (found) newExId = found.id;
+    } catch {}
+
+    // Fallback: check offline library (won't have a DB id but we can still swap visually)
+    if (!newExId) {
+      const lib = getExerciseLib();
+      if (!lib[newExName]) return; // substitute doesn't exist at all
+    }
+
+    // Use the original template exercise ID as the swap map key
+    const originalId = oldEx._originalId || oldEx.exercise_id;
+    const currentId = oldEx.exercise_id;
+    const effectiveNewId = newExId || `swap_${Date.now()}`;
+
+    // Record the swap against the original template ID
+    setSwappedExercises(prev => ({
+      ...prev,
+      [originalId]: { exercise_id: effectiveNewId, name: newExName, sets: oldEx.sets, reps: oldEx.reps },
+    }));
+
+    // Initialize sets for the new exercise, carrying over prescribed sets/reps
+    const oldSets = sessionSets[currentId] || [];
+    const newSets = [];
+    for (let s = 1; s <= (oldEx.sets || 3); s++) {
+      const existing = oldSets.find(os => os.set_number === s && !os.done);
+      newSets.push({
+        set_number: s,
+        weight_kg: existing?.weight_kg || '',
+        reps: existing?.reps || '',
+        done: false,
+      });
+    }
+
+    setSessionSets(prev => {
+      const updated = { ...prev };
+      // Keep already-logged (done) sets under the previous ID for the server record
+      const doneSets = (prev[currentId] || []).filter(s => s.done);
+      if (doneSets.length > 0) {
+        updated[currentId] = doneSets;
+      } else {
+        delete updated[currentId];
+      }
+      updated[effectiveNewId] = newSets;
+      return updated;
+    });
+
+    setSwapExercise(null);
   }
 
   async function handleAddCardio(type, durationMin) {
@@ -399,14 +460,21 @@ export default function Training() {
   }
 
   if (screen === 'workout' && session) {
-    const exCount = next_workout.exercises.length;
-    const doneCount = next_workout.exercises.filter(
+    // Apply swaps to exercise list
+    const effectiveExercises = next_workout.exercises.map(ex => {
+      const swap = swappedExercises[ex.exercise_id];
+      if (swap) return { ...ex, exercise_id: swap.exercise_id, name: swap.name, _originalId: ex.exercise_id };
+      return ex;
+    });
+
+    const exCount = effectiveExercises.length;
+    const doneCount = effectiveExercises.filter(
       ex => ex.exercise_id && (sessionSets[ex.exercise_id] || []).every(s => s.done) && (sessionSets[ex.exercise_id] || []).length > 0
     ).length;
 
     // Separate catch-up and template exercises
-    const catchUpExercises = next_workout.exercises.filter(e => e.is_catchup);
-    const templateExercises = next_workout.exercises.filter(e => !e.is_catchup);
+    const catchUpExercises = effectiveExercises.filter(e => e.is_catchup);
+    const templateExercises = effectiveExercises.filter(e => !e.is_catchup);
 
     const isLastTenSecs = restRemaining > 0 && restRemaining <= 10;
     const isRestComplete = restStartedAt && restRemaining <= 0;
@@ -585,7 +653,7 @@ export default function Training() {
 
         {/* Sheets */}
         {detailExercise && <ExerciseDetailSheet exerciseId={detailExercise.id || detailExercise} exerciseName={detailExercise.name} onClose={() => setDetailExercise(null)} />}
-        {swapExercise && <SwapSheet exercise={swapExercise} onClose={() => setSwapExercise(null)} />}
+        {swapExercise && <SwapSheet exercise={swapExercise} onSwap={(subName) => handleSwapExercise(swapExercise, subName)} onClose={() => setSwapExercise(null)} />}
         {progExercise && <ProgressionSheet exerciseId={progExercise} onClose={() => setProgExercise(null)} />}
       </div>
     );
@@ -1293,7 +1361,7 @@ function ProgressionSheet({ exerciseId, onClose }) {
 }
 
 // ─── Swap Sheet ──────────────────────────────────────────────
-function SwapSheet({ exercise, onClose }) {
+function SwapSheet({ exercise, onSwap, onClose }) {
   const [subs, setSubs] = useState([]);
 
   useEffect(() => {
@@ -1312,11 +1380,15 @@ function SwapSheet({ exercise, onClose }) {
       <div className="px-5 pb-6 space-y-2">
         <p className="text-[13px] font-semibold text-tx-3 mb-1">Same muscle group alternatives:</p>
         {subs.map((sub, i) => (
-          <div key={i} className="px-4 py-3.5 rounded-[14px] border border-hair text-[14px] font-semibold text-tx-2">
+          <button
+            key={i}
+            onClick={() => onSwap(sub)}
+            className="w-full text-left px-4 py-3.5 rounded-[14px] border border-hair text-[14px] font-semibold text-tx-2 press-scale hover:border-points transition-colors"
+          >
             {sub}
-          </div>
+          </button>
         ))}
-        <p className="text-[12px] text-tx-3 mt-3">Pick any equivalent and perform it instead. Your sets will still be logged.</p>
+        <p className="text-[12px] text-tx-3 mt-3">Tap a substitute to swap it in. Prescribed sets carry over.</p>
       </div>
     </Sheet>
   );
