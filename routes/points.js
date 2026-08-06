@@ -144,6 +144,22 @@ function calculateDailyPoints(db, date) {
     total += 10;
   }
 
+  // ── Finance: transaction/no-spend logging ──────────────────────
+  // Guarded by table existence check so fitness points are never affected
+  const finTable = db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='fin_transactions'").get();
+  if (finTable) {
+    const finTxCount = db.prepare("SELECT COUNT(*) as c FROM fin_transactions WHERE date = ? AND type = 'expense'").get(date)?.c || 0;
+    const finNoSpend = db.prepare('SELECT id FROM fin_no_spend_days WHERE date = ?').get(date);
+    if (finTxCount > 0 || finNoSpend) {
+      breakdown.push({
+        category: 'finance',
+        points: 5,
+        reason: finNoSpend ? 'No-spend day logged' : `${finTxCount} expense(s) logged`,
+      });
+      total += 5;
+    }
+  }
+
   return { date, total, breakdown };
 }
 
@@ -164,13 +180,42 @@ router.get('/weekly', (req, res) => {
   const threshold = goal?.weekly_point_threshold || 350;
 
   const byDay = days.map(d => calculateDailyPoints(db, d));
-  const total = byDay.reduce((s, d) => s + d.total, 0);
+  let total = byDay.reduce((s, d) => s + d.total, 0);
+
+  // ── Finance weekly bonus: +25 if MTD accrual spend <= pro-rated budget ──
+  let finance_weekly_bonus = 0;
+  const finTable = db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='fin_settings'").get();
+  if (finTable) {
+    const finSettings = db.prepare('SELECT monthly_overall_budget FROM fin_settings WHERE id = 1').get();
+    const monthlyBudget = finSettings?.monthly_overall_budget || 0;
+    if (monthlyBudget > 0) {
+      const today = todayIST();
+      const monthStart = today.slice(0, 7) + '-01';
+      const daysInMonth = new Date(parseInt(today.slice(0, 4)), parseInt(today.slice(5, 7)), 0).getDate();
+      const dayOfMonth = parseInt(today.slice(8, 10));
+      const proRatedBudget = (monthlyBudget / daysInMonth) * dayOfMonth;
+      const mtdSpend = db.prepare("SELECT COALESCE(SUM(amount), 0) as s FROM fin_transactions WHERE type = 'expense' AND date >= ? AND date <= ?").get(monthStart, today)?.s || 0;
+      if (mtdSpend <= proRatedBudget && mtdSpend > 0) {
+        finance_weekly_bonus = 25;
+      }
+    }
+
+    // Enforce 60/week hard cap on finance points
+    const dailyFinPts = byDay.reduce((s, d) => s + d.breakdown.filter(b => b.category === 'finance').reduce((s2, b2) => s2 + b2.points, 0), 0);
+    const totalFinPts = dailyFinPts + finance_weekly_bonus;
+    if (totalFinPts > 60) {
+      finance_weekly_bonus = Math.max(0, 60 - dailyFinPts);
+    }
+    if (finance_weekly_bonus > 0) {
+      total += finance_weekly_bonus;
+    }
+  }
 
   const summary = db.prepare('SELECT * FROM weekly_summary WHERE week_start = ?').get(weekStart);
   const treat_earned = total >= threshold;
   const treat_redeemed = summary?.treat_redeemed === 1;
 
-  res.json({ week_start: weekStart, total_points: total, threshold, treat_earned, treat_redeemed, by_day: byDay });
+  res.json({ week_start: weekStart, total_points: total, threshold, treat_earned, treat_redeemed, by_day: byDay, finance_weekly_bonus });
 });
 
 module.exports = router;

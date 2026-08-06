@@ -118,4 +118,58 @@ export const api = {
   // Rest days
   getRestDay: (date) => req('GET', `/rest-days?${new URLSearchParams({ ...(date && { date }) })}`),
   toggleRestDay: (date) => req('POST', '/rest-days/toggle', { date }),
+
+  // ── Finance ──────────────────────────────────────────────────
+  getFinanceHome: () => req('GET', '/finance/home'),
+
+  // Transactions
+  getTransactions: (params) => req('GET', `/finance/transactions?${new URLSearchParams(params || {})}`),
+  addTransaction: (data) => req('POST', '/finance/transactions', data),
+  updateTransaction: (id, data) => req('PUT', `/finance/transactions/${id}`, data),
+  deleteTransaction: (id) => req('DELETE', `/finance/transactions/${id}`),
+  toggleNoSpend: (date) => req('POST', '/finance/transactions/no-spend', { date }),
+  getNoSpend: (date) => req('GET', `/finance/transactions/no-spend?${new URLSearchParams({ date })}`),
+
+  // Categories
+  getFinCategories: () => req('GET', '/finance/categories'),
+  updateCategoryBudget: (id, budget) => req('PUT', `/finance/categories/${id}/budget`, { monthly_budget: budget }),
+
+  // Payment methods
+  getPaymentMethods: () => req('GET', '/finance/payment-methods'),
+  updatePaymentMethod: (id, data) => req('PUT', `/finance/payment-methods/${id}`, data),
+
+  // Cards
+  suggestCard: (q) => req('GET', `/finance/cards/suggest?${new URLSearchParams({ q })}`),
+  getCardRules: () => req('GET', '/finance/cards/rules'),
+  addCardRule: (data) => req('POST', '/finance/cards/rules', data),
+  updateCardRule: (id, data) => req('PUT', `/finance/cards/rules/${id}`, data),
+  deleteCardRule: (id) => req('DELETE', `/finance/cards/rules/${id}`),
+  getCardBills: () => req('GET', '/finance/cards/bills'),
+  addCardBill: (data) => req('POST', '/finance/cards/bills', data),
+  payCardBill: (id, data) => req('POST', `/finance/cards/bills/${id}/pay`, data),
+  getPointsLedger: () => req('GET', '/finance/cards/points-ledger'),
+  addPointsLedgerEntry: (data) => req('POST', '/finance/cards/points-ledger', data),
+
+  // Investments
+  getInvestments: (params) => req('GET', `/finance/investments?${new URLSearchParams(params || {})}`),
+  addInvestment: (data) => req('POST', '/finance/investments', data),
+  updateInvestment: (id, data) => req('PUT', `/finance/investments/${id}`, data),
+  deleteInvestment: (id) => req('DELETE', `/finance/investments/${id}`),
+  getInvestmentSummary: () => req('GET', '/finance/investments/summary'),
+
+  // Goals
+  getFinGoals: () => req('GET', '/finance/goals'),
+  addFinGoal: (data) => req('POST', '/finance/goals', data),
+  updateFinGoal: (id, data) => req('PUT', `/finance/goals/${id}`, data),
+  deleteFinGoal: (id) => req('DELETE', `/finance/goals/${id}`),
+  addToGoal: (id, amount) => req('POST', `/finance/goals/${id}/add`, { amount }),
+
+  // Import
+  uploadStatement: (data) => req('POST', '/finance/import/upload', data),
+  confirmImport: (data) => req('POST', '/finance/import/confirm', data),
+  unimportBatch: (batchId) => req('DELETE', `/finance/import/batch/${batchId}`),
+
+  // Settings
+  getFinSettings: () => req('GET', '/finance/settings'),
+  updateFinSettings: (data) => req('PUT', '/finance/settings', data),
 };

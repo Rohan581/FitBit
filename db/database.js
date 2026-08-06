@@ -2,6 +2,7 @@ const Database = require('better-sqlite3');
 const path = require('path');
 const { seedFoods, seedInitialData, toSeedKey } = require('./seed');
 const { seedExercises } = require('./exerciseSeed');
+const { seedFinanceData } = require('./financeSeed');
 
 const DB_PATH = process.env.DATABASE_PATH || path.join(__dirname, '..', 'data', 'earned.db');
 
@@ -185,6 +186,118 @@ function initDB() {
     );
   `);
 
+  // ── Finance module tables ──────────────────────────────────
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS fin_categories (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      name TEXT NOT NULL UNIQUE,
+      color_token TEXT NOT NULL DEFAULT '--oth',
+      icon TEXT NOT NULL DEFAULT 'circle-ellipsis',
+      monthly_budget REAL DEFAULT 0,
+      sort_order INTEGER DEFAULT 0
+    );
+
+    CREATE TABLE IF NOT EXISTS fin_payment_methods (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      name TEXT NOT NULL UNIQUE,
+      kind TEXT NOT NULL DEFAULT 'upi',
+      statement_day INTEGER,
+      due_day INTEGER,
+      color_var TEXT DEFAULT '--fin',
+      short_name TEXT,
+      sort_order INTEGER DEFAULT 0
+    );
+
+    CREATE TABLE IF NOT EXISTS fin_transactions (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      date TEXT NOT NULL,
+      amount REAL NOT NULL,
+      type TEXT NOT NULL DEFAULT 'expense',
+      category_id INTEGER NOT NULL,
+      payment_method_id INTEGER,
+      merchant TEXT,
+      note TEXT,
+      source TEXT DEFAULT 'manual',
+      import_batch_id TEXT,
+      goal_id INTEGER,
+      created_at TEXT DEFAULT (datetime('now')),
+      FOREIGN KEY (category_id) REFERENCES fin_categories(id),
+      FOREIGN KEY (payment_method_id) REFERENCES fin_payment_methods(id)
+    );
+
+    CREATE TABLE IF NOT EXISTS fin_card_rules (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      payment_method_id INTEGER NOT NULL,
+      category_or_merchant TEXT NOT NULL,
+      multiplier_text TEXT NOT NULL,
+      note TEXT,
+      priority INTEGER DEFAULT 0,
+      FOREIGN KEY (payment_method_id) REFERENCES fin_payment_methods(id)
+    );
+
+    CREATE TABLE IF NOT EXISTS fin_points_ledger (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      payment_method_id INTEGER NOT NULL,
+      date TEXT NOT NULL,
+      delta REAL NOT NULL DEFAULT 0,
+      kind TEXT NOT NULL DEFAULT 'earned',
+      description TEXT,
+      value_inr REAL,
+      FOREIGN KEY (payment_method_id) REFERENCES fin_payment_methods(id)
+    );
+
+    CREATE TABLE IF NOT EXISTS fin_card_bills (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      payment_method_id INTEGER NOT NULL,
+      cycle_start TEXT NOT NULL,
+      cycle_end TEXT NOT NULL,
+      amount_computed REAL NOT NULL DEFAULT 0,
+      due_date TEXT NOT NULL,
+      status TEXT NOT NULL DEFAULT 'upcoming',
+      paid_date TEXT,
+      paid_transaction_id INTEGER,
+      FOREIGN KEY (payment_method_id) REFERENCES fin_payment_methods(id)
+    );
+
+    CREATE TABLE IF NOT EXISTS fin_investments (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      date TEXT NOT NULL,
+      type TEXT NOT NULL,
+      instrument_name TEXT,
+      amount REAL NOT NULL,
+      is_recurring_template INTEGER DEFAULT 0,
+      created_at TEXT DEFAULT (datetime('now'))
+    );
+
+    CREATE TABLE IF NOT EXISTS fin_goals (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      name TEXT NOT NULL,
+      target_amount REAL NOT NULL,
+      saved_amount REAL DEFAULT 0,
+      target_date TEXT,
+      created_at TEXT DEFAULT (datetime('now'))
+    );
+
+    CREATE TABLE IF NOT EXISTS fin_merchant_category_map (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      merchant_pattern TEXT NOT NULL UNIQUE,
+      category_id INTEGER NOT NULL,
+      FOREIGN KEY (category_id) REFERENCES fin_categories(id)
+    );
+
+    CREATE TABLE IF NOT EXISTS fin_settings (
+      id INTEGER PRIMARY KEY DEFAULT 1,
+      monthly_overall_budget REAL DEFAULT 0,
+      monthly_invest_target REAL DEFAULT 0,
+      monthly_income_default REAL DEFAULT 0
+    );
+
+    CREATE TABLE IF NOT EXISTS fin_no_spend_days (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      date TEXT NOT NULL UNIQUE
+    );
+  `);
+
   // Run migrations for existing databases
   runMigrations(db);
 
@@ -198,6 +311,9 @@ function initDB() {
   if (countBefore === 0) {
     seedInitialData(db);
   }
+
+  // Idempotent finance seeding — runs every startup
+  seedFinanceData(db);
 
   return db;
 }
