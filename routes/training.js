@@ -21,6 +21,95 @@ const CATCH_UP_COMPOUNDS = {
 };
 const SESSION_CAP = 8;
 
+const COMPOUND_SET = new Set([
+  'Barbell Back Squat', 'Barbell Bench Press', 'Conventional Deadlift',
+  'Romanian Deadlift', 'Standing Overhead Press', 'Barbell Row',
+  'Leg Press', 'Bulgarian Split Squat', 'Incline Dumbbell Press',
+  'Pull-Up', 'Hip Thrust', 'Dips',
+]);
+
+// Estimate session duration in minutes
+function estimateDuration(exercises, mode) {
+  const SET_TIME = 40; // seconds per set
+  const TRANSITION = 60; // seconds between exercises
+  let totalSecs = 0;
+
+  if (mode === 'full') {
+    for (const ex of exercises) {
+      const sets = ex.sets || 3;
+      const rest = ex.rest_seconds || (COMPOUND_SET.has(ex.name) ? 150 : 75);
+      totalSecs += sets * (SET_TIME + rest) + TRANSITION;
+    }
+  } else {
+    // Identify pairs for 45/60 modes
+    const paired = new Set();
+    for (let i = 0; i < exercises.length; i++) {
+      if (paired.has(i) || COMPOUND_SET.has(exercises[i].name)) continue;
+      for (let j = i + 1; j < exercises.length; j++) {
+        if (paired.has(j) || COMPOUND_SET.has(exercises[j].name)) continue;
+        if (exercises[i].pair_group && exercises[i].pair_group === exercises[j].pair_group) {
+          paired.add(i);
+          paired.add(j);
+          // Paired block: alternating sets with shorter rest
+          const setsA = exercises[i].sets || 3;
+          const setsB = exercises[j].sets || 3;
+          const maxSets = Math.max(setsA, setsB);
+          const pairRest = 50; // 45-60s average
+          totalSecs += maxSets * 2 * (SET_TIME + pairRest) + TRANSITION;
+          break;
+        }
+      }
+    }
+    // Straight-set exercises (compounds + unpaired)
+    for (let i = 0; i < exercises.length; i++) {
+      if (paired.has(i)) continue;
+      const sets = exercises[i].sets || 3;
+      const rest = exercises[i].rest_seconds || (COMPOUND_SET.has(exercises[i].name) ? 150 : 75);
+      totalSecs += sets * (SET_TIME + rest) + TRANSITION;
+    }
+  }
+
+  return Math.round(totalSecs / 60);
+}
+
+// Shape exercises for a given session mode
+function shapeForMode(exercises, catchUpExercises, mode) {
+  if (mode === 'full') {
+    return { exercises: [...exercises, ...catchUpExercises], skipped: [] };
+  }
+
+  const compounds = exercises.filter(e => COMPOUND_SET.has(e.name));
+  const accessories = exercises.filter(e => !COMPOUND_SET.has(e.name));
+  const targetMin = mode === '45' ? 45 : 60;
+
+  let selected;
+  if (mode === '45') {
+    // Max 3 compounds + 2-3 accessories
+    selected = [...compounds.slice(0, 3), ...accessories.slice(0, 3)];
+  } else {
+    // 60 min: all compounds + accessories, trim if over
+    selected = [...compounds, ...accessories];
+  }
+
+  // Add catch-up (never trimmed)
+  const withCatchUp = [...selected, ...catchUpExercises];
+
+  // Trim accessories if estimate exceeds target (never trim compounds or catch-up)
+  let est = estimateDuration(withCatchUp, mode);
+  while (est > targetMin && selected.length > compounds.length) {
+    // Remove last accessory
+    selected.pop();
+    const trimmed = [...selected, ...catchUpExercises];
+    est = estimateDuration(trimmed, mode);
+  }
+
+  const final = [...selected, ...catchUpExercises];
+  const selectedNames = new Set(final.map(e => e.name));
+  const skipped = exercises.filter(e => !selectedNames.has(e.name)).map(e => e.name);
+
+  return { exercises: final, skipped };
+}
+
 function computeCatchUp(db, weekDays, templateExercises) {
   // Get completed sets per muscle this week
   const gymSessions = db.prepare(`
@@ -103,15 +192,19 @@ router.get('/', (req, res) => {
 
   const nextWorkout = getNextWorkout(frequency, index);
 
+  // Session mode
+  const sessionMode = goal?.session_mode || 'full';
+
   // Resolve exercise IDs for the template
   const exercises = nextWorkout.exercises.map(ex => {
-    const dbEx = db.prepare('SELECT id, name, primary_muscles, secondary_muscles, rest_seconds FROM exercises WHERE name = ?').get(ex.name);
+    const dbEx = db.prepare('SELECT id, name, primary_muscles, secondary_muscles, rest_seconds, pair_group FROM exercises WHERE name = ?').get(ex.name);
     return {
       ...ex,
       exercise_id: dbEx?.id || null,
       primary_muscles: dbEx ? JSON.parse(dbEx.primary_muscles) : [],
       secondary_muscles: dbEx ? JSON.parse(dbEx.secondary_muscles) : [],
       rest_seconds: dbEx?.rest_seconds || 75,
+      pair_group: dbEx?.pair_group || null,
     };
   });
 
@@ -157,17 +250,27 @@ router.get('/', (req, res) => {
 
   // Dynamic catch-up
   const catchUp = computeCatchUp(db, weekDays, exercises);
-  let finalExercises = [...exercises];
-  if (catchUp.exercises.length > 0) {
-    // If catch-up would push past cap, trim template accessories
-    const totalAfter = exercises.length + catchUp.exercises.length;
-    if (totalAfter > SESSION_CAP) {
-      // Remove accessories from the end (never remove catch-up compounds)
-      const trimCount = totalAfter - SESSION_CAP;
-      finalExercises = exercises.slice(0, exercises.length - trimCount);
+
+  // Shape exercises based on session mode
+  let finalExercises;
+  let skippedExercises = [];
+  if (sessionMode === 'full') {
+    finalExercises = [...exercises];
+    if (catchUp.exercises.length > 0) {
+      const totalAfter = exercises.length + catchUp.exercises.length;
+      if (totalAfter > SESSION_CAP) {
+        const trimCount = totalAfter - SESSION_CAP;
+        finalExercises = exercises.slice(0, exercises.length - trimCount);
+      }
+      finalExercises = [...finalExercises, ...catchUp.exercises];
     }
-    // Append catch-up exercises
-    finalExercises = [...finalExercises, ...catchUp.exercises];
+  } else {
+    const shaped = shapeForMode(exercises, catchUp.exercises, sessionMode);
+    finalExercises = shaped.exercises;
+    skippedExercises = shaped.skipped;
+  }
+
+  if (catchUp.exercises.length > 0) {
     // Also fetch last numbers for catch-up exercises
     for (const ex of catchUp.exercises) {
       if (!ex.exercise_id || lastNumbers[ex.exercise_id]) continue;
@@ -185,13 +288,21 @@ router.get('/', (req, res) => {
     }
   }
 
-  // Build subtitle reflecting catch-up
+  // Build subtitle reflecting catch-up and session mode
   const catchUpCount = catchUp.exercises.length;
   const templateCount = finalExercises.length - catchUpCount;
-  const estMin = finalExercises.length * 7;
+  const estMin = estimateDuration(finalExercises, sessionMode);
+  const modeLabel = sessionMode === '45' ? '45-min' : sessionMode === '60' ? '60-min' : '';
   const subtitle = catchUpCount > 0
-    ? `${templateCount} exercises + ${catchUpCount} catch-up · ~${estMin} min`
-    : `${nextWorkout.subtitle} · ${finalExercises.length} exercises · ~${estMin} min`;
+    ? `${templateCount} exercises + ${catchUpCount} catch-up · ~${estMin} min${modeLabel ? ` (${modeLabel})` : ''}`
+    : `${nextWorkout.subtitle} · ${finalExercises.length} exercises · ~${estMin} min${modeLabel ? ` (${modeLabel})` : ''}`;
+
+  // Duration estimates for all modes
+  const durationEstimates = {
+    '45': estimateDuration(shapeForMode(exercises, catchUp.exercises, '45').exercises, '45'),
+    '60': estimateDuration(shapeForMode(exercises, catchUp.exercises, '60').exercises, '60'),
+    full: estimateDuration([...exercises, ...catchUp.exercises], 'full'),
+  };
 
   const weekStrip = weekDays.map(day => {
     const gymOnDay = db.prepare('SELECT id, workout_type FROM workout_sessions WHERE completed = 1 AND date = ?').get(day);
@@ -247,6 +358,9 @@ router.get('/', (req, res) => {
   res.json({
     frequency,
     workout_index: index,
+    session_mode: sessionMode,
+    duration_estimates: durationEstimates,
+    skipped_exercises: skippedExercises,
     next_workout: { ...nextWorkout, exercises: finalExercises, subtitle },
     last_numbers: lastNumbers,
     recent_sessions: recentSessions,
@@ -260,6 +374,17 @@ router.get('/', (req, res) => {
     volume_notes: catchUp.notes,
     active_session: activeSessionInfo,
   });
+});
+
+// PUT /api/training/session-mode — change session length mode
+router.put('/session-mode', (req, res) => {
+  const db = getDB();
+  const { mode } = req.body;
+  if (!['45', '60', 'full'].includes(mode)) {
+    return res.status(400).json({ error: 'Mode must be 45, 60, or full' });
+  }
+  db.prepare('UPDATE goal SET session_mode = ? WHERE id = 1').run(mode);
+  res.json({ ok: true, mode });
 });
 
 // PUT /api/training/frequency — change gym frequency (3 or 4)

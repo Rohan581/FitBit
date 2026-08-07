@@ -243,9 +243,13 @@ export default function Training() {
       return { ...prev, [exId]: exSets };
     });
 
-    // Start rest timer — use per-exercise rest_seconds from the template
+    // Start rest timer — use per-exercise rest_seconds, shorter for paired accessories
     const exerciseData = next_workout.exercises.find(e => e.exercise_id === exId);
-    const restSecs = exerciseData?.rest_seconds || (COMPOUND_EXERCISES.has(exName) ? 150 : 75);
+    const currentMode = data?.session_mode || 'full';
+    const isPaired = currentMode !== 'full' && exerciseData?.pair_group &&
+      !COMPOUND_EXERCISES.has(exName) &&
+      next_workout.exercises.some(e => e.exercise_id !== exId && e.pair_group === exerciseData.pair_group);
+    const restSecs = isPaired ? 50 : (exerciseData?.rest_seconds || (COMPOUND_EXERCISES.has(exName) ? 150 : 75));
     setRestDuration(restSecs);
     setRestStartedAt(Date.now());
     setRestExerciseName(exName);
@@ -287,16 +291,37 @@ export default function Training() {
       if (found) newExId = found.id;
     } catch {}
 
-    // Fallback: check offline library (won't have a DB id but we can still swap visually)
-    if (!newExId) {
-      const lib = getExerciseLib();
-      if (!lib[newExName]) return; // substitute doesn't exist at all
-    }
-
     // Use the original template exercise ID as the swap map key
     const originalId = oldEx._originalId || oldEx.exercise_id;
     const currentId = oldEx.exercise_id;
     const effectiveNewId = newExId || `swap_${Date.now()}`;
+
+    // If swapping back to the original template exercise, remove the swap entry
+    const originalTemplateEx = next_workout.exercises.find(e => e.exercise_id === originalId);
+    if (originalTemplateEx && newExName === originalTemplateEx.name) {
+      setSwappedExercises(prev => {
+        const updated = { ...prev };
+        delete updated[originalId];
+        return updated;
+      });
+      // Restore sets for original exercise
+      const oldSets = sessionSets[currentId] || [];
+      const restoredSets = [];
+      for (let s = 1; s <= (oldEx.sets || 3); s++) {
+        const existing = oldSets.find(os => os.set_number === s && !os.done);
+        restoredSets.push({ set_number: s, weight_kg: existing?.weight_kg || '', reps: existing?.reps || '', done: false });
+      }
+      setSessionSets(prev => {
+        const updated = { ...prev };
+        const doneSets = (prev[currentId] || []).filter(s => s.done);
+        if (doneSets.length > 0) updated[currentId] = doneSets;
+        else delete updated[currentId];
+        updated[originalId] = restoredSets;
+        return updated;
+      });
+      setSwapExercise(null);
+      return;
+    }
 
     // Record the swap against the original template ID
     setSwappedExercises(prev => ({
@@ -376,6 +401,7 @@ export default function Training() {
         gymThisWeek: (data.week_gym_sessions || 0) + 1,
         targetGym: data.target_gym_this_week || frequency,
         cardio: sessionCardio,
+        sessionMode: data?.session_mode || 'full',
       });
     } catch {
       setCompletionData({
@@ -476,8 +502,43 @@ export default function Training() {
     const catchUpExercises = effectiveExercises.filter(e => e.is_catchup);
     const templateExercises = effectiveExercises.filter(e => !e.is_catchup);
 
+    // Build paired blocks for 45/60 modes
+    const sessionMode = data?.session_mode || 'full';
+    const pairedIndices = new Set();
+    const pairedBlocks = [];
+    if (sessionMode !== 'full') {
+      for (let i = 0; i < templateExercises.length; i++) {
+        if (pairedIndices.has(i) || COMPOUND_EXERCISES.has(templateExercises[i].name)) continue;
+        for (let j = i + 1; j < templateExercises.length; j++) {
+          if (pairedIndices.has(j) || COMPOUND_EXERCISES.has(templateExercises[j].name)) continue;
+          if (templateExercises[i].pair_group && templateExercises[i].pair_group === templateExercises[j].pair_group) {
+            pairedIndices.add(i);
+            pairedIndices.add(j);
+            pairedBlocks.push([i, j]);
+            break;
+          }
+        }
+      }
+    }
+
     const isLastTenSecs = restRemaining > 0 && restRemaining <= 10;
     const isRestComplete = restStartedAt && restRemaining <= 0;
+
+    // Build render items (singles + paired blocks in order)
+    const renderItems = [];
+    const usedIndices = new Set();
+    for (let i = 0; i < templateExercises.length; i++) {
+      if (usedIndices.has(i)) continue;
+      const pairBlock = pairedBlocks.find(([a, b]) => a === i || b === i);
+      if (pairBlock) {
+        renderItems.push({ type: 'pair', indices: pairBlock });
+        usedIndices.add(pairBlock[0]);
+        usedIndices.add(pairBlock[1]);
+      } else {
+        renderItems.push({ type: 'single', index: i });
+        usedIndices.add(i);
+      }
+    }
 
     return (
       <div className="flex flex-col h-full">
@@ -488,7 +549,7 @@ export default function Training() {
           </button>
           <div className="text-center">
             <div className="text-[16px] font-bold font-num text-tx">{next_workout.label}</div>
-            <div className="text-[12px] font-semibold text-tx-3">{doneCount} of {exCount} exercises</div>
+            <div className="text-[12px] font-semibold text-tx-3">{doneCount} of {exCount} exercises{sessionMode !== 'full' ? ` · ${sessionMode}-min` : ''}</div>
           </div>
           <span className="text-[14px] font-semibold font-num text-tx-2 w-[52px] text-right">{fmtTime(elapsedSecs)}</span>
         </div>
@@ -496,22 +557,62 @@ export default function Training() {
         {/* Exercise cards */}
         <div className="flex-1 overflow-y-auto px-4 pt-3 pb-32" style={{ WebkitOverflowScrolling: 'touch' }}>
           <div className="flex flex-col gap-3">
-            {/* Template exercises */}
-            {templateExercises.map((ex, i) => (
-              <ExerciseCard
-                key={ex.exercise_id || i}
-                ex={ex}
-                sets={sessionSets[ex.exercise_id] || []}
-                last={last_numbers[ex.exercise_id] || []}
-                onSetChange={handleSetChange}
-                onCompleteSet={handleCompleteSet}
-                onAddSet={handleAddSet}
-                onDeleteSet={handleDeleteSet}
-                onDetail={setDetailExercise}
-                onProg={setProgExercise}
-                onSwap={setSwapExercise}
-              />
-            ))}
+            {/* Template exercises — singles and paired blocks */}
+            {renderItems.map((item, ri) => {
+              if (item.type === 'single') {
+                const ex = templateExercises[item.index];
+                return (
+                  <ExerciseCard
+                    key={ex.exercise_id || ri}
+                    ex={ex}
+                    sets={sessionSets[ex.exercise_id] || []}
+                    last={last_numbers[ex.exercise_id] || []}
+                    onSetChange={handleSetChange}
+                    onCompleteSet={handleCompleteSet}
+                    onAddSet={handleAddSet}
+                    onDeleteSet={handleDeleteSet}
+                    onDetail={setDetailExercise}
+                    onProg={setProgExercise}
+                    onSwap={setSwapExercise}
+                  />
+                );
+              }
+              // Paired block
+              const exA = templateExercises[item.indices[0]];
+              const exB = templateExercises[item.indices[1]];
+              return (
+                <div key={`pair-${ri}`} className="rounded-[20px] border-2 p-1.5 space-y-1.5" style={{ borderColor: 'color-mix(in oklab, var(--points) 30%, var(--hair))' }}>
+                  <div className="flex items-center gap-2 px-3 pt-1">
+                    <span className="text-[11px] font-bold text-points uppercase tracking-wider">Paired set</span>
+                    <span className="text-[11px] text-tx-3">A1 ↔ A2 · 45–60 s rest</span>
+                  </div>
+                  <ExerciseCard
+                    ex={exA}
+                    sets={sessionSets[exA.exercise_id] || []}
+                    last={last_numbers[exA.exercise_id] || []}
+                    onSetChange={handleSetChange}
+                    onCompleteSet={handleCompleteSet}
+                    onAddSet={handleAddSet}
+                    onDeleteSet={handleDeleteSet}
+                    onDetail={setDetailExercise}
+                    onProg={setProgExercise}
+                    onSwap={setSwapExercise}
+                  />
+                  <ExerciseCard
+                    ex={exB}
+                    sets={sessionSets[exB.exercise_id] || []}
+                    last={last_numbers[exB.exercise_id] || []}
+                    onSetChange={handleSetChange}
+                    onCompleteSet={handleCompleteSet}
+                    onAddSet={handleAddSet}
+                    onDeleteSet={handleDeleteSet}
+                    onDetail={setDetailExercise}
+                    onProg={setProgExercise}
+                    onSwap={setSwapExercise}
+                  />
+                </div>
+              );
+            })}
 
             {/* Catch-up block */}
             {catchUpExercises.length > 0 && (
@@ -653,7 +754,7 @@ export default function Training() {
 
         {/* Sheets */}
         {detailExercise && <ExerciseDetailSheet exerciseId={detailExercise.id || detailExercise} exerciseName={detailExercise.name} onClose={() => setDetailExercise(null)} />}
-        {swapExercise && <SwapSheet exercise={swapExercise} onSwap={(subName) => handleSwapExercise(swapExercise, subName)} onClose={() => setSwapExercise(null)} />}
+        {swapExercise && <SwapSheet exercise={swapExercise} originalName={swapExercise._originalId ? next_workout.exercises.find(e => e.exercise_id === swapExercise._originalId)?.name : null} onSwap={(subName) => handleSwapExercise(swapExercise, subName)} onClose={() => setSwapExercise(null)} />}
         {progExercise && <ProgressionSheet exerciseId={progExercise} onClose={() => setProgExercise(null)} />}
       </div>
     );
@@ -698,6 +799,32 @@ export default function Training() {
               <div className="text-[14px] font-medium text-tx-2 mt-0.5">
                 {next_workout.subtitle}
               </div>
+
+              {/* Session length selector */}
+              <div className="flex gap-2 mt-3">
+                {[
+                  { id: '45', label: '45 min', est: data.duration_estimates?.['45'] },
+                  { id: '60', label: '60 min', est: data.duration_estimates?.['60'] },
+                  { id: 'full', label: 'Full', est: data.duration_estimates?.full },
+                ].map(opt => {
+                  const active = (data.session_mode || 'full') === opt.id;
+                  return (
+                    <button
+                      key={opt.id}
+                      onClick={async () => { await api.setSessionMode(opt.id); load(); }}
+                      className="flex-1 py-2 rounded-[11px] text-center press-scale transition-colors"
+                      style={{
+                        border: active ? '1.5px solid var(--points)' : '1.5px solid var(--hair)',
+                        background: active ? 'color-mix(in oklab, var(--points) 14%, transparent)' : 'transparent',
+                      }}
+                    >
+                      <div className={`text-[13px] font-bold ${active ? 'text-points' : 'text-tx-2'}`}>{opt.label}</div>
+                      <div className="text-[11px] font-num text-tx-3">~{opt.est || '?'} min</div>
+                    </button>
+                  );
+                })}
+              </div>
+
               <div className="flex flex-wrap gap-1.5 mt-3.5">
                 {next_workout.exercises.map((ex, i) => (
                   <span
@@ -1155,7 +1282,7 @@ function CompleteScreen({ data: cd, allData, onBack }) {
           Session logged
         </div>
         <div className="text-[15px] font-semibold text-tx-2 mt-1">
-          {cd.workout.label} · that's {cd.gymThisWeek} of {cd.targetGym} this week
+          {cd.workout.label}{cd.sessionMode !== 'full' ? ` (${cd.sessionMode}-min)` : ''} · that's {cd.gymThisWeek} of {cd.targetGym} this week
         </div>
         <div
           className="mt-2.5 text-[14px] font-bold text-points rounded-full px-4 py-1.5"
@@ -1361,19 +1488,47 @@ function ProgressionSheet({ exerciseId, onClose }) {
 }
 
 // ─── Swap Sheet ──────────────────────────────────────────────
-function SwapSheet({ exercise, onSwap, onClose }) {
+function SwapSheet({ exercise, originalName, onSwap, onClose }) {
   const [subs, setSubs] = useState([]);
 
   useEffect(() => {
-    if (!exercise.exercise_id) return;
-    api.getExercise(exercise.exercise_id)
-      .then(ex => setSubs(ex.substitutes || []))
-      .catch(() => {
+    async function loadSubs() {
+      let found = [];
+
+      // 1. Try API by numeric ID
+      if (exercise.exercise_id && typeof exercise.exercise_id === 'number') {
+        try {
+          const ex = await api.getExercise(exercise.exercise_id);
+          if (ex?.substitutes?.length) found = ex.substitutes;
+        } catch {}
+      }
+
+      // 2. Fallback: search all exercises API by name
+      if (!found.length) {
+        try {
+          const all = await api.getExercises();
+          const match = all.find(e => e.name === exercise.name);
+          if (match?.substitutes?.length) found = match.substitutes;
+        } catch {}
+      }
+
+      // 3. Fallback: offline library
+      if (!found.length) {
         const lib = getExerciseLib();
-        const found = lib[exercise.name];
-        if (found) setSubs(found.substitutes || []);
-      });
-  }, [exercise.exercise_id, exercise.name]);
+        const entry = lib[exercise.name];
+        if (entry?.substitutes?.length) found = entry.substitutes;
+      }
+
+      // Add "swap back to original" if this is already a swapped exercise
+      if (originalName && originalName !== exercise.name) {
+        found = found.filter(s => s !== originalName);
+        found.unshift(originalName);
+      }
+
+      setSubs(found);
+    }
+    loadSubs();
+  }, [exercise.exercise_id, exercise.name, originalName]);
 
   return (
     <Sheet open={true} onClose={onClose} title={`Swap ${exercise.name}`}>
@@ -1385,9 +1540,12 @@ function SwapSheet({ exercise, onSwap, onClose }) {
             onClick={() => onSwap(sub)}
             className="w-full text-left px-4 py-3.5 rounded-[14px] border border-hair text-[14px] font-semibold text-tx-2 press-scale hover:border-points transition-colors"
           >
-            {sub}
+            {sub}{sub === originalName ? ' ↩' : ''}
           </button>
         ))}
+        {subs.length === 0 && (
+          <p className="text-[13px] text-tx-3 py-4 text-center">No substitutes available for this exercise.</p>
+        )}
         <p className="text-[12px] text-tx-3 mt-3">Tap a substitute to swap it in. Prescribed sets carry over.</p>
       </div>
     </Sheet>

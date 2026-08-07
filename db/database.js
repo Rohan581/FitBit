@@ -509,6 +509,41 @@ function runMigrations(db) {
     db.exec(`ALTER TABLE goal ADD COLUMN rest_day_reduction INTEGER DEFAULT 150`);
   }
 
+  // pair_group column on exercises for antagonist supersets
+  const exColsLatest = db.prepare("PRAGMA table_info(exercises)").all().map(c => c.name);
+  if (!exColsLatest.includes('pair_group')) {
+    db.exec(`ALTER TABLE exercises ADD COLUMN pair_group TEXT`);
+    // Backfill pair groups for compatible pairings
+    const pairGroups = {
+      'Cable Bicep Curl': 'biceps_triceps',
+      'Dumbbell Hammer Curl': 'biceps_triceps',
+      'Cable Tricep Pushdown': 'biceps_triceps',
+      'Overhead Tricep Extension': 'biceps_triceps',
+      'Dumbbell Lateral Raise': 'side_rear_delts',
+      'Face Pull': 'side_rear_delts',
+      'Rear Delt Fly': 'side_rear_delts',
+      'Cable Chest Fly': 'chest_back_iso',
+      'Seated Cable Row': 'chest_back_iso',
+      'Leg Extension': 'quads_hams_iso',
+      'Lying Leg Curl': 'quads_hams_iso',
+      'Seated Leg Curl': 'quads_hams_iso',
+      'Standing Calf Raise': 'calves_abs',
+      'Seated Calf Raise': 'calves_abs',
+      'Cable Crunch': 'calves_abs',
+      'Hanging Leg Raise': 'calves_abs',
+    };
+    const updatePair = db.prepare('UPDATE exercises SET pair_group = ? WHERE name = ?');
+    for (const [name, group] of Object.entries(pairGroups)) {
+      updatePair.run(group, name);
+    }
+  }
+
+  // Session mode preference
+  const goalColsSession = db.prepare("PRAGMA table_info(goal)").all().map(c => c.name);
+  if (!goalColsSession.includes('session_mode')) {
+    db.exec(`ALTER TABLE goal ADD COLUMN session_mode TEXT DEFAULT 'full'`);
+  }
+
   // Seed exercises
   seedExercises(db);
 }

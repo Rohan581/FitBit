@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, Component } from 'react';
 import { api } from '../api';
 import Sheet from '../components/Sheet';
 import {
@@ -8,6 +8,34 @@ import {
   CircleEllipsis, Smartphone, Banknote, FileText, Coins, Target,
   CircleCheck, ArrowDownToLine,
 } from 'lucide-react';
+
+// ─── Error Boundary ─────────────────────────────────────────
+class FinanceErrorBoundary extends Component {
+  constructor(props) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
+  static getDerivedStateFromError(error) {
+    return { hasError: true, error };
+  }
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="bg-card rounded-[20px] border border-hair p-6 m-4 text-center">
+          <p className="text-[15px] font-semibold text-tx mb-2">Something went wrong here</p>
+          <p className="text-[13px] text-tx-3 mb-4">{this.state.error?.message || 'An unexpected error occurred'}</p>
+          <button
+            onClick={() => this.setState({ hasError: false, error: null })}
+            className="px-4 py-2 rounded-full border border-hair text-[13px] font-semibold text-tx-2 press-scale"
+          >
+            Try again
+          </button>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
 
 // ─── Helpers ────────────────────────────────────────────────
 function formatINR(n) {
@@ -104,8 +132,8 @@ export default function Finance({ onOpenSidebar }) {
         api.getFinSettings(),
       ]);
       setHomeData(h);
-      setCategories(cats.categories || cats);
-      setPaymentMethods(pms.methods || pms);
+      setCategories(cats.categories || cats || []);
+      setPaymentMethods(pms.payment_methods || pms || []);
       setSettings(s);
     } catch {
       // silent
@@ -150,7 +178,7 @@ export default function Finance({ onOpenSidebar }) {
         {loading ? (
           <LoadingState />
         ) : (
-          <>
+          <FinanceErrorBoundary key={tab}>
             {tab === 'home' && (
               <HomeTab
                 data={homeData}
@@ -195,7 +223,7 @@ export default function Finance({ onOpenSidebar }) {
                 onGoal={() => setShowGoalSheet(true)}
               />
             )}
-          </>
+          </FinanceErrorBoundary>
         )}
       </div>
 
@@ -827,25 +855,28 @@ function CardsTab({ paymentMethods, categories, onDetail, onLedger, showToast })
             <Sparkles size={14} style={{ color: 'var(--fin)' }} /> Thinking...
           </div>
         )}
-        {suggestion && !suggestLoading && (
+        {suggestion && !suggestLoading && suggestion.best && (
           <div className="mt-3 p-3 rounded-[14px] border border-hair">
             <div className="flex items-center gap-2 mb-1">
               <CreditCard size={16} style={{ color: 'var(--fin)' }} />
-              <span className="text-[14px] font-semibold text-tx">{suggestion.card_name || suggestion.name}</span>
+              <span className="text-[14px] font-semibold text-tx">{suggestion.best.card_name}</span>
             </div>
-            {suggestion.multiplier_text && (
-              <p className="text-[12px] font-semibold" style={{ color: 'var(--fin)' }}>{suggestion.multiplier_text}</p>
+            {suggestion.best.multiplier_text && (
+              <p className="text-[12px] font-semibold" style={{ color: 'var(--fin)' }}>{suggestion.best.multiplier_text}</p>
             )}
-            {suggestion.note && <p className="text-[11px] text-tx-3 mt-0.5">{suggestion.note}</p>}
+            {suggestion.best.note && <p className="text-[11px] text-tx-3 mt-0.5">{suggestion.best.note}</p>}
             {suggestion.backup && (
               <div className="mt-2 pt-2 border-t border-hair">
-                <p className="text-[11px] text-tx-3">Backup: <span className="text-tx-2 font-semibold">{suggestion.backup.card_name || suggestion.backup.name}</span></p>
+                <p className="text-[11px] text-tx-3">Backup: <span className="text-tx-2 font-semibold">{suggestion.backup.card_name}</span></p>
                 {suggestion.backup.multiplier_text && (
                   <p className="text-[11px]" style={{ color: 'var(--fin)' }}>{suggestion.backup.multiplier_text}</p>
                 )}
               </div>
             )}
           </div>
+        )}
+        {suggestion && !suggestLoading && !suggestion.best && (
+          <p className="mt-3 text-[13px] text-tx-3">No card rules match. Add rules in card details to get recommendations.</p>
         )}
       </div>
 
@@ -900,14 +931,14 @@ function CardsTab({ paymentMethods, categories, onDetail, onLedger, showToast })
             {bills.map((bill, i) => (
               <div key={bill.id || i} className="flex items-center gap-3">
                 <div className="flex-1 min-w-0">
-                  <p className="text-[13px] font-semibold text-tx truncate">{bill.card_name || bill.name}</p>
+                  <p className="text-[13px] font-semibold text-tx truncate">{bill.payment_method_name || bill.card_name || ''}</p>
                   <p className="text-[11px] text-tx-3">
-                    {bill.cycle_label && `${bill.cycle_label} \u00B7 `}
+                    {bill.cycle_start && bill.cycle_end ? `${bill.cycle_start} – ${bill.cycle_end} · ` : ''}
                     {bill.due_date ? `Due ${bill.due_date}` : ''}
                   </p>
                 </div>
-                <span className="text-[14px] font-num font-semibold text-tx flex-shrink-0">{formatINR(bill.amount)}</span>
-                {!bill.paid && (
+                <span className="text-[14px] font-num font-semibold text-tx flex-shrink-0">{formatINR(bill.amount_computed || bill.amount)}</span>
+                {bill.status !== 'paid' && (
                   <button
                     onClick={() => handlePayBill(bill.id)}
                     className="text-[11px] px-2.5 py-1 rounded-full press-scale font-semibold"
@@ -957,8 +988,8 @@ function InvestTab({ settings, onAdd, onReload }) {
 
   if (loading) return <LoadingState />;
 
-  const monthlyTarget = settings?.monthly_investment_target || summary?.monthly_target || 0;
-  const monthlyInvested = summary?.monthly_invested || 0;
+  const monthlyTarget = settings?.monthly_invest_target || summary?.target || 0;
+  const monthlyInvested = summary?.total_invested || 0;
   const investPct = monthlyTarget > 0 ? Math.min(100, Math.round((monthlyInvested / monthlyTarget) * 100)) : 0;
 
   const typeBreakdown = summary?.by_type || [];
@@ -1079,23 +1110,27 @@ function PlanTab({ settings, categories, onReload, showToast, onGoal }) {
   const [goalsLoading, setGoalsLoading] = useState(true);
   const [budgetEdits, setBudgetEdits] = useState({});
   const [showBudgetPlan, setShowBudgetPlan] = useState(false);
+  const [planData, setPlanData] = useState(null);
 
   useEffect(() => {
     (async () => {
       try {
-        const g = await api.getFinGoals();
+        const [g, home, invSum] = await Promise.all([
+          api.getFinGoals(), api.getFinanceHome(), api.getInvestmentSummary().catch(() => null),
+        ]);
         setGoals(g.goals || g || []);
+        setPlanData({ spend_mtd: home?.spend_mtd || 0, total_invested: invSum?.total_invested || 0 });
       } catch { /* silent */ } finally {
         setGoalsLoading(false);
       }
     })();
   }, []);
 
-  const income = settings?.monthly_income || 0;
-  const spent = settings?.monthly_spent || 0;
-  const invested = settings?.monthly_invested || 0;
+  const income = settings?.monthly_income_default || 0;
+  const spent = planData?.spend_mtd || 0;
+  const invested = planData?.total_invested || 0;
   const savingsRate = income > 0 ? Math.round(((income - spent) / income) * 100) : 0;
-  const freeAfterBills = settings?.free_after_bills ?? (income - (settings?.queued_bills || 0) - (settings?.recurring_sips || 0));
+  const freeAfterBills = Math.max(0, income - spent - invested);
 
   async function handleAddToGoal(goalId) {
     try {
@@ -1153,7 +1188,7 @@ function PlanTab({ settings, categories, onReload, showToast, onGoal }) {
           <div className="pt-2 border-t border-hair flex items-center justify-between">
             <span className="text-[13px] font-semibold text-tx">Free after bills & SIPs</span>
             <span className="text-[14px] font-num font-bold" style={{ color: 'var(--fin)' }}>
-              {formatINR(freeAfterBills ?? (income - spent - invested))}
+              {formatINR(freeAfterBills)}
             </span>
           </div>
         </div>
