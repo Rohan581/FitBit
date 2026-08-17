@@ -8,7 +8,7 @@ const tabs = [
   { to: '/history', label: 'History', icon: HistoryIcon },
 ];
 
-export default function BottomNav({ onOpenSidebar }) {
+export default function BottomNav() {
   return (
     <nav
       className="tab-bar flex-shrink-0 border-t border-hair"
@@ -19,17 +19,6 @@ export default function BottomNav({ onOpenSidebar }) {
       }}
     >
       <div className="flex">
-        {onOpenSidebar && (
-          <button
-            onClick={onOpenSidebar}
-            className="flex items-center justify-center w-10 ml-2 text-tx-3 press-scale"
-            aria-label="Switch module"
-          >
-            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
-            </svg>
-          </button>
-        )}
         {tabs.map(({ to, label, icon: Icon }) => (
           <NavLink
             key={to}

@@ -1,7 +1,6 @@
-import { useState, useEffect } from 'react';
+import { useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import BottomNav from './components/BottomNav';
-import ModuleSwitcher from './components/ModuleSwitcher';
 import Dashboard from './pages/Dashboard';
 import FoodLog from './pages/FoodLog';
 import Points from './pages/Points';
@@ -13,15 +12,6 @@ import { initThemeListener } from './theme';
 
 export default function App() {
   useEffect(() => initThemeListener(), []);
-
-  const [module, setModule] = useState(() => localStorage.getItem('earned_module') || 'fitness');
-  const [sidebarOpen, setSidebarOpen] = useState(false);
-
-  function switchModule(m) {
-    setModule(m);
-    localStorage.setItem('earned_module', m);
-    setSidebarOpen(false);
-  }
 
   return (
     <BrowserRouter>
@@ -38,14 +28,8 @@ export default function App() {
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </div>
-        <BottomNav onOpenSidebar={() => setSidebarOpen(true)} />
+        <BottomNav />
       </div>
-      <ModuleSwitcher
-        open={sidebarOpen}
-        onClose={() => setSidebarOpen(false)}
-        current={module}
-        onSwitch={switchModule}
-      />
     </BrowserRouter>
   );
 }
