@@ -346,14 +346,25 @@ function seedInitialData(db) {
        current_calorie_target, current_protein_target_g, current_fat_target_g, current_carb_target_g,
        current_fiber_target_g, current_sugar_limit_g, water_target_ml,
        last_recalibration_date, weekly_point_threshold)
-    VALUES (1, 90, 78, ?, 183, 25, 1.45, 2240, 180, 62, 240, 32, 50, 3000, ?, 350)
+    VALUES (1, 90, 78, ?, 183, 25, 1.45, 2240, 180, 62, 240, 32, 50, 3000, ?, 315)
   `).run(today, today);
 
   // ── Milestones ────────────────────────────────────────────────
   const insertMilestone = db.prepare('INSERT OR IGNORE INTO milestones (weight_kg_threshold) VALUES (?)');
   [87, 84, 81, 78].forEach(w => insertMilestone.run(w));
 
-  console.log('Initial data seeded (saved meal, goal, milestones).');
+  // ── Wishlist items ───────────────────────────────────────────
+  const wishlistCount = db.prepare('SELECT COUNT(*) as c FROM wishlist_items').get()?.c || 0;
+  if (wishlistCount === 0) {
+    const insertWishlist = db.prepare('INSERT INTO wishlist_items (name, target_amount) VALUES (?, ?)');
+    insertWishlist.run('Casual sneakers', 12000);
+    insertWishlist.run('Tom Ford Tobacco Vanille', null);
+    insertWishlist.run('Leather jacket', null);
+    insertWishlist.run('Ergonomic desk chair', null);
+    insertWishlist.run('MacBook', null);
+  }
+
+  console.log('Initial data seeded (saved meal, goal, milestones, wishlist).');
 }
 
 module.exports = { seedFoods, seedInitialData, toSeedKey };

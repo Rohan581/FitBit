@@ -57,18 +57,12 @@ export const api = {
   logWeight: (entry) => req('POST', '/weight-logs', entry),
   deleteWeightLog: (id) => req('DELETE', `/weight-logs/${id}`),
 
-  // Water
-  getWater: (date) => req('GET', `/water?${new URLSearchParams({ ...(date && { date }) })}`),
-  addWater: (date) => req('POST', '/water/add', { ...(date && { date }) }),
-  removeWater: (date) => req('POST', '/water/remove', { ...(date && { date }) }),
-
   // Points
   getDailyPoints: (date) => req('GET', `/points/daily?${new URLSearchParams({ ...(date && { date }) })}`),
   getWeeklyPoints: (weekStart) => req('GET', `/points/weekly?${new URLSearchParams({ ...(weekStart && { weekStart }) })}`),
 
   // Weekly summary
   getWeeklySummary: (weekStart) => req('GET', `/weekly-summary?${new URLSearchParams({ ...(weekStart && { weekStart }) })}`),
-  redeemTreat: (weekStart) => req('POST', '/weekly-summary/redeem', { weekStart }),
 
   // Goal
   getGoal: () => req('GET', '/goal'),
@@ -108,6 +102,10 @@ export const api = {
   getVolumeSummary: () => req('GET', '/training/volume'),
   checkDuplicate: (type, date) => req('GET', `/training/check-duplicate?${new URLSearchParams({ type, ...(date && { date }) })}`),
 
+  // Variation refresh
+  acceptRefresh: () => req('POST', '/training/refresh'),
+  snoozeRefresh: () => req('POST', '/training/refresh/snooze'),
+
   // Session cardio
   addSessionCardio: (sessionId, data) => req('POST', `/training/sessions/${sessionId}/cardio`, data),
   removeSessionCardio: (sessionId, cardioId) => req('DELETE', `/training/sessions/${sessionId}/cardio/${cardioId}`),
@@ -120,57 +118,19 @@ export const api = {
   getRestDay: (date) => req('GET', `/rest-days?${new URLSearchParams({ ...(date && { date }) })}`),
   toggleRestDay: (date) => req('POST', '/rest-days/toggle', { date }),
 
-  // ── Finance ──────────────────────────────────────────────────
-  getFinanceHome: () => req('GET', '/finance/home'),
+  // Bank
+  getBank: () => req('GET', '/bank'),
+  creditBank: (week_start) => req('POST', '/bank/credit', { week_start }),
+  purchaseFromBank: (data) => req('POST', '/bank/purchase', data),
+  getWishlist: () => req('GET', '/bank/wishlist'),
+  addWishlistItem: (data) => req('POST', '/bank/wishlist', data),
+  updateWishlistItem: (id, data) => req('PUT', `/bank/wishlist/${id}`, data),
+  deleteWishlistItem: (id) => req('DELETE', `/bank/wishlist/${id}`),
 
-  // Transactions
-  getTransactions: (params) => req('GET', `/finance/transactions?${new URLSearchParams(params || {})}`),
-  addTransaction: (data) => req('POST', '/finance/transactions', data),
-  updateTransaction: (id, data) => req('PUT', `/finance/transactions/${id}`, data),
-  deleteTransaction: (id) => req('DELETE', `/finance/transactions/${id}`),
-  toggleNoSpend: (date) => req('POST', '/finance/transactions/no-spend', { date }),
-  getNoSpend: (date) => req('GET', `/finance/transactions/no-spend?${new URLSearchParams({ date })}`),
-
-  // Categories
-  getFinCategories: () => req('GET', '/finance/categories'),
-  updateCategoryBudget: (id, budget) => req('PUT', `/finance/categories/${id}/budget`, { monthly_budget: budget }),
-
-  // Payment methods
-  getPaymentMethods: () => req('GET', '/finance/payment-methods'),
-  updatePaymentMethod: (id, data) => req('PUT', `/finance/payment-methods/${id}`, data),
-
-  // Cards
-  suggestCard: (q) => req('GET', `/finance/cards/suggest?${new URLSearchParams({ q })}`),
-  getCardRules: () => req('GET', '/finance/cards/rules'),
-  addCardRule: (data) => req('POST', '/finance/cards/rules', data),
-  updateCardRule: (id, data) => req('PUT', `/finance/cards/rules/${id}`, data),
-  deleteCardRule: (id) => req('DELETE', `/finance/cards/rules/${id}`),
-  getCardBills: () => req('GET', '/finance/cards/bills'),
-  addCardBill: (data) => req('POST', '/finance/cards/bills', data),
-  payCardBill: (id, data) => req('POST', `/finance/cards/bills/${id}/pay`, data),
-  getPointsLedger: () => req('GET', '/finance/cards/points-ledger'),
-  addPointsLedgerEntry: (data) => req('POST', '/finance/cards/points-ledger', data),
-
-  // Investments
-  getInvestments: (params) => req('GET', `/finance/investments?${new URLSearchParams(params || {})}`),
-  addInvestment: (data) => req('POST', '/finance/investments', data),
-  updateInvestment: (id, data) => req('PUT', `/finance/investments/${id}`, data),
-  deleteInvestment: (id) => req('DELETE', `/finance/investments/${id}`),
-  getInvestmentSummary: () => req('GET', '/finance/investments/summary'),
-
-  // Goals
-  getFinGoals: () => req('GET', '/finance/goals'),
-  addFinGoal: (data) => req('POST', '/finance/goals', data),
-  updateFinGoal: (id, data) => req('PUT', `/finance/goals/${id}`, data),
-  deleteFinGoal: (id) => req('DELETE', `/finance/goals/${id}`),
-  addToGoal: (id, amount) => req('POST', `/finance/goals/${id}/add`, { amount }),
-
-  // Import
-  uploadStatement: (data) => req('POST', '/finance/import/upload', data),
-  confirmImport: (data) => req('POST', '/finance/import/confirm', data),
-  unimportBatch: (batchId) => req('DELETE', `/finance/import/batch/${batchId}`),
-
-  // Settings
-  getFinSettings: () => req('GET', '/finance/settings'),
-  updateFinSettings: (data) => req('PUT', '/finance/settings', data),
+  // Push notifications
+  getVapidKey: () => req('GET', '/push/vapid-key'),
+  subscribePush: (data) => req('POST', '/push/subscribe', data),
+  unsubscribePush: (data) => req('POST', '/push/unsubscribe', data),
+  getPushStatus: (endpoint) => req('GET', `/push/status?${new URLSearchParams({ endpoint })}`),
+  checkPush: () => req('POST', '/push/check'),
 };

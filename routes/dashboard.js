@@ -16,8 +16,6 @@ router.get('/', (req, res) => {
   const exerciseLogs = db.prepare('SELECT * FROM exercise_logs WHERE date = ? ORDER BY logged_at').all(today);
   const sleepLog = db.prepare('SELECT * FROM sleep_logs WHERE date = ? ORDER BY logged_at DESC LIMIT 1').get(today);
   const weightLog = db.prepare('SELECT * FROM weight_logs WHERE date = ? ORDER BY logged_at DESC LIMIT 1').get(today);
-  const waterLog = db.prepare('SELECT * FROM water_logs WHERE date = ?').get(today);
-
   // Goal & targets
   const goal = db.prepare('SELECT * FROM goal WHERE id = 1').get();
 
@@ -36,21 +34,14 @@ router.get('/', (req, res) => {
 
   // Weekly points
   const weeklyPoints = weekDays.reduce((s, d) => s + calculateDailyPoints(db, d).total, 0);
-  const threshold = goal?.weekly_point_threshold || 350;
-  const treat_earned = weeklyPoints >= threshold;
-
-  const weeklySummary = db.prepare('SELECT * FROM weekly_summary WHERE week_start = ?').get(weekStart);
-  const treat_redeemed = weeklySummary?.treat_redeemed === 1;
+  const threshold = goal?.weekly_point_threshold || 315;
+  const threshold_met = weeklyPoints >= threshold;
 
   // Rolling average weight (last 7 entries)
   const recentWeights = db.prepare('SELECT weight_kg FROM weight_logs ORDER BY date DESC, logged_at DESC LIMIT 7').all().reverse();
   const rolling_avg_weight = recentWeights.length > 0
     ? Math.round(recentWeights.reduce((s, w) => s + w.weight_kg, 0) / recentWeights.length * 100) / 100
     : null;
-
-  // Water
-  const waterTarget = goal?.water_target_ml || 3000;
-  const waterTargetGlasses = Math.round(waterTarget / 250);
 
   // Notifications
   const notifications = [];
@@ -74,8 +65,13 @@ router.get('/', (req, res) => {
         ).all(threeWeeksStr);
 
         if (recentMeasurements.length >= 2) {
-          const firstWaist = recentMeasurements[0].waist_cm;
-          const lastWaist = recentMeasurements[recentMeasurements.length - 1].waist_cm;
+          // Use rolling average of last 4 entries for smoothed comparison
+          const rollingAvg = (arr, idx) => {
+            const window = arr.slice(Math.max(0, idx - 3), idx + 1);
+            return window.reduce((s, m) => s + m.waist_cm, 0) / window.length;
+          };
+          const firstWaist = rollingAvg(recentMeasurements, Math.min(3, recentMeasurements.length - 1));
+          const lastWaist = rollingAvg(recentMeasurements, recentMeasurements.length - 1);
           const waistChange = lastWaist - firstWaist;
 
           if (waistChange < -0.5) {
@@ -109,7 +105,11 @@ router.get('/', (req, res) => {
         ).all(threeWeeksStr2);
 
         if (recentM.length >= 2) {
-          const waistChange2 = recentM[recentM.length - 1].waist_cm - recentM[0].waist_cm;
+          const rollingAvgM = (arr, idx) => {
+            const window = arr.slice(Math.max(0, idx - 3), idx + 1);
+            return window.reduce((s, m) => s + m.waist_cm, 0) / window.length;
+          };
+          const waistChange2 = rollingAvgM(recentM, recentM.length - 1) - rollingAvgM(recentM, Math.min(3, recentM.length - 1));
           if (Math.abs(waistChange2) < 0.5) {
             notifications.push({
               type: 'check_protein',
@@ -170,16 +170,10 @@ router.get('/', (req, res) => {
     exercise_logs: exerciseLogs,
     sleep_log: sleepLog,
     weight_log: weightLog,
-    water: {
-      glasses: waterLog?.glasses || 0,
-      target_glasses: waterTargetGlasses,
-      target_ml: waterTarget,
-    },
     daily_points: dailyPoints,
     weekly_points: weeklyPoints,
     threshold,
-    treat_earned,
-    treat_redeemed,
+    threshold_met,
     goal,
     rolling_avg_weight,
     notifications,

@@ -627,6 +627,142 @@ const EXERCISE_DATA = [
     ],
     substitutes: ['Standing Calf Raise', 'Leg Press Calf Raise', 'Single-Leg Calf Raise'],
     youtube_search_term: 'seated calf raise proper form'
+  },
+
+  // ── Variation exercises (for 7-week refresh cycles) ──────────────
+
+  {
+    name: 'Front Squat',
+    primary_muscles: ['quads', 'glutes'],
+    secondary_muscles: ['abs', 'upper_back'],
+    form_cues: [
+      'Rest the bar on your front delts with elbows high; use a clean grip or crossed-arm grip.',
+      'Feet shoulder-width, toes out slightly; brace your core hard.',
+      'Descend with an upright torso; knees track over toes.',
+      'Drive up through your whole foot, keeping elbows high throughout.',
+      'Maintain a tall chest — if elbows drop, the bar rolls forward.'
+    ],
+    common_mistakes: [
+      'Elbows dropping, causing the bar to roll forward.',
+      'Leaning forward excessively due to tight ankles or weak upper back.',
+      'Cutting depth short — front squats reward full range.'
+    ],
+    substitutes: ['Barbell Back Squat', 'Goblet Squat', 'Hack Squat'],
+    youtube_search_term: 'front squat proper form'
+  },
+  {
+    name: 'Hack Squat',
+    primary_muscles: ['quads', 'glutes'],
+    secondary_muscles: ['hamstrings'],
+    form_cues: [
+      'Position yourself in the hack squat machine with shoulders against the pads and feet shoulder-width on the platform.',
+      'Release the safety handles and lower by bending your knees.',
+      'Descend until your thighs are at least parallel to the platform.',
+      'Drive up through your heels and midfoot to the starting position.',
+      'Keep your back flat against the pad throughout the movement.'
+    ],
+    common_mistakes: [
+      'Placing feet too high on the platform, shifting stress to glutes instead of quads.',
+      'Letting knees cave inward during the ascent.',
+      'Using too short a range of motion.'
+    ],
+    substitutes: ['Barbell Back Squat', 'Front Squat', 'Leg Press'],
+    youtube_search_term: 'hack squat machine form'
+  },
+  {
+    name: 'Incline Barbell Press',
+    primary_muscles: ['chest'],
+    secondary_muscles: ['triceps', 'front_delts'],
+    form_cues: [
+      'Set the bench to 30-45 degrees; lie back with feet flat on the floor.',
+      'Grip slightly wider than shoulder width; unrack with straight arms.',
+      'Lower the bar to your upper chest just below your collarbones.',
+      'Press up and slightly back to lock out over your shoulders.',
+      'Keep shoulder blades retracted and depressed throughout.'
+    ],
+    common_mistakes: [
+      'Setting the bench too steep (above 45 degrees), turning it into a shoulder press.',
+      'Flaring elbows to 90 degrees — keep them at about 60-75 degrees.',
+      'Bouncing the bar off the chest.'
+    ],
+    substitutes: ['Barbell Bench Press', 'Incline Dumbbell Press', 'Dumbbell Flat Press'],
+    youtube_search_term: 'incline barbell bench press form'
+  },
+  {
+    name: 'Dumbbell Flat Press',
+    primary_muscles: ['chest'],
+    secondary_muscles: ['triceps', 'front_delts'],
+    form_cues: [
+      'Sit on a flat bench with dumbbells on your knees; kick them up as you lie back.',
+      'Hold dumbbells at chest level with palms facing forward; retract shoulder blades.',
+      'Press the dumbbells up and slightly inward until arms are extended.',
+      'Lower under control to chest level, feeling a stretch in your pecs.',
+      'Keep wrists stacked over elbows throughout the movement.'
+    ],
+    common_mistakes: [
+      'Going too deep and overstretching the shoulder joint.',
+      'Letting the dumbbells drift too wide at the bottom.',
+      'Not controlling the eccentric — dumbbells should descend in 2-3 seconds.'
+    ],
+    substitutes: ['Barbell Bench Press', 'Incline Dumbbell Press', 'Incline Barbell Press'],
+    youtube_search_term: 'dumbbell bench press proper form'
+  },
+  {
+    name: 'Trap Bar Deadlift',
+    primary_muscles: ['quads', 'glutes', 'hamstrings'],
+    secondary_muscles: ['lower_back', 'traps'],
+    form_cues: [
+      'Stand inside the trap bar with feet hip-width apart.',
+      'Hinge at the hips and grip the handles; brace your core.',
+      'Drive through your feet to stand up, keeping your chest tall.',
+      'Lock out at the top by squeezing glutes; don\'t lean back.',
+      'Lower the weight under control by hinging at the hips.'
+    ],
+    common_mistakes: [
+      'Rounding the lower back during the pull.',
+      'Squatting the weight up instead of hinging — it\'s still a deadlift pattern.',
+      'Jerking the bar off the floor instead of building tension first.'
+    ],
+    substitutes: ['Conventional Deadlift', 'Romanian Deadlift'],
+    youtube_search_term: 'trap bar deadlift proper form'
+  },
+  {
+    name: 'Deficit Romanian Deadlift',
+    primary_muscles: ['hamstrings', 'glutes'],
+    secondary_muscles: ['lower_back'],
+    form_cues: [
+      'Stand on a 2-3 inch platform or plate; hold a barbell or dumbbells at hip level.',
+      'Hinge at the hips, pushing your butt back while keeping a slight knee bend.',
+      'Lower the weight past your feet (the deficit increases range of motion).',
+      'Feel a deep stretch in your hamstrings, then drive hips forward to stand.',
+      'Keep the bar close to your body and your back flat throughout.'
+    ],
+    common_mistakes: [
+      'Rounding the lower back to reach further — the stretch should come from the hamstrings.',
+      'Bending the knees too much, turning it into a squat.',
+      'Using too much weight and losing the hamstring stretch.'
+    ],
+    substitutes: ['Romanian Deadlift', 'Conventional Deadlift'],
+    youtube_search_term: 'deficit romanian deadlift form'
+  },
+  {
+    name: 'Chest Supported Row',
+    primary_muscles: ['lats', 'upper_back'],
+    secondary_muscles: ['biceps', 'rear_delts'],
+    form_cues: [
+      'Set an incline bench to 30-45 degrees; lie face down with your chest on the pad.',
+      'Hold dumbbells hanging straight down with a neutral or pronated grip.',
+      'Row the dumbbells up by pulling your elbows back and squeezing your shoulder blades.',
+      'Hold the peak contraction for a second, then lower under control.',
+      'Keep your chest on the pad — no lifting your torso to generate momentum.'
+    ],
+    common_mistakes: [
+      'Lifting the chest off the pad to use momentum.',
+      'Shrugging the shoulders up instead of retracting the shoulder blades.',
+      'Using too much weight and losing the squeeze at the top.'
+    ],
+    substitutes: ['Barbell Row', 'Seated Cable Row', 'Dumbbell Row'],
+    youtube_search_term: 'chest supported row dumbbell form'
   }
 ];
 

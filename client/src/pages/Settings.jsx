@@ -27,8 +27,8 @@ export default function Settings() {
         current_carb_target_g: g.current_carb_target_g,
         current_fiber_target_g: g.current_fiber_target_g || 32,
         current_sugar_limit_g: g.current_sugar_limit_g || 50,
-        water_target_ml: g.water_target_ml || 3000,
-        weekly_point_threshold: g.weekly_point_threshold || 350,
+        weekly_point_threshold: g.weekly_point_threshold || 315,
+        reward_credit_amount: g.reward_credit_amount || 2000,
         calorie_override: g.calorie_override,
         protein_override: g.protein_override,
         fat_override: g.fat_override,
@@ -60,8 +60,8 @@ export default function Settings() {
         current_carb_target_g: parseFloat(form.current_carb_target_g),
         current_fiber_target_g: parseFloat(form.current_fiber_target_g),
         current_sugar_limit_g: parseFloat(form.current_sugar_limit_g),
-        water_target_ml: parseInt(form.water_target_ml),
         weekly_point_threshold: parseInt(form.weekly_point_threshold),
+        reward_credit_amount: parseFloat(form.reward_credit_amount) || 2000,
         deficit_pct: parseFloat(form.deficit_pct),
         enable_chest_measurement: form.enable_chest_measurement ? 1 : 0,
         enable_hips_measurement: form.enable_hips_measurement ? 1 : 0,
@@ -220,15 +220,14 @@ export default function Settings() {
           <p className="text-xs text-tx-3 px-1">Informational only — no penalty. Default: 50g</p>
         </Section>
 
-        <Section title="Water">
-          <Row label="Daily target (ml)" value={form.water_target_ml} onChange={v => set('water_target_ml', v)} type="number" step="250" />
-          <p className="text-xs text-tx-3 px-1">1 glass = 250 ml. Default: 3000 ml (12 glasses)</p>
+        <Section title="Points">
+          <Row label="Weekly reward threshold (pts)" value={form.weekly_point_threshold} onChange={v => set('weekly_point_threshold', v)} type="number" />
+          <p className="text-xs text-tx-3 px-1">Default: 315 pts. Hit this to credit your reward bank.</p>
+          <Row label="Weekly reward credit (₹)" value={form.reward_credit_amount} onChange={v => set('reward_credit_amount', v)} type="number" step="500" />
+          <p className="text-xs text-tx-3 px-1">Amount credited to your bank each week you hit threshold.</p>
         </Section>
 
-        <Section title="Points">
-          <Row label="Weekly treat threshold (pts)" value={form.weekly_point_threshold} onChange={v => set('weekly_point_threshold', v)} type="number" />
-          <p className="text-xs text-tx-3 px-1">Default: 350 pts. ~4 solid days to unlock a treat.</p>
-        </Section>
+        <NotificationsSection />
 
         <Section title="Appearance">
           <p className="text-xs text-tx-3 mb-2">Theme</p>
@@ -265,6 +264,115 @@ export default function Settings() {
       </div>
     </div>
   );
+}
+
+function NotificationsSection() {
+  const [pushState, setPushState] = useState({ supported: false, subscribed: false, measurement_reminder: false, stale_workout: false, loading: true });
+
+  useEffect(() => {
+    async function check() {
+      if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+        setPushState(s => ({ ...s, loading: false }));
+        return;
+      }
+      try {
+        const reg = await navigator.serviceWorker.getRegistration('/sw.js');
+        const sub = reg ? await reg.pushManager.getSubscription() : null;
+        if (sub) {
+          const status = await api.getPushStatus(sub.endpoint);
+          setPushState({ supported: true, subscribed: true, measurement_reminder: status.measurement_reminder, stale_workout: status.stale_workout, loading: false });
+        } else {
+          setPushState(s => ({ ...s, supported: true, loading: false }));
+        }
+      } catch {
+        setPushState(s => ({ ...s, loading: false }));
+      }
+    }
+    check();
+  }, []);
+
+  async function enableNotifications() {
+    try {
+      const reg = await navigator.serviceWorker.register('/sw.js');
+      const { publicKey } = await api.getVapidKey();
+      if (!publicKey) return;
+      const sub = await reg.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: urlBase64ToUint8Array(publicKey),
+      });
+      await api.subscribePush({ subscription: sub.toJSON(), measurement_reminder: true, stale_workout: true });
+      setPushState({ supported: true, subscribed: true, measurement_reminder: true, stale_workout: true, loading: false });
+    } catch {
+      // Permission denied or failed silently
+    }
+  }
+
+  async function updatePrefs(key, value) {
+    const next = { ...pushState, [key]: value };
+    setPushState(next);
+    try {
+      const reg = await navigator.serviceWorker.getRegistration('/sw.js');
+      const sub = reg ? await reg.pushManager.getSubscription() : null;
+      if (sub) {
+        await api.subscribePush({
+          subscription: sub.toJSON(),
+          measurement_reminder: next.measurement_reminder,
+          stale_workout: next.stale_workout,
+        });
+      }
+    } catch { /* silent */ }
+  }
+
+  async function disableNotifications() {
+    try {
+      const reg = await navigator.serviceWorker.getRegistration('/sw.js');
+      const sub = reg ? await reg.pushManager.getSubscription() : null;
+      if (sub) {
+        await api.unsubscribePush({ endpoint: sub.endpoint });
+        await sub.unsubscribe();
+      }
+      setPushState(s => ({ ...s, subscribed: false, measurement_reminder: false, stale_workout: false }));
+    } catch { /* silent */ }
+  }
+
+  if (pushState.loading) return null;
+
+  return (
+    <div className="bg-card rounded-card p-4 space-y-3 stagger-enter">
+      <h2 className="text-sm font-semibold text-tx">Notifications</h2>
+      {!pushState.supported ? (
+        <p className="text-xs text-tx-3">Push notifications are not supported in this browser.</p>
+      ) : !pushState.subscribed ? (
+        <>
+          <button onClick={enableNotifications} className="text-sm text-points border border-points/30 bg-card rounded-card px-3 py-1.5 press-scale">
+            Enable notifications
+          </button>
+          <p className="text-xs text-tx-3">On iOS, notifications only work when the app is added to your home screen. Tap the share button → "Add to Home Screen" first.</p>
+        </>
+      ) : (
+        <>
+          <ToggleRow label="Weekly measurement reminder" checked={pushState.measurement_reminder} onChange={v => updatePrefs('measurement_reminder', v)} />
+          <p className="text-xs text-tx-3 -mt-1">Reminds you once a week if no measurement in 7+ days.</p>
+          <ToggleRow label="Stale workout alert" checked={pushState.stale_workout} onChange={v => updatePrefs('stale_workout', v)} />
+          <p className="text-xs text-tx-3 -mt-1">Notifies you once if a workout is left open from the day before.</p>
+          <button onClick={disableNotifications} className="text-xs text-tx-3 mt-2">
+            Disable all notifications
+          </button>
+        </>
+      )}
+    </div>
+  );
+}
+
+function urlBase64ToUint8Array(base64String) {
+  const padding = '='.repeat((4 - base64String.length % 4) % 4);
+  const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+  const rawData = atob(base64);
+  const outputArray = new Uint8Array(rawData.length);
+  for (let i = 0; i < rawData.length; ++i) {
+    outputArray[i] = rawData.charCodeAt(i);
+  }
+  return outputArray;
 }
 
 function Section({ title, children }) {

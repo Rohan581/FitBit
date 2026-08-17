@@ -274,13 +274,20 @@ function WeightChart({ data, range, onRangeChange }) {
 function MeasurementsCard({ measurements }) {
   if (!measurements || measurements.length === 0) return null;
 
-  const latest = measurements[measurements.length - 1];
-  const first = measurements[0];
-  const change = measurements.length >= 2
-    ? Math.round((latest.waist_cm - first.waist_cm) * 10) / 10
+  // Compute 4-entry rolling average for each measurement
+  const withAvg = measurements.map((m, i) => {
+    const window = measurements.slice(Math.max(0, i - 3), i + 1);
+    const avg = Math.round(window.reduce((s, w) => s + w.waist_cm, 0) / window.length * 10) / 10;
+    return { ...m, rolling_avg: avg };
+  });
+
+  const latestAvg = withAvg[withAvg.length - 1].rolling_avg;
+  const firstAvg = withAvg.length >= 4 ? withAvg[Math.min(3, withAvg.length - 1)].rolling_avg : withAvg[0].rolling_avg;
+  const change = withAvg.length >= 2
+    ? Math.round((latestAvg - firstAvg) * 10) / 10
     : null;
   const weeks = measurements.length >= 2
-    ? Math.max(1, Math.round((new Date(latest.date + 'T12:00:00Z') - new Date(first.date + 'T12:00:00Z')) / (7 * 86400000)))
+    ? Math.max(1, Math.round((new Date(measurements[measurements.length - 1].date + 'T12:00:00Z') - new Date(measurements[0].date + 'T12:00:00Z')) / (7 * 86400000)))
     : 0;
 
   const tooltipStyle = {
@@ -291,7 +298,7 @@ function MeasurementsCard({ measurements }) {
     color: 'var(--text-2)',
   };
 
-  // Supportive context line
+  // Supportive context line based on rolling average trend
   let contextLine = 'Measurements logged weekly give the clearest picture of progress.';
   if (change !== null) {
     if (change < -1) {
@@ -305,13 +312,20 @@ function MeasurementsCard({ measurements }) {
     }
   }
 
+  // Chart data: rolling average as primary line, raw as secondary dots
+  const chartData = withAvg.map(m => ({
+    date: formatDate(m.date),
+    avg: m.rolling_avg,
+    raw: m.waist_cm,
+  }));
+
   return (
     <div className="bg-card rounded-card p-4 mt-3 stagger-enter">
       <p className="text-[15px] font-bold text-tx mb-3">Measurements</p>
 
       <div className="flex items-baseline gap-2 mb-1">
         <span className="text-[22px] font-bold font-num" style={{ color: 'var(--fiber)' }}>
-          {latest.waist_cm} cm
+          {latestAvg} cm
         </span>
         {change !== null && (
           <span className="text-[14px] font-semibold font-num" style={{ color: 'var(--fiber)' }}>
@@ -324,15 +338,16 @@ function MeasurementsCard({ measurements }) {
       {measurements.length >= 2 && (
         <div className="mt-2">
           <ResponsiveContainer width="100%" height={160}>
-            <LineChart data={measurements.map(m => ({ date: formatDate(m.date), waist: m.waist_cm }))} margin={{ top: 5, right: 5, left: -20, bottom: 5 }}>
+            <LineChart data={chartData} margin={{ top: 5, right: 5, left: -20, bottom: 5 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="var(--hair)" />
               <XAxis dataKey="date" tick={{ fontSize: 10, fill: 'var(--text-3)' }} tickLine={false} />
               <YAxis tick={{ fontSize: 10, fill: 'var(--fiber)' }} tickLine={false} domain={['auto', 'auto']} />
-              <Tooltip contentStyle={tooltipStyle} formatter={(val) => [`${val} cm`, 'Waist']} />
-              <Line type="monotone" dataKey="waist" stroke="var(--fiber)" strokeWidth={2.5} dot={{ r: 3, fill: 'var(--fiber)' }} connectNulls />
+              <Tooltip contentStyle={tooltipStyle} formatter={(val, name) => [`${val} cm`, name === 'avg' ? 'Avg' : 'Raw']} />
+              <Line type="monotone" dataKey="avg" stroke="var(--fiber)" strokeWidth={2.5} dot={false} connectNulls />
+              <Line type="monotone" dataKey="raw" stroke="var(--fiber)" strokeWidth={0} dot={{ r: 3, fill: 'var(--fiber)', strokeWidth: 0, opacity: 0.4 }} connectNulls />
             </LineChart>
           </ResponsiveContainer>
-          <p className="text-[10px] text-tx-3 text-center mt-1">Weekly points connected — log weekly for best tracking</p>
+          <p className="text-[10px] text-tx-3 text-center mt-1">Line = 4-entry rolling average · dots = raw measurements</p>
         </div>
       )}
     </div>

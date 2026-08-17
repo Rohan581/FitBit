@@ -1,8 +1,7 @@
-import { Dumbbell, Wallet } from 'lucide-react';
+import { Dumbbell } from 'lucide-react';
 
 const MODULES = [
   { id: 'fitness', label: 'Fitness', sub: 'Food, training, points', color: 'var(--points)', Icon: Dumbbell },
-  { id: 'finance', label: 'Finance', sub: 'Money, cards, plans', color: 'var(--fin)', Icon: Wallet },
 ];
 
 export default function ModuleSwitcher({ open, onClose, current, onSwitch }) {

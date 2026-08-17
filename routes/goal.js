@@ -68,7 +68,7 @@ router.put('/', (req, res) => {
       calorie_override=?, protein_override=?, fat_override=?, carb_override=?,
       weekly_point_threshold=?, deficit_pct=?,
       enable_chest_measurement=?, enable_hips_measurement=?,
-      rest_day_reduction=?
+      rest_day_reduction=?, reward_credit_amount=?
     WHERE id=1
   `).run(
     updates.start_weight_kg, updates.goal_weight_kg, updates.start_date, updates.target_date,
@@ -77,10 +77,11 @@ router.put('/', (req, res) => {
     updates.current_fiber_target_g || 32, updates.current_sugar_limit_g || 50, updates.water_target_ml || 3000,
     updates.calorie_override ? 1 : 0, updates.protein_override ? 1 : 0,
     updates.fat_override ? 1 : 0, updates.carb_override ? 1 : 0,
-    updates.weekly_point_threshold || 350,
+    updates.weekly_point_threshold || 315,
     Math.max(0.15, Math.min(0.28, parseFloat(updates.deficit_pct) || 0.25)),
     updates.enable_chest_measurement ? 1 : 0, updates.enable_hips_measurement ? 1 : 0,
-    Math.max(100, Math.min(250, parseInt(updates.rest_day_reduction) || 150))
+    Math.max(100, Math.min(250, parseInt(updates.rest_day_reduction) || 150)),
+    parseFloat(updates.reward_credit_amount) || 2000
   );
 
   res.json(db.prepare('SELECT * FROM goal WHERE id = 1').get());

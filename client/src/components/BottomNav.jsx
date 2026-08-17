@@ -4,7 +4,7 @@ const tabs = [
   { to: '/', label: 'Today', icon: TodayIcon },
   { to: '/training', label: 'Train', icon: TrainIcon },
   { to: '/trends', label: 'Trends', icon: TrendIcon },
-  { to: '/rewards', label: 'Rewards', icon: RewardIcon },
+  { to: '/rewards', label: 'Bank', icon: RewardIcon },
   { to: '/history', label: 'History', icon: HistoryIcon },
 ];
 

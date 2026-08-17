@@ -69,7 +69,7 @@ router.get('/points', (req, res) => {
   const db = getDB();
   const weeks = parseInt(req.query.weeks) || 12;
   const goal = db.prepare('SELECT weekly_point_threshold FROM goal WHERE id = 1').get();
-  const threshold = goal?.weekly_point_threshold || 350;
+  const threshold = goal?.weekly_point_threshold || 315;
 
   const results = [];
 
@@ -85,14 +85,11 @@ router.get('/points', (req, res) => {
     }
 
     const total = days.reduce((s, day) => s + calculateDailyPoints(db, day).total, 0);
-    const summary = db.prepare('SELECT treat_redeemed FROM weekly_summary WHERE week_start = ?').get(weekStart);
-
     results.push({
       week_start: weekStart,
       total_points: total,
       threshold,
-      treat_earned: total >= threshold,
-      treat_redeemed: summary?.treat_redeemed === 1,
+      threshold_met: total >= threshold,
     });
   }
 
@@ -108,7 +105,6 @@ router.get('/history/:date', (req, res) => {
   const exerciseLogs = db.prepare('SELECT * FROM exercise_logs WHERE date = ? ORDER BY logged_at').all(date);
   const sleepLog = db.prepare('SELECT * FROM sleep_logs WHERE date = ? ORDER BY logged_at DESC LIMIT 1').get(date);
   const weightLog = db.prepare('SELECT * FROM weight_logs WHERE date = ? ORDER BY logged_at DESC LIMIT 1').get(date);
-  const waterLog = db.prepare('SELECT * FROM water_logs WHERE date = ?').get(date);
   const points = calculateDailyPoints(db, date);
 
   const foodTotals = foodLogs.reduce((acc, l) => ({
@@ -122,7 +118,7 @@ router.get('/history/:date', (req, res) => {
 
   const isRestDay = !!db.prepare('SELECT id FROM rest_days WHERE date = ?').get(date);
 
-  res.json({ date, foodLogs, exerciseLogs, sleepLog, weightLog, waterLog, points, foodTotals, is_rest_day: isRestDay });
+  res.json({ date, foodLogs, exerciseLogs, sleepLog, weightLog, points, foodTotals, is_rest_day: isRestDay });
 });
 
 module.exports = router;

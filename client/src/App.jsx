@@ -9,7 +9,6 @@ import Trends from './pages/Trends';
 import History from './pages/History';
 import Settings from './pages/Settings';
 import Training from './pages/Training';
-import Finance from './pages/Finance';
 import { initThemeListener } from './theme';
 
 export default function App() {
@@ -28,24 +27,18 @@ export default function App() {
     <BrowserRouter>
       <div className="flex flex-col h-full bg-page">
         <div className="flex-1 overflow-y-auto page-content">
-          {module === 'fitness' ? (
-            <Routes>
-              <Route path="/" element={<Dashboard />} />
-              <Route path="/food" element={<FoodLog />} />
-              <Route path="/training" element={<Training />} />
-              <Route path="/trends" element={<Trends />} />
-              <Route path="/rewards" element={<Points />} />
-              <Route path="/history" element={<History />} />
-              <Route path="/settings" element={<Settings />} />
-              <Route path="*" element={<Navigate to="/" replace />} />
-            </Routes>
-          ) : (
-            <Finance onOpenSidebar={() => setSidebarOpen(true)} />
-          )}
+          <Routes>
+            <Route path="/" element={<Dashboard />} />
+            <Route path="/food" element={<FoodLog />} />
+            <Route path="/training" element={<Training />} />
+            <Route path="/trends" element={<Trends />} />
+            <Route path="/rewards" element={<Points />} />
+            <Route path="/history" element={<History />} />
+            <Route path="/settings" element={<Settings />} />
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Routes>
         </div>
-        {module === 'fitness' && (
-          <BottomNav onOpenSidebar={() => setSidebarOpen(true)} />
-        )}
+        <BottomNav onOpenSidebar={() => setSidebarOpen(true)} />
       </div>
       <ModuleSwitcher
         open={sidebarOpen}

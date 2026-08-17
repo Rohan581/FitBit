@@ -2,7 +2,6 @@ const Database = require('better-sqlite3');
 const path = require('path');
 const { seedFoods, seedInitialData, toSeedKey } = require('./seed');
 const { seedExercises } = require('./exerciseSeed');
-const { seedFinanceData } = require('./financeSeed');
 
 const DB_PATH = process.env.DATABASE_PATH || path.join(__dirname, '..', 'data', 'earned.db');
 
@@ -107,7 +106,7 @@ function initDB() {
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       week_start TEXT NOT NULL UNIQUE,
       total_points REAL DEFAULT 0,
-      threshold INTEGER DEFAULT 350,
+      threshold INTEGER DEFAULT 315,
       treat_redeemed INTEGER DEFAULT 0,
       treat_redeemed_date TEXT
     );
@@ -133,7 +132,7 @@ function initDB() {
       protein_override INTEGER DEFAULT 0,
       fat_override INTEGER DEFAULT 0,
       carb_override INTEGER DEFAULT 0,
-      weekly_point_threshold INTEGER DEFAULT 350,
+      weekly_point_threshold INTEGER DEFAULT 315,
       deficit_pct REAL DEFAULT 0.25,
       enable_chest_measurement INTEGER DEFAULT 0,
       enable_hips_measurement INTEGER DEFAULT 0
@@ -183,6 +182,56 @@ function initDB() {
       reps INTEGER,
       FOREIGN KEY (session_id) REFERENCES workout_sessions(id) ON DELETE CASCADE,
       FOREIGN KEY (exercise_id) REFERENCES exercises(id)
+    );
+  `);
+
+  // ── Wishlist Bank ──────────────────────────────────────────
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS reward_bank (
+      id INTEGER PRIMARY KEY DEFAULT 1,
+      balance REAL NOT NULL DEFAULT 0
+    );
+
+    CREATE TABLE IF NOT EXISTS reward_bank_ledger (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      date TEXT NOT NULL,
+      delta REAL NOT NULL,
+      kind TEXT NOT NULL,
+      description TEXT,
+      week_start TEXT
+    );
+
+    CREATE TABLE IF NOT EXISTS wishlist_items (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      name TEXT NOT NULL,
+      target_amount REAL,
+      purchased INTEGER DEFAULT 0,
+      purchased_date TEXT
+    );
+  `);
+
+  // Initialize reward_bank if empty
+  const bankExists = db.prepare('SELECT id FROM reward_bank WHERE id = 1').get();
+  if (!bankExists) {
+    db.prepare('INSERT INTO reward_bank (id, balance) VALUES (1, 0)').run();
+  }
+
+  // ── Push notifications ─────────────────────────────────────
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS push_subscriptions (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      endpoint TEXT NOT NULL UNIQUE,
+      keys_json TEXT NOT NULL,
+      measurement_reminder INTEGER DEFAULT 0,
+      stale_workout INTEGER DEFAULT 0,
+      created_at TEXT DEFAULT (datetime('now'))
+    );
+
+    CREATE TABLE IF NOT EXISTS push_log (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      type TEXT NOT NULL,
+      sent_at TEXT NOT NULL,
+      ref_id TEXT
     );
   `);
 
@@ -307,13 +356,21 @@ function initDB() {
   // Idempotent per-item food seeding — runs every startup
   seedFoods(db);
 
+  // Seed default wishlist items if table is empty
+  const wishlistCount = db.prepare('SELECT COUNT(*) as c FROM wishlist_items').get()?.c || 0;
+  if (wishlistCount === 0) {
+    const insertWishlist = db.prepare('INSERT INTO wishlist_items (name, target_amount) VALUES (?, ?)');
+    insertWishlist.run('Casual sneakers', 12000);
+    insertWishlist.run('Tom Ford Tobacco Vanille', null);
+    insertWishlist.run('Leather jacket', null);
+    insertWishlist.run('Ergonomic desk chair', null);
+    insertWishlist.run('MacBook', null);
+  }
+
   // First-run-only seeding (saved meal, goal, milestones)
   if (countBefore === 0) {
     seedInitialData(db);
   }
-
-  // Idempotent finance seeding — runs every startup
-  seedFinanceData(db);
 
   return db;
 }
@@ -542,6 +599,20 @@ function runMigrations(db) {
   const goalColsSession = db.prepare("PRAGMA table_info(goal)").all().map(c => c.name);
   if (!goalColsSession.includes('session_mode')) {
     db.exec(`ALTER TABLE goal ADD COLUMN session_mode TEXT DEFAULT 'full'`);
+  }
+
+  // Reward credit amount
+  if (!goalColsSession.includes('reward_credit_amount')) {
+    db.exec(`ALTER TABLE goal ADD COLUMN reward_credit_amount REAL DEFAULT 2000`);
+  }
+
+  // Variation refresh tracking
+  if (!goalColsSession.includes('template_start_date')) {
+    db.exec(`ALTER TABLE goal ADD COLUMN template_start_date TEXT`);
+    db.exec(`ALTER TABLE goal ADD COLUMN refresh_snoozed_until TEXT`);
+    // Backfill: start date = today for existing users
+    const today = new Date(Date.now() + 330 * 60000).toISOString().split('T')[0];
+    db.exec(`UPDATE goal SET template_start_date = '${today}' WHERE template_start_date IS NULL`);
   }
 
   // Seed exercises

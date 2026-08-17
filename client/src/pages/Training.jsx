@@ -245,10 +245,11 @@ export default function Training() {
 
     // Start rest timer — use per-exercise rest_seconds, shorter for paired accessories
     const exerciseData = next_workout.exercises.find(e => e.exercise_id === exId);
-    const currentMode = data?.session_mode || 'full';
-    const isPaired = currentMode !== 'full' && exerciseData?.pair_group &&
-      !COMPOUND_EXERCISES.has(exName) &&
-      next_workout.exercises.some(e => e.exercise_id !== exId && e.pair_group === exerciseData.pair_group);
+    const isPaired = (exerciseData?.paired || (exerciseData?.pair_group && !COMPOUND_EXERCISES.has(exName))) &&
+      next_workout.exercises.some(e => e.exercise_id !== exId && (
+        (exerciseData.paired && e.paired) ||
+        (e.pair_group && e.pair_group === exerciseData.pair_group)
+      ));
     const restSecs = isPaired ? 50 : (exerciseData?.rest_seconds || (COMPOUND_EXERCISES.has(exName) ? 150 : 75));
     setRestDuration(restSecs);
     setRestStartedAt(Date.now());
@@ -502,16 +503,20 @@ export default function Training() {
     const catchUpExercises = effectiveExercises.filter(e => e.is_catchup);
     const templateExercises = effectiveExercises.filter(e => !e.is_catchup);
 
-    // Build paired blocks for 45/60 modes
+    // Build paired blocks for ALL modes (paired accessories superset always)
     const sessionMode = data?.session_mode || 'full';
     const pairedIndices = new Set();
     const pairedBlocks = [];
-    if (sessionMode !== 'full') {
-      for (let i = 0; i < templateExercises.length; i++) {
-        if (pairedIndices.has(i) || COMPOUND_EXERCISES.has(templateExercises[i].name)) continue;
+    for (let i = 0; i < templateExercises.length; i++) {
+      if (pairedIndices.has(i)) continue;
+      const ex = templateExercises[i];
+      // Match by template paired flag or pair_group
+      if (ex.paired || (ex.pair_group && !COMPOUND_EXERCISES.has(ex.name))) {
         for (let j = i + 1; j < templateExercises.length; j++) {
-          if (pairedIndices.has(j) || COMPOUND_EXERCISES.has(templateExercises[j].name)) continue;
-          if (templateExercises[i].pair_group && templateExercises[i].pair_group === templateExercises[j].pair_group) {
+          if (pairedIndices.has(j)) continue;
+          const matchByFlag = ex.paired && templateExercises[j].paired;
+          const matchByGroup = ex.pair_group && ex.pair_group === templateExercises[j].pair_group;
+          if (matchByFlag || matchByGroup) {
             pairedIndices.add(i);
             pairedIndices.add(j);
             pairedBlocks.push([i, j]);
@@ -896,6 +901,29 @@ export default function Training() {
                   className="h-[48px] px-5 rounded-[14px] border border-hair text-[15px] font-bold text-tx-3 press-scale"
                 >
                   Discard
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Variation refresh prompt */}
+          {data.variation_refresh?.prompt && (
+            <div className="rounded-[20px] border border-points/30 p-[18px] tint-points">
+              <p className="text-[14px] font-bold text-tx">Seven weeks on these lifts — refresh with variations?</p>
+              <p className="text-[13px] text-tx-2 mt-1">Progression continues on the new lifts; your history stays.</p>
+              <div className="flex gap-2 mt-3">
+                <button
+                  onClick={async () => { await api.acceptRefresh(); load(); }}
+                  className="flex-1 h-[44px] rounded-[12px] text-[14px] font-bold press-scale"
+                  style={{ background: 'var(--points)', color: 'white' }}
+                >
+                  Refresh
+                </button>
+                <button
+                  onClick={async () => { await api.snoozeRefresh(); load(); }}
+                  className="flex-1 h-[44px] rounded-[12px] text-[14px] font-bold text-tx-3 border border-hair press-scale"
+                >
+                  Not yet
                 </button>
               </div>
             </div>

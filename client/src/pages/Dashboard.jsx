@@ -52,31 +52,16 @@ export default function Dashboard() {
     }
   }, []);
 
-  useEffect(() => { load(); }, [load]);
-
-  async function setWaterTo(targetGlasses) {
-    if (!data) return;
-    const currentGlasses = data.water?.glasses || 0;
-    const diff = targetGlasses - currentGlasses;
-    if (diff === 0) return;
-
-    // Optimistic update
-    setData(d => ({ ...d, water: { ...d.water, glasses: targetGlasses } }));
-
-    try {
-      const fn = diff > 0 ? api.addWater : api.removeWater;
-      for (let i = 0; i < Math.abs(diff); i++) {
-        await fn();
-      }
-    } finally {
-      load();
-    }
-  }
+  useEffect(() => {
+    load();
+    // Trigger push check silently on dashboard load
+    api.checkPush().catch(() => {});
+  }, [load]);
 
   if (loading) return <LoadingState />;
   if (!data) return <ErrorState onRetry={load} />;
 
-  const { food_totals, goal, daily_points, weekly_points, threshold, treat_earned, rolling_avg_weight, notifications, water, rest_day } = data;
+  const { food_totals, goal, daily_points, weekly_points, threshold, rolling_avg_weight, notifications, rest_day } = data;
 
   const isRestDay = !!rest_day?.is_rest_day;
   const calTarget = isRestDay ? rest_day.calorie_target : (goal?.current_calorie_target || 2240);
@@ -88,21 +73,6 @@ export default function Dashboard() {
   const remaining = Math.max(0, Math.round(threshold - weekly_points));
   const streak = daily_points?.streak || 0;
   const pctWeek = threshold > 0 ? Math.round((weekly_points / threshold) * 100) : 0;
-
-  // Water — dynamic segments: each segment = 1 glass (250ml)
-  const waterGlasses = water?.glasses || 0;
-  const waterTargetMl = water?.target_ml || goal?.water_target_ml || 3000;
-  const glassCount = Math.ceil(waterTargetMl / 250);
-
-  function handleSegmentTap(segNum) {
-    if (segNum <= waterGlasses) {
-      // Tapping a filled segment undoes it
-      setWaterTo(segNum - 1);
-    } else {
-      // Tapping an unfilled segment fills up to it
-      setWaterTo(segNum);
-    }
-  }
 
   // Weight trend
   const weightTrendDown = rolling_avg_weight && goal?.goal_weight_kg && rolling_avg_weight > goal.goal_weight_kg;
@@ -282,36 +252,6 @@ export default function Dashboard() {
         </button>
       </div>
 
-      {/* Water card */}
-      <div className="bg-card rounded-card p-4 mb-3 stagger-enter">
-        <div className="flex items-center justify-between mb-3">
-          <div className="flex items-center gap-2">
-            <WaterIcon />
-            <span className="text-sm text-tx-2">Water</span>
-          </div>
-          <span className="text-sm font-num text-drinks">{waterGlasses} of {glassCount} glasses</span>
-        </div>
-        <div className="grid grid-cols-8 gap-1.5">
-          {Array.from({ length: glassCount }, (_, i) => {
-            const segNum = i + 1;
-            const filled = segNum <= waterGlasses;
-            return (
-              <button
-                key={i}
-                onClick={() => handleSegmentTap(segNum)}
-                className={`h-10 rounded-lg transition-colors press-scale ${
-                  filled
-                    ? 'tint-drinks border border-drinks/30'
-                    : 'border border-hair'
-                }`}
-                style={filled ? { background: 'color-mix(in oklab, var(--drinks) 25%, transparent)' } : undefined}
-              />
-            );
-          })}
-        </div>
-        <p className="text-xs text-tx-3 text-center mt-2">Tap a glass to log a sip</p>
-      </div>
-
       {/* Latest activity */}
       {latestActivity && (
         <Link
@@ -353,14 +293,6 @@ export default function Dashboard() {
         enableHips={!!goal?.enable_hips_measurement}
       />
     </div>
-  );
-}
-
-function WaterIcon() {
-  return (
-    <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} style={{ color: 'var(--drinks)' }}>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M12 21c4.418 0 8-3.582 8-8 0-4-3.5-8.5-8-13-4.5 4.5-8 9-8 13 0 4.418 3.582 8 8 8z" />
-    </svg>
   );
 }
 

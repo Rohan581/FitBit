@@ -19,7 +19,7 @@ const CATCH_UP_COMPOUNDS = {
   biceps: 'Cable Bicep Curl', triceps: 'Cable Tricep Pushdown', abs: 'Cable Crunch',
   calves: 'Standing Calf Raise', lower_back: 'Romanian Deadlift', traps: 'Face Pull',
 };
-const SESSION_CAP = 8;
+const SESSION_CAP = 9;
 
 const COMPOUND_SET = new Set([
   'Barbell Back Squat', 'Barbell Bench Press', 'Conventional Deadlift',
@@ -29,44 +29,42 @@ const COMPOUND_SET = new Set([
 ]);
 
 // Estimate session duration in minutes
+// Paired blocks use superset timing in ALL modes
 function estimateDuration(exercises, mode) {
   const SET_TIME = 40; // seconds per set
   const TRANSITION = 60; // seconds between exercises
   let totalSecs = 0;
 
-  if (mode === 'full') {
-    for (const ex of exercises) {
-      const sets = ex.sets || 3;
-      const rest = ex.rest_seconds || (COMPOUND_SET.has(ex.name) ? 150 : 75);
-      totalSecs += sets * (SET_TIME + rest) + TRANSITION;
-    }
-  } else {
-    // Identify pairs for 45/60 modes
-    const paired = new Set();
-    for (let i = 0; i < exercises.length; i++) {
-      if (paired.has(i) || COMPOUND_SET.has(exercises[i].name)) continue;
+  // Identify pairs across all modes
+  const paired = new Set();
+  for (let i = 0; i < exercises.length; i++) {
+    if (paired.has(i)) continue;
+    const ex = exercises[i];
+    // Check template paired flag or pair_group match
+    if (ex.paired || (ex.pair_group && !COMPOUND_SET.has(ex.name))) {
       for (let j = i + 1; j < exercises.length; j++) {
-        if (paired.has(j) || COMPOUND_SET.has(exercises[j].name)) continue;
-        if (exercises[i].pair_group && exercises[i].pair_group === exercises[j].pair_group) {
+        if (paired.has(j)) continue;
+        const matchByFlag = ex.paired && exercises[j].paired;
+        const matchByGroup = ex.pair_group && ex.pair_group === exercises[j].pair_group;
+        if (matchByFlag || matchByGroup) {
           paired.add(i);
           paired.add(j);
-          // Paired block: alternating sets with shorter rest
-          const setsA = exercises[i].sets || 3;
+          const setsA = ex.sets || 3;
           const setsB = exercises[j].sets || 3;
           const maxSets = Math.max(setsA, setsB);
-          const pairRest = 50; // 45-60s average
+          const pairRest = 50;
           totalSecs += maxSets * 2 * (SET_TIME + pairRest) + TRANSITION;
           break;
         }
       }
     }
-    // Straight-set exercises (compounds + unpaired)
-    for (let i = 0; i < exercises.length; i++) {
-      if (paired.has(i)) continue;
-      const sets = exercises[i].sets || 3;
-      const rest = exercises[i].rest_seconds || (COMPOUND_SET.has(exercises[i].name) ? 150 : 75);
-      totalSecs += sets * (SET_TIME + rest) + TRANSITION;
-    }
+  }
+  // Straight-set exercises (compounds + unpaired)
+  for (let i = 0; i < exercises.length; i++) {
+    if (paired.has(i)) continue;
+    const sets = exercises[i].sets || 3;
+    const rest = exercises[i].rest_seconds || (COMPOUND_SET.has(exercises[i].name) ? 150 : 75);
+    totalSecs += sets * (SET_TIME + rest) + TRANSITION;
   }
 
   return Math.round(totalSecs / 60);
@@ -78,35 +76,24 @@ function shapeForMode(exercises, catchUpExercises, mode) {
     return { exercises: [...exercises, ...catchUpExercises], skipped: [] };
   }
 
-  const compounds = exercises.filter(e => COMPOUND_SET.has(e.name));
-  const accessories = exercises.filter(e => !COMPOUND_SET.has(e.name));
-  const targetMin = mode === '45' ? 45 : 60;
+  const compounds = exercises.filter(e => COMPOUND_SET.has(e.name) && !e.paired);
+  const pairedExercises = exercises.filter(e => e.paired);
+  const otherAccessories = exercises.filter(e => !COMPOUND_SET.has(e.name) && !e.paired);
 
-  let selected;
   if (mode === '45') {
-    // Max 3 compounds + 2-3 accessories
-    selected = [...compounds.slice(0, 3), ...accessories.slice(0, 3)];
-  } else {
-    // 60 min: all compounds + accessories, trim if over
-    selected = [...compounds, ...accessories];
+    // 3 compounds + 1 paired block (the paired exercises); skip remaining unpaired accessories
+    const selected = [...compounds.slice(0, 3), ...pairedExercises];
+    const final = [...selected, ...catchUpExercises];
+    const selectedNames = new Set(final.map(e => e.name));
+    const skipped = exercises.filter(e => !selectedNames.has(e.name)).map(e => e.name);
+    return { exercises: final, skipped };
   }
 
-  // Add catch-up (never trimmed)
-  const withCatchUp = [...selected, ...catchUpExercises];
-
-  // Trim accessories if estimate exceeds target (never trim compounds or catch-up)
-  let est = estimateDuration(withCatchUp, mode);
-  while (est > targetMin && selected.length > compounds.length) {
-    // Remove last accessory
-    selected.pop();
-    const trimmed = [...selected, ...catchUpExercises];
-    est = estimateDuration(trimmed, mode);
-  }
-
+  // 60 min: same as full for the new smaller 5-slot templates (they fit)
+  const selected = [...compounds, ...otherAccessories, ...pairedExercises];
   const final = [...selected, ...catchUpExercises];
   const selectedNames = new Set(final.map(e => e.name));
   const skipped = exercises.filter(e => !selectedNames.has(e.name)).map(e => e.name);
-
   return { exercises: final, skipped };
 }
 
@@ -183,10 +170,29 @@ function computeCatchUp(db, weekDays, templateExercises) {
   return { exercises: catchUpExercises, notes, setsPerMuscle };
 }
 
+// ─── Variation refresh mappings ──────────────────────────────
+const VARIATION_MAP = {
+  'Barbell Back Squat': ['Front Squat', 'Hack Squat'],
+  'Front Squat': ['Barbell Back Squat', 'Hack Squat'],
+  'Hack Squat': ['Barbell Back Squat', 'Front Squat'],
+  'Barbell Bench Press': ['Incline Barbell Press', 'Dumbbell Flat Press'],
+  'Incline Barbell Press': ['Barbell Bench Press', 'Dumbbell Flat Press'],
+  'Dumbbell Flat Press': ['Barbell Bench Press', 'Incline Barbell Press'],
+  'Conventional Deadlift': ['Trap Bar Deadlift', 'Deficit Romanian Deadlift'],
+  'Trap Bar Deadlift': ['Conventional Deadlift', 'Deficit Romanian Deadlift'],
+  'Deficit Romanian Deadlift': ['Conventional Deadlift', 'Trap Bar Deadlift'],
+  'Standing Overhead Press': ['Seated Dumbbell Shoulder Press'],
+  'Seated Dumbbell Shoulder Press': ['Standing Overhead Press'],
+  'Barbell Row': ['Chest Supported Row'],
+  'Chest Supported Row': ['Barbell Row'],
+  'Lat Pulldown': ['Pull-Up'],
+  'Pull-Up': ['Lat Pulldown'],
+};
+
 // GET /api/training — current state: next workout, frequency, recent sessions
 router.get('/', (req, res) => {
   const db = getDB();
-  const goal = db.prepare('SELECT gym_frequency, current_workout_index FROM goal WHERE id = 1').get();
+  const goal = db.prepare('SELECT gym_frequency, current_workout_index, session_mode, template_start_date, refresh_snoozed_until FROM goal WHERE id = 1').get();
   const frequency = goal?.gym_frequency || 3;
   const index = goal?.current_workout_index || 0;
 
@@ -205,6 +211,7 @@ router.get('/', (req, res) => {
       secondary_muscles: dbEx ? JSON.parse(dbEx.secondary_muscles) : [],
       rest_seconds: dbEx?.rest_seconds || 75,
       pair_group: dbEx?.pair_group || null,
+      paired: ex.paired || false,
     };
   });
 
@@ -355,6 +362,23 @@ router.get('/', (req, res) => {
     };
   }
 
+  // Variation refresh check
+  let variation_refresh = null;
+  const templateStart = goal?.template_start_date;
+  const snoozedUntil = goal?.refresh_snoozed_until;
+  if (templateStart) {
+    const startDate = new Date(templateStart + 'T12:00:00Z');
+    const nowDate = new Date(today + 'T12:00:00Z');
+    const weeksOnTemplate = Math.floor((nowDate - startDate) / (7 * 24 * 60 * 60 * 1000));
+    const snoozed = snoozedUntil && today < snoozedUntil;
+    if (weeksOnTemplate >= 7 && !snoozed) {
+      variation_refresh = {
+        weeks_on_template: weeksOnTemplate,
+        prompt: true,
+      };
+    }
+  }
+
   res.json({
     frequency,
     workout_index: index,
@@ -373,6 +397,7 @@ router.get('/', (req, res) => {
     catch_up: catchUpCount > 0 ? { count: catchUpCount, notes: catchUp.notes } : null,
     volume_notes: catchUp.notes,
     active_session: activeSessionInfo,
+    variation_refresh,
   });
 });
 
@@ -398,6 +423,41 @@ router.put('/frequency', (req, res) => {
   // Reset workout index to 0 when switching frequency
   db.prepare('UPDATE goal SET gym_frequency = ?, current_workout_index = 0 WHERE id = 1').run(frequency);
   res.json({ ok: true, frequency });
+});
+
+// POST /api/training/refresh — accept variation refresh
+router.post('/refresh', (req, res) => {
+  const db = getDB();
+  const today = todayIST();
+
+  // Swap exercises in the database that have variation mappings
+  const allExercises = db.prepare('SELECT id, name FROM exercises').all();
+  const nameToId = {};
+  for (const ex of allExercises) nameToId[ex.name] = ex.id;
+
+  const swapped = [];
+  for (const [original, variations] of Object.entries(VARIATION_MAP)) {
+    // Only swap if the original is in the current exercise library
+    if (!nameToId[original]) continue;
+    // Pick the first variation that exists in the library
+    const target = variations.find(v => nameToId[v]);
+    if (target) {
+      swapped.push({ from: original, to: target });
+    }
+  }
+
+  // Reset template start date
+  db.prepare('UPDATE goal SET template_start_date = ?, refresh_snoozed_until = NULL WHERE id = 1').run(today);
+
+  res.json({ ok: true, swapped });
+});
+
+// POST /api/training/refresh/snooze — decline/snooze variation refresh for 3 weeks
+router.post('/refresh/snooze', (req, res) => {
+  const db = getDB();
+  const snoozeUntil = new Date(Date.now() + 330 * 60000 + 21 * 86400000).toISOString().split('T')[0];
+  db.prepare('UPDATE goal SET refresh_snoozed_until = ? WHERE id = 1').run(snoozeUntil);
+  res.json({ ok: true, snoozed_until: snoozeUntil });
 });
 
 // POST /api/training/sessions — start a workout session

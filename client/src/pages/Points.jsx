@@ -2,37 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { api } from '../api';
 import { PointsRing } from '../components/MacroBar';
 
-const TREAT_SUGGESTIONS = {
-  sweet: [
-    { name: 'Gulab jamun (1-2 pieces)', cal: 150, emoji: '🍮' },
-    { name: 'A scoop of ice cream', cal: 200, emoji: '🍦' },
-    { name: 'A small piece of chocolate cake', cal: 250, emoji: '🍰' },
-    { name: 'Dark chocolate bar', cal: 220, emoji: '🍫' },
-  ],
-  'fried-savory': [
-    { name: 'Plate of pani puri', cal: 200, emoji: '🥟' },
-    { name: 'Vada pav', cal: 290, emoji: '🍔' },
-    { name: '4-5 chicken nuggets', cal: 200, emoji: '🍗' },
-    { name: 'Plate of momos (chicken/veg)', cal: 380, emoji: '🥟' },
-    { name: 'Samosas (2 pieces)', cal: 520, emoji: '🥘' },
-  ],
-  'fast-food': [
-    { name: 'A chicken burger', cal: 450, emoji: '🍔' },
-    { name: 'A slice or two of pizza', cal: 400, emoji: '🍕' },
-    { name: 'A masala dosa with chutney', cal: 280, emoji: '🫓' },
-    { name: 'Chicken biryani plate', cal: 550, emoji: '🍛' },
-    { name: 'Butter chicken + naan', cal: 700, emoji: '🍛' },
-    { name: 'Full burger + fries', cal: 700, emoji: '🍟' },
-  ],
-};
-
-const CATEGORIES = [
-  { id: 'sweet', label: 'Sweet', token: 'sweet' },
-  { id: 'fried-savory', label: 'Fried & savory', token: 'fried' },
-  { id: 'fast-food', label: 'Fast food', token: 'fast' },
-];
-
-function getWeekDates() {
+function getWeekStart() {
   const ist = new Date(Date.now() + 330 * 60000);
   const day = ist.getUTCDay();
   const diff = day === 0 ? -6 : 1 - day;
@@ -40,18 +10,45 @@ function getWeekDates() {
   return ist.toISOString().split('T')[0];
 }
 
-export default function Points() {
-  const [data, setData] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [cravingCategory, setCravingCategory] = useState(null);
-  const [redeeming, setRedeeming] = useState(false);
+function formatAmount(n) {
+  if (n == null) return '—';
+  return '₹' + n.toLocaleString('en-IN');
+}
 
-  const weekStart = getWeekDates();
+export default function Points() {
+  const [weekData, setWeekData] = useState(null);
+  const [bankData, setBankData] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [showPurchase, setShowPurchase] = useState(false);
+  const [purchaseAmount, setPurchaseAmount] = useState('');
+  const [purchaseDesc, setPurchaseDesc] = useState('');
+  const [purchaseItemId, setPurchaseItemId] = useState(null);
+  const [showAddItem, setShowAddItem] = useState(false);
+  const [newItemName, setNewItemName] = useState('');
+  const [newItemAmount, setNewItemAmount] = useState('');
+
+  const weekStart = getWeekStart();
 
   const load = useCallback(async () => {
     try {
-      const d = await api.getWeeklySummary(weekStart);
-      setData(d);
+      const [w, b] = await Promise.all([
+        api.getWeeklySummary(weekStart),
+        api.getBank(),
+      ]);
+      setWeekData(w);
+      setBankData(b);
+
+      // Auto-credit if threshold met and not yet credited this week
+      if (w.treat_earned) {
+        const alreadyCredited = b.ledger.some(
+          l => l.kind === 'weekly_credit' && l.week_start === weekStart
+        );
+        if (!alreadyCredited) {
+          await api.creditBank(weekStart);
+          const updated = await api.getBank();
+          setBankData(updated);
+        }
+      }
     } finally {
       setLoading(false);
     }
@@ -59,14 +56,35 @@ export default function Points() {
 
   useEffect(() => { load(); }, [load]);
 
-  async function handleRedeem() {
-    setRedeeming(true);
+  async function handlePurchase() {
+    const amount = parseFloat(purchaseAmount);
+    if (!amount || amount <= 0) return;
     try {
-      await api.redeemTreat(weekStart);
+      await api.purchaseFromBank({
+        amount,
+        description: purchaseDesc || 'Purchase',
+        wishlist_item_id: purchaseItemId || undefined,
+      });
+      setShowPurchase(false);
+      setPurchaseAmount('');
+      setPurchaseDesc('');
+      setPurchaseItemId(null);
       load();
-    } finally {
-      setRedeeming(false);
+    } catch (e) {
+      alert(e.message);
     }
+  }
+
+  async function handleAddItem() {
+    if (!newItemName.trim()) return;
+    await api.addWishlistItem({
+      name: newItemName.trim(),
+      target_amount: newItemAmount ? parseFloat(newItemAmount) : null,
+    });
+    setShowAddItem(false);
+    setNewItemName('');
+    setNewItemAmount('');
+    load();
   }
 
   if (loading) return (
@@ -75,107 +93,190 @@ export default function Points() {
     </div>
   );
 
-  if (!data) return null;
+  if (!weekData || !bankData) return null;
 
-  const { total_points, threshold, treat_earned, treat_redeemed, by_day, weekly_cal_budget } = data;
+  const { total_points, threshold, treat_earned, by_day } = weekData;
+  const { balance, credit_amount, items, ledger } = bankData;
   const remaining = Math.max(0, threshold - total_points);
-
-  const suggestions = cravingCategory
-    ? TREAT_SUGGESTIONS[cravingCategory].filter(s => s.cal <= (weekly_cal_budget || 800))
-    : [];
-
-  const activeCat = CATEGORIES.find(c => c.id === cravingCategory);
+  const unpurchasedItems = items.filter(i => !i.purchased);
 
   return (
     <div className="px-4 pb-4 tab-fade-enter">
       <div className="pt-5 pb-5">
-        <h1 className="text-[22px] font-bold text-tx">Rewards</h1>
-        <p className="text-xs text-tx-3 mt-0.5">This week's progress</p>
+        <h1 className="text-[22px] font-bold text-tx">Bank</h1>
+        <p className="text-xs text-tx-3 mt-0.5">Your reward balance</p>
       </div>
 
-      {/* Threshold progress card */}
-      <div className="bg-card rounded-card p-5 mb-3 stagger-enter">
-        <p className="text-xs text-tx-3 mb-2">Next treat unlock</p>
-        <div className="flex items-baseline gap-2 mb-3">
-          <span className="text-2xl font-num font-bold text-points">{Math.round(total_points)}</span>
-          <span className="text-sm font-num text-tx-3">/ {threshold}</span>
+      {/* Balance hero */}
+      <div className="bg-card rounded-card p-5 mb-3 stagger-enter text-center">
+        <p className="text-[11px] font-bold uppercase tracking-wider text-tx-3 mb-1">Balance</p>
+        <p className="text-[36px] font-bold text-points" style={{ fontFamily: "'Space Grotesk', system-ui, sans-serif" }}>
+          {formatAmount(balance)}
+        </p>
+      </div>
+
+      {/* This week's threshold progress */}
+      <div className="bg-card rounded-card p-4 mb-3 stagger-enter">
+        <div className="flex items-center justify-between mb-2">
+          <p className="text-xs text-tx-3">This week</p>
+          <p className="text-xs text-tx-3">
+            {treat_earned
+              ? `${formatAmount(credit_amount)} credited`
+              : `${formatAmount(credit_amount)} credits on hitting ${threshold}`
+            }
+          </p>
         </div>
-        <div className="h-3.5 bg-card-2 rounded-full overflow-hidden mb-2">
+        <div className="h-3 bg-card-2 rounded-full overflow-hidden mb-2">
           <div
             className="h-full rounded-full progress-fill bg-points"
             style={{ width: `${Math.min((total_points / threshold) * 100, 100)}%` }}
           />
         </div>
-        {treat_earned && !treat_redeemed ? (
-          <p className="text-sm text-points font-medium">You've earned a flex meal!</p>
-        ) : treat_redeemed ? (
-          <p className="text-sm text-tx-3">Treat redeemed this week</p>
-        ) : (
-          <p className="text-sm text-tx-3">
-            <span className="font-num font-semibold text-tx">{remaining}</span> pts to your flex meal
-          </p>
-        )}
+        <div className="flex items-baseline gap-1">
+          <span className="text-lg font-num font-bold text-points">{Math.round(total_points)}</span>
+          <span className="text-sm font-num text-tx-3">/ {threshold} pts</span>
+          {!treat_earned && (
+            <span className="text-xs text-tx-3 ml-auto">{remaining} to go</span>
+          )}
+        </div>
       </div>
 
-      {/* Treat section */}
-      {treat_earned && !treat_redeemed && (
-        <div className="mb-3 stagger-enter space-y-3">
-          {/* Category picker */}
-          <div className="flex gap-2">
-            {CATEGORIES.map(c => {
-              const active = cravingCategory === c.id;
+      {/* Wishlist items with progress bars */}
+      {unpurchasedItems.length > 0 && (
+        <div className="bg-card rounded-card p-4 mb-3 stagger-enter">
+          <div className="flex items-center justify-between mb-3">
+            <p className="text-sm font-semibold text-tx">Wishlist</p>
+            <button
+              onClick={() => setShowAddItem(true)}
+              className="text-xs text-points press-scale"
+            >
+              + Add
+            </button>
+          </div>
+          <div className="space-y-3">
+            {unpurchasedItems.map(item => {
+              const progress = item.target_amount && item.target_amount > 0
+                ? Math.min(balance / item.target_amount, 1)
+                : null;
               return (
-                <button
-                  key={c.id}
-                  onClick={() => setCravingCategory(cat => cat === c.id ? null : c.id)}
-                  className={`flex-1 py-2.5 rounded-full text-sm border transition-colors press-scale ${
-                    active ? 'font-medium' : 'border-hair bg-card text-tx-3'
-                  }`}
-                  style={active ? {
-                    background: `color-mix(in oklab, var(--${c.token}) 16%, transparent)`,
-                    borderColor: `var(--${c.token})`,
-                    color: `var(--${c.token})`,
-                  } : undefined}
-                >
-                  {c.label}
-                </button>
+                <div key={item.id}>
+                  <div className="flex items-center justify-between mb-1">
+                    <p className="text-sm text-tx">{item.name}</p>
+                    <p className="text-xs font-num text-tx-3">
+                      {item.target_amount ? formatAmount(item.target_amount) : 'Price TBD'}
+                    </p>
+                  </div>
+                  {progress !== null && (
+                    <div className="h-2 bg-card-2 rounded-full overflow-hidden">
+                      <div
+                        className="h-full rounded-full progress-fill"
+                        style={{
+                          width: `${progress * 100}%`,
+                          background: progress >= 1 ? 'var(--points)' : 'color-mix(in oklab, var(--points) 60%, var(--card-2))',
+                        }}
+                      />
+                    </div>
+                  )}
+                  {progress !== null && progress >= 1 && item.target_amount && (
+                    <button
+                      onClick={() => {
+                        setPurchaseItemId(item.id);
+                        setPurchaseAmount(String(item.target_amount));
+                        setPurchaseDesc(item.name);
+                        setShowPurchase(true);
+                      }}
+                      className="text-xs text-points mt-1 press-scale"
+                    >
+                      Buy now
+                    </button>
+                  )}
+                </div>
               );
             })}
           </div>
+        </div>
+      )}
 
-          {/* Treat cards */}
-          {suggestions.length > 0 && (
-            <div className="space-y-2">
-              {suggestions.slice(0, 4).map((s, i) => (
-                <div key={i} className="flex items-center gap-3 bg-card rounded-card px-3 py-3">
-                  <div
-                    className="w-11 h-11 rounded-xl flex items-center justify-center text-lg flex-shrink-0"
-                    style={{ background: `color-mix(in oklab, var(--${activeCat?.token || 'sweet'}) 16%, transparent)` }}
-                  >
-                    {s.emoji}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm text-tx">{s.name}</p>
-                    <p className="text-xs text-tx-3">~{s.cal} kcal</p>
-                  </div>
-                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-card-2 text-tx-3 flex-shrink-0">Curated</span>
-                </div>
-              ))}
-            </div>
-          )}
+      {/* Record a purchase */}
+      <button
+        onClick={() => { setPurchaseItemId(null); setPurchaseAmount(''); setPurchaseDesc(''); setShowPurchase(true); }}
+        className="w-full bg-card rounded-card p-3.5 text-sm text-tx-2 border border-hair mb-3 stagger-enter press-scale"
+      >
+        Record a purchase
+      </button>
 
-          {/* Add your own treat */}
-          <button className="w-full py-3 border border-dashed border-hair rounded-card text-sm text-tx-3 press-scale">
-            + Add your own treat
-          </button>
-
-          <button
-            onClick={handleRedeem}
-            disabled={redeeming}
-            className="w-full py-3 bg-points text-white rounded-card text-sm disabled:opacity-40 press-scale"
+      {/* Purchase sheet */}
+      {showPurchase && (
+        <div className="fixed inset-0 z-50 flex items-end justify-center" onClick={() => setShowPurchase(false)}>
+          <div className="absolute inset-0 bg-black/40 backdrop-enter" />
+          <div
+            className="relative w-full max-w-lg bg-card rounded-t-[20px] p-5 sheet-enter"
+            onClick={e => e.stopPropagation()}
           >
-            {redeeming ? 'Redeeming...' : 'Mark treat as redeemed'}
-          </button>
+            <p className="text-lg font-bold text-tx mb-4">Record purchase</p>
+            <div className="space-y-3">
+              <input
+                type="text"
+                placeholder="What did you buy?"
+                value={purchaseDesc}
+                onChange={e => setPurchaseDesc(e.target.value)}
+                className="w-full px-4 py-3 rounded-card border border-hair bg-card-2 text-sm text-tx"
+              />
+              <input
+                type="number"
+                placeholder="Amount (₹)"
+                value={purchaseAmount}
+                onChange={e => setPurchaseAmount(e.target.value)}
+                className="w-full px-4 py-3 rounded-card border border-hair bg-card-2 text-sm font-num text-tx"
+              />
+              {balance < parseFloat(purchaseAmount || 0) && (
+                <p className="text-xs text-danger">Insufficient balance</p>
+              )}
+              <button
+                onClick={handlePurchase}
+                disabled={!purchaseAmount || parseFloat(purchaseAmount) <= 0 || balance < parseFloat(purchaseAmount || 0)}
+                className="w-full py-3.5 bg-points text-white rounded-card text-sm font-bold disabled:opacity-40 press-scale"
+              >
+                Confirm — {formatAmount(parseFloat(purchaseAmount) || 0)}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Add wishlist item sheet */}
+      {showAddItem && (
+        <div className="fixed inset-0 z-50 flex items-end justify-center" onClick={() => setShowAddItem(false)}>
+          <div className="absolute inset-0 bg-black/40 backdrop-enter" />
+          <div
+            className="relative w-full max-w-lg bg-card rounded-t-[20px] p-5 sheet-enter"
+            onClick={e => e.stopPropagation()}
+          >
+            <p className="text-lg font-bold text-tx mb-4">Add to wishlist</p>
+            <div className="space-y-3">
+              <input
+                type="text"
+                placeholder="Item name"
+                value={newItemName}
+                onChange={e => setNewItemName(e.target.value)}
+                className="w-full px-4 py-3 rounded-card border border-hair bg-card-2 text-sm text-tx"
+              />
+              <input
+                type="number"
+                placeholder="Target price (₹, optional)"
+                value={newItemAmount}
+                onChange={e => setNewItemAmount(e.target.value)}
+                className="w-full px-4 py-3 rounded-card border border-hair bg-card-2 text-sm font-num text-tx"
+              />
+              <button
+                onClick={handleAddItem}
+                disabled={!newItemName.trim()}
+                className="w-full py-3.5 bg-points text-white rounded-card text-sm font-bold disabled:opacity-40 press-scale"
+              >
+                Add item
+              </button>
+            </div>
+          </div>
         </div>
       )}
 
@@ -202,19 +303,37 @@ export default function Points() {
         </div>
       </div>
 
-      {/* How points work */}
-      {!treat_earned && (
+      {/* Ledger */}
+      {ledger.length > 0 && (
         <div className="bg-card rounded-card p-4 stagger-enter">
-          <h2 className="text-sm font-semibold text-tx mb-2">How points work</h2>
-          <div className="space-y-1.5 text-xs text-tx-3">
-            <p><span className="text-cal">Calories</span> within target: 20 pts</p>
-            <p><span className="text-protein">Protein</span> target hit: 25 pts</p>
-            <p><span className="text-tx">Exercise</span> (gym 60+ min): 30 pts</p>
-            <p><span className="text-tx">Sleep</span> 7-8.5 hours: 15 pts</p>
-            <p><span className="text-tx">All 4 logged</span> in a day: 10 pts bonus</p>
+          <p className="text-sm font-semibold text-tx mb-3">Ledger</p>
+          <div className="space-y-2">
+            {ledger.slice(0, 20).map(entry => (
+              <div key={entry.id} className="flex items-center justify-between">
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm text-tx truncate">{entry.description}</p>
+                  <p className="text-[10px] text-tx-3">{entry.date}</p>
+                </div>
+                <span className={`text-sm font-num font-semibold ${entry.delta > 0 ? 'text-points' : 'text-tx-2'}`}>
+                  {entry.delta > 0 ? '+' : ''}{formatAmount(entry.delta)}
+                </span>
+              </div>
+            ))}
           </div>
         </div>
       )}
+
+      {/* How points work */}
+      <div className="bg-card rounded-card p-4 mt-3 stagger-enter">
+        <h2 className="text-sm font-semibold text-tx mb-2">How points work</h2>
+        <div className="space-y-1.5 text-xs text-tx-3">
+          <p><span className="text-cal">Calories</span> within target: 20 pts</p>
+          <p><span className="text-protein">Protein</span> target hit: 25 pts</p>
+          <p><span className="text-tx">Exercise</span> (gym 60+ min): 30 pts</p>
+          <p><span className="text-tx">Sleep</span> 7-8.5 hours: 15 pts</p>
+          <p><span className="text-tx">All 4 logged</span> in a day: 10 pts bonus</p>
+        </div>
+      </div>
     </div>
   );
 }

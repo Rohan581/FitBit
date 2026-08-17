@@ -28,32 +28,6 @@
   --dinner: oklch(0.55 0.15 258);
   --drinks: oklch(0.58 0.14 212);
 
-  --sweet: oklch(0.57 0.17 350);
-  --fried: oklch(0.62 0.16 62);
-  --fast: oklch(0.55 0.17 25);
-
-  /* Finance module */
-  --fin: oklch(0.77 0.13 230);
-  --fin-tx: oklch(0.77 0.13 230);
-  --gro: oklch(0.80 0.14 150);
-  --din: oklch(0.78 0.15 45);
-  --tra: oklch(0.76 0.12 255);
-  --fue: oklch(0.83 0.13 85);
-  --sho: oklch(0.74 0.14 310);
-  --ent: oklch(0.73 0.13 282);
-  --uti: oklch(0.81 0.12 210);
-  --hea: oklch(0.75 0.15 355);
-  --ren: oklch(0.72 0.12 30);
-  --oth: oklch(0.72 0.02 75);
-  --regalia: oklch(0.83 0.13 85);
-  --swiggy: oklch(0.76 0.15 40);
-  --sbie: oklch(0.74 0.13 265);
-  --tneu: oklch(0.75 0.14 310);
-  --pixel: oklch(0.80 0.12 195);
-  --sapp: oklch(0.76 0.12 240);
-  --azn: oklch(0.81 0.14 60);
-  --amex: oklch(0.79 0.12 205);
-
   --warning: oklch(0.75 0.16 70);
   --danger: oklch(0.58 0.22 25);
   --star: oklch(0.82 0.17 90);
@@ -100,32 +74,6 @@
   --snack: oklch(0.74 0.13 300);
   --dinner: oklch(0.74 0.12 258);
   --drinks: oklch(0.81 0.12 212);
-
-  --sweet: oklch(0.77 0.15 350);
-  --fried: oklch(0.81 0.15 62);
-  --fast: oklch(0.72 0.15 25);
-
-  /* Finance module */
-  --fin: oklch(0.53 0.15 230);
-  --fin-tx: oklch(0.48 0.13 230);
-  --gro: oklch(0.56 0.15 150);
-  --din: oklch(0.60 0.17 45);
-  --tra: oklch(0.55 0.14 255);
-  --fue: oklch(0.62 0.16 85);
-  --sho: oklch(0.53 0.16 310);
-  --ent: oklch(0.53 0.15 282);
-  --uti: oklch(0.58 0.14 210);
-  --hea: oklch(0.56 0.18 355);
-  --ren: oklch(0.52 0.12 30);
-  --oth: oklch(0.50 0.02 75);
-  --regalia: oklch(0.62 0.14 85);
-  --swiggy: oklch(0.58 0.17 40);
-  --sbie: oklch(0.54 0.14 265);
-  --tneu: oklch(0.55 0.16 310);
-  --pixel: oklch(0.56 0.13 195);
-  --sapp: oklch(0.55 0.13 240);
-  --azn: oklch(0.62 0.15 60);
-  --amex: oklch(0.56 0.12 205);
 
   --warning: oklch(0.82 0.15 75);
   --danger: oklch(0.68 0.22 28);
@@ -194,20 +142,6 @@ strong, b {
   .tint-snack { background: color-mix(in oklab, var(--snack) 14%, transparent); }
   .tint-dinner { background: color-mix(in oklab, var(--dinner) 14%, transparent); }
   .tint-drinks { background: color-mix(in oklab, var(--drinks) 14%, transparent); }
-  .tint-sweet { background: color-mix(in oklab, var(--sweet) 14%, transparent); }
-  .tint-fried { background: color-mix(in oklab, var(--fried) 14%, transparent); }
-  .tint-fast { background: color-mix(in oklab, var(--fast) 14%, transparent); }
-  .tint-fin { background: color-mix(in oklab, var(--fin) 14%, transparent); }
-  .tint-gro { background: color-mix(in oklab, var(--gro) 14%, transparent); }
-  .tint-din { background: color-mix(in oklab, var(--din) 14%, transparent); }
-  .tint-tra { background: color-mix(in oklab, var(--tra) 14%, transparent); }
-  .tint-fue { background: color-mix(in oklab, var(--fue) 14%, transparent); }
-  .tint-sho { background: color-mix(in oklab, var(--sho) 14%, transparent); }
-  .tint-ent { background: color-mix(in oklab, var(--ent) 14%, transparent); }
-  .tint-uti { background: color-mix(in oklab, var(--uti) 14%, transparent); }
-  .tint-hea { background: color-mix(in oklab, var(--hea) 14%, transparent); }
-  .tint-ren { background: color-mix(in oklab, var(--ren) 14%, transparent); }
-  .tint-oth { background: color-mix(in oklab, var(--oth) 14%, transparent); }
 }
 
 /* ─── Press feedback ─── */

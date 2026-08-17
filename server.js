@@ -24,7 +24,6 @@ app.use('/api/food-logs', require('./routes/foodLogs'));
 app.use('/api/exercise-logs', require('./routes/exerciseLogs'));
 app.use('/api/sleep-logs', require('./routes/sleepLogs'));
 app.use('/api/weight-logs', require('./routes/weightLogs'));
-app.use('/api/water', require('./routes/water'));
 app.use('/api/points', require('./routes/points'));
 app.use('/api/goal', require('./routes/goal'));
 app.use('/api/weekly-summary', require('./routes/weeklySummary'));
@@ -35,7 +34,8 @@ app.use('/api/planning', require('./routes/planning'));
 app.use('/api/dashboard', require('./routes/dashboard'));
 app.use('/api/training', require('./routes/training'));
 app.use('/api/rest-days', require('./routes/restDays'));
-app.use('/api/finance', require('./routes/finance'));
+app.use('/api/push', require('./routes/push'));
+app.use('/api/bank', require('./routes/bank'));
 
 // Serve React app in production
 if (process.env.NODE_ENV === 'production') {
