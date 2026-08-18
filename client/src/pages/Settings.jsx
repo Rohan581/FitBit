@@ -271,28 +271,30 @@ function NotificationsSection() {
     supported: false, subscribed: false, permissionDenied: false,
     measurement_reminder: false, stale_workout: false,
     food_reminder: false, food_reminder_time: '21:00',
-    vapid_configured: false, loading: true,
+    vapid_configured: false, loading: true, error: null,
   });
   const [testResult, setTestResult] = useState(null);
   const [subEndpoint, setSubEndpoint] = useState(null);
 
   useEffect(() => {
     async function check() {
-      const hasServiceWorker = 'serviceWorker' in navigator;
-      const hasPushManager = 'PushManager' in window;
-      const hasNotification = typeof Notification !== 'undefined';
-
-      if (!hasServiceWorker || !hasPushManager || !hasNotification) {
-        setPushState(s => ({ ...s, supported: false, loading: false }));
-        return;
-      }
-
-      const permState = Notification.permission;
-      if (permState === 'denied') {
-        setPushState(s => ({ ...s, supported: true, permissionDenied: true, loading: false }));
-        return;
-      }
       try {
+        const hasServiceWorker = 'serviceWorker' in navigator;
+        const hasPushManager = 'PushManager' in window;
+        const hasNotification = typeof Notification !== 'undefined';
+
+        if (!hasServiceWorker || !hasPushManager || !hasNotification) {
+          setPushState(s => ({ ...s, supported: false, loading: false,
+            error: `SW:${hasServiceWorker} Push:${hasPushManager} Notif:${hasNotification}` }));
+          return;
+        }
+
+        const permState = Notification.permission;
+        if (permState === 'denied') {
+          setPushState(s => ({ ...s, supported: true, permissionDenied: true, loading: false }));
+          return;
+        }
+
         const reg = await navigator.serviceWorker.register('/sw.js', { updateViaCache: 'none' });
         await reg.update().catch(() => {});
         const sub = await reg.pushManager.getSubscription();
@@ -306,13 +308,13 @@ function NotificationsSection() {
             food_reminder: status.food_reminder,
             food_reminder_time: status.food_reminder_time || '21:00',
             vapid_configured: status.vapid_configured,
-            loading: false,
+            loading: false, error: null,
           });
         } else {
           setPushState(s => ({ ...s, supported: true, loading: false }));
         }
-      } catch {
-        setPushState(s => ({ ...s, supported: true, loading: false }));
+      } catch (e) {
+        setPushState(s => ({ ...s, supported: false, loading: false, error: e.message || 'Unknown error' }));
       }
     }
     check();
@@ -392,7 +394,14 @@ function NotificationsSection() {
     }
   }
 
-  if (pushState.loading) return null;
+  if (pushState.loading) {
+    return (
+      <div className="bg-card rounded-card p-4 space-y-3 stagger-enter">
+        <h2 className="text-sm font-semibold text-tx">Notifications</h2>
+        <p className="text-xs text-tx-3">Checking push support...</p>
+      </div>
+    );
+  }
 
   const statusLabel = !pushState.supported ? 'Not supported'
     : pushState.permissionDenied ? 'Permission denied'
@@ -409,6 +418,9 @@ function NotificationsSection() {
       </div>
       {pushState.subscribed && !pushState.vapid_configured && (
         <p className="text-xs text-danger">Server VAPID keys not configured — push will not deliver. Set VAPID_PUBLIC_KEY and VAPID_PRIVATE_KEY env vars.</p>
+      )}
+      {pushState.error && (
+        <p className="text-xs text-tx-3">{pushState.error}</p>
       )}
 
       {!pushState.supported ? (
