@@ -278,20 +278,24 @@ function NotificationsSection() {
 
   useEffect(() => {
     async function check() {
-      if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
-        setPushState(s => ({ ...s, loading: false }));
+      const hasServiceWorker = 'serviceWorker' in navigator;
+      const hasPushManager = 'PushManager' in window;
+      const hasNotification = typeof Notification !== 'undefined';
+
+      if (!hasServiceWorker || !hasPushManager || !hasNotification) {
+        setPushState(s => ({ ...s, supported: false, loading: false }));
         return;
       }
+
       const permState = Notification.permission;
       if (permState === 'denied') {
         setPushState(s => ({ ...s, supported: true, permissionDenied: true, loading: false }));
         return;
       }
       try {
-        // Always register to pick up updates
         const reg = await navigator.serviceWorker.register('/sw.js', { updateViaCache: 'none' });
         await reg.update().catch(() => {});
-        const sub = reg ? await reg.pushManager.getSubscription() : null;
+        const sub = await reg.pushManager.getSubscription();
         if (sub) {
           setSubEndpoint(sub.endpoint);
           const status = await api.getPushStatus(sub.endpoint);
@@ -308,7 +312,7 @@ function NotificationsSection() {
           setPushState(s => ({ ...s, supported: true, loading: false }));
         }
       } catch {
-        setPushState(s => ({ ...s, loading: false }));
+        setPushState(s => ({ ...s, supported: true, loading: false }));
       }
     }
     check();
@@ -334,7 +338,7 @@ function NotificationsSection() {
         food_reminder: false, food_reminder_time: '21:00',
       }));
     } catch {
-      if (Notification.permission === 'denied') {
+      if (typeof Notification !== 'undefined' && Notification.permission === 'denied') {
         setPushState(s => ({ ...s, permissionDenied: true }));
       }
     }
