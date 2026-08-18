@@ -267,7 +267,14 @@ export default function Settings() {
 }
 
 function NotificationsSection() {
-  const [pushState, setPushState] = useState({ supported: false, subscribed: false, measurement_reminder: false, stale_workout: false, loading: true });
+  const [pushState, setPushState] = useState({
+    supported: false, subscribed: false, permissionDenied: false,
+    measurement_reminder: false, stale_workout: false,
+    food_reminder: false, food_reminder_time: '21:00',
+    vapid_configured: false, loading: true,
+  });
+  const [testResult, setTestResult] = useState(null);
+  const [subEndpoint, setSubEndpoint] = useState(null);
 
   useEffect(() => {
     async function check() {
@@ -275,12 +282,28 @@ function NotificationsSection() {
         setPushState(s => ({ ...s, loading: false }));
         return;
       }
+      const permState = Notification.permission;
+      if (permState === 'denied') {
+        setPushState(s => ({ ...s, supported: true, permissionDenied: true, loading: false }));
+        return;
+      }
       try {
-        const reg = await navigator.serviceWorker.getRegistration('/sw.js');
+        // Always register to pick up updates
+        const reg = await navigator.serviceWorker.register('/sw.js', { updateViaCache: 'none' });
+        await reg.update().catch(() => {});
         const sub = reg ? await reg.pushManager.getSubscription() : null;
         if (sub) {
+          setSubEndpoint(sub.endpoint);
           const status = await api.getPushStatus(sub.endpoint);
-          setPushState({ supported: true, subscribed: true, measurement_reminder: status.measurement_reminder, stale_workout: status.stale_workout, loading: false });
+          setPushState({
+            supported: true, subscribed: true, permissionDenied: false,
+            measurement_reminder: status.measurement_reminder,
+            stale_workout: status.stale_workout,
+            food_reminder: status.food_reminder,
+            food_reminder_time: status.food_reminder_time || '21:00',
+            vapid_configured: status.vapid_configured,
+            loading: false,
+          });
         } else {
           setPushState(s => ({ ...s, supported: true, loading: false }));
         }
@@ -293,22 +316,32 @@ function NotificationsSection() {
 
   async function enableNotifications() {
     try {
-      const reg = await navigator.serviceWorker.register('/sw.js');
+      const reg = await navigator.serviceWorker.register('/sw.js', { updateViaCache: 'none' });
       const { publicKey } = await api.getVapidKey();
       if (!publicKey) return;
       const sub = await reg.pushManager.subscribe({
         userVisibleOnly: true,
         applicationServerKey: urlBase64ToUint8Array(publicKey),
       });
-      await api.subscribePush({ subscription: sub.toJSON(), measurement_reminder: true, stale_workout: true });
-      setPushState({ supported: true, subscribed: true, measurement_reminder: true, stale_workout: true, loading: false });
+      setSubEndpoint(sub.endpoint);
+      await api.subscribePush({
+        subscription: sub.toJSON(),
+        measurement_reminder: true, stale_workout: true,
+        food_reminder: false, food_reminder_time: '21:00',
+      });
+      setPushState(s => ({
+        ...s, subscribed: true, measurement_reminder: true, stale_workout: true,
+        food_reminder: false, food_reminder_time: '21:00',
+      }));
     } catch {
-      // Permission denied or failed silently
+      if (Notification.permission === 'denied') {
+        setPushState(s => ({ ...s, permissionDenied: true }));
+      }
     }
   }
 
-  async function updatePrefs(key, value) {
-    const next = { ...pushState, [key]: value };
+  async function updatePrefs(updates) {
+    const next = { ...pushState, ...updates };
     setPushState(next);
     try {
       const reg = await navigator.serviceWorker.getRegistration('/sw.js');
@@ -318,6 +351,8 @@ function NotificationsSection() {
           subscription: sub.toJSON(),
           measurement_reminder: next.measurement_reminder,
           stale_workout: next.stale_workout,
+          food_reminder: next.food_reminder,
+          food_reminder_time: next.food_reminder_time,
         });
       }
     } catch { /* silent */ }
@@ -331,31 +366,87 @@ function NotificationsSection() {
         await api.unsubscribePush({ endpoint: sub.endpoint });
         await sub.unsubscribe();
       }
-      setPushState(s => ({ ...s, subscribed: false, measurement_reminder: false, stale_workout: false }));
+      setSubEndpoint(null);
+      setPushState(s => ({ ...s, subscribed: false, measurement_reminder: false, stale_workout: false, food_reminder: false }));
     } catch { /* silent */ }
+  }
+
+  async function handleTestPush() {
+    if (!subEndpoint) return;
+    setTestResult('sending');
+    try {
+      await api.testPush(subEndpoint);
+      setTestResult('sent');
+      setTimeout(() => setTestResult(null), 3000);
+    } catch (e) {
+      setTestResult(e.message || 'failed');
+      setTimeout(() => setTestResult(null), 5000);
+    }
   }
 
   if (pushState.loading) return null;
 
+  const statusLabel = !pushState.supported ? 'Not supported'
+    : pushState.permissionDenied ? 'Permission denied'
+    : pushState.subscribed ? 'Subscribed'
+    : 'Not subscribed';
+
+  const statusColor = pushState.subscribed ? 'text-points' : 'text-tx-3';
+
   return (
     <div className="bg-card rounded-card p-4 space-y-3 stagger-enter">
-      <h2 className="text-sm font-semibold text-tx">Notifications</h2>
+      <div className="flex items-center justify-between">
+        <h2 className="text-sm font-semibold text-tx">Notifications</h2>
+        <span className={`text-[11px] font-semibold ${statusColor}`}>{statusLabel}</span>
+      </div>
+
       {!pushState.supported ? (
         <p className="text-xs text-tx-3">Push notifications are not supported in this browser.</p>
+      ) : pushState.permissionDenied ? (
+        <p className="text-xs text-tx-3">Notification permission was denied. Reset it in your browser/device settings to enable push.</p>
       ) : !pushState.subscribed ? (
         <>
           <button onClick={enableNotifications} className="text-sm text-points border border-points/30 bg-card rounded-card px-3 py-1.5 press-scale">
             Enable notifications
           </button>
-          <p className="text-xs text-tx-3">On iOS, notifications only work when the app is added to your home screen. Tap the share button → "Add to Home Screen" first.</p>
+          <p className="text-xs text-tx-3">On iOS, notifications only work when the app is added to your home screen. Tap the share button then "Add to Home Screen" first.</p>
         </>
       ) : (
         <>
-          <ToggleRow label="Weekly measurement reminder" checked={pushState.measurement_reminder} onChange={v => updatePrefs('measurement_reminder', v)} />
-          <p className="text-xs text-tx-3 -mt-1">Reminds you once a week if no measurement in 7+ days.</p>
-          <ToggleRow label="Stale workout alert" checked={pushState.stale_workout} onChange={v => updatePrefs('stale_workout', v)} />
-          <p className="text-xs text-tx-3 -mt-1">Notifies you once if a workout is left open from the day before.</p>
-          <button onClick={disableNotifications} className="text-xs text-tx-3 mt-2">
+          <ToggleRow label="Weekly measurement reminder" checked={pushState.measurement_reminder} onChange={v => updatePrefs({ measurement_reminder: v })} />
+          <p className="text-xs text-tx-3 -mt-1">Once a week if no measurement in 7+ days.</p>
+
+          <ToggleRow label="Stale workout alert" checked={pushState.stale_workout} onChange={v => updatePrefs({ stale_workout: v })} />
+          <p className="text-xs text-tx-3 -mt-1">Once if a workout is left open from yesterday.</p>
+
+          <ToggleRow label="Food-logging reminder" checked={pushState.food_reminder} onChange={v => updatePrefs({ food_reminder: v })} />
+          {pushState.food_reminder && (
+            <div className="flex items-center gap-2 -mt-1">
+              <span className="text-xs text-tx-3">Remind at</span>
+              <input
+                type="time"
+                value={pushState.food_reminder_time}
+                onChange={e => updatePrefs({ food_reminder_time: e.target.value })}
+                className="px-2 py-1 rounded-card border border-hair text-sm font-num text-tx bg-card-2"
+              />
+            </div>
+          )}
+          <p className="text-xs text-tx-3 -mt-1">Once per day if no food logged. Off by default.</p>
+
+          <div className="flex items-center gap-2 mt-1">
+            <button
+              onClick={handleTestPush}
+              disabled={testResult === 'sending'}
+              className="text-sm text-points border border-points/30 bg-card rounded-card px-3 py-1.5 press-scale disabled:opacity-40"
+            >
+              {testResult === 'sending' ? 'Sending...' : testResult === 'sent' ? 'Sent!' : 'Send test notification'}
+            </button>
+            {testResult && testResult !== 'sending' && testResult !== 'sent' && (
+              <span className="text-xs text-danger">{testResult}</span>
+            )}
+          </div>
+
+          <button onClick={disableNotifications} className="text-xs text-tx-3 mt-1 press-scale">
             Disable all notifications
           </button>
         </>

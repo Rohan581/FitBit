@@ -170,7 +170,7 @@ export default function Training() {
   if (loading && !data) return <LoadingState />;
   if (!data) return <div className="p-4 text-center text-tx-3 text-sm">Could not load training data</div>;
 
-  const { next_workout, last_numbers, frequency } = data;
+  const { next_workout, last_numbers } = data;
 
   // ─── Handlers ────────────────────────────────────────────
   async function handleStartWorkout() {
@@ -400,9 +400,7 @@ export default function Training() {
         totalVolume: Math.round(totalVolume),
         nextIndex: result.next_index,
         gymThisWeek: (data.week_gym_sessions || 0) + 1,
-        targetGym: data.target_gym_this_week || frequency,
         cardio: sessionCardio,
-        sessionMode: data?.session_mode || 'full',
       });
     } catch {
       setCompletionData({
@@ -412,7 +410,6 @@ export default function Training() {
         totalVolume: Math.round(totalVolume),
         nextIndex: null,
         gymThisWeek: (data.week_gym_sessions || 0) + 1,
-        targetGym: data.target_gym_this_week || frequency,
         cardio: sessionCardio,
       });
     }
@@ -476,11 +473,6 @@ export default function Training() {
     load();
   }
 
-  async function handleFrequencyChange(f) {
-    await api.setFrequency(f);
-    load();
-  }
-
   // ─── Render ──────────────────────────────────────────────
   if (screen === 'complete' && completionData) {
     return <CompleteScreen data={completionData} allData={data} onBack={handleBackToHome} />;
@@ -504,7 +496,6 @@ export default function Training() {
     const templateExercises = effectiveExercises.filter(e => !e.is_catchup);
 
     // Build paired blocks for ALL modes (paired accessories superset always)
-    const sessionMode = data?.session_mode || 'full';
     const pairedIndices = new Set();
     const pairedBlocks = [];
     for (let i = 0; i < templateExercises.length; i++) {
@@ -554,7 +545,7 @@ export default function Training() {
           </button>
           <div className="text-center">
             <div className="text-[16px] font-bold font-num text-tx">{next_workout.label}</div>
-            <div className="text-[12px] font-semibold text-tx-3">{doneCount} of {exCount} exercises{sessionMode !== 'full' ? ` · ${sessionMode}-min` : ''}</div>
+            <div className="text-[12px] font-semibold text-tx-3">{doneCount} of {exCount} exercises</div>
           </div>
           <span className="text-[14px] font-semibold font-num text-tx-2 w-[52px] text-right">{fmtTime(elapsedSecs)}</span>
         </div>
@@ -796,7 +787,7 @@ export default function Training() {
             <div className="rounded-[20px] border border-hair p-[18px]" style={{ background: 'var(--accent-surface)' }}>
               <div className="flex items-center justify-between">
                 <span className="text-[12.5px] font-bold text-points">Next up</span>
-                <span className="text-[12.5px] font-semibold text-tx-3">Session {gymCount + 1} of {data.target_gym_this_week || frequency} this week</span>
+                <span className="text-[12.5px] font-semibold text-tx-3">~{data.duration_estimate || '?'} min</span>
               </div>
               <div className="text-[22px] font-bold mt-2" style={{ fontFamily: "'Space Grotesk', system-ui, sans-serif", letterSpacing: '-0.01em' }}>
                 {next_workout.label}
@@ -805,32 +796,7 @@ export default function Training() {
                 {next_workout.subtitle}
               </div>
 
-              {/* Session length selector */}
-              <div className="flex gap-2 mt-3">
-                {[
-                  { id: '45', label: '45 min', est: data.duration_estimates?.['45'] },
-                  { id: '60', label: '60 min', est: data.duration_estimates?.['60'] },
-                  { id: 'full', label: 'Full', est: data.duration_estimates?.full },
-                ].map(opt => {
-                  const active = (data.session_mode || 'full') === opt.id;
-                  return (
-                    <button
-                      key={opt.id}
-                      onClick={async () => { await api.setSessionMode(opt.id); load(); }}
-                      className="flex-1 py-2 rounded-[11px] text-center press-scale transition-colors"
-                      style={{
-                        border: active ? '1.5px solid var(--points)' : '1.5px solid var(--hair)',
-                        background: active ? 'color-mix(in oklab, var(--points) 14%, transparent)' : 'transparent',
-                      }}
-                    >
-                      <div className={`text-[13px] font-bold ${active ? 'text-points' : 'text-tx-2'}`}>{opt.label}</div>
-                      <div className="text-[11px] font-num text-tx-3">~{opt.est || '?'} min</div>
-                    </button>
-                  );
-                })}
-              </div>
-
-              <div className="flex flex-wrap gap-1.5 mt-3.5">
+              <div className="flex flex-wrap gap-1.5 mt-3">
                 {next_workout.exercises.map((ex, i) => (
                   <span
                     key={i}
@@ -994,26 +960,6 @@ export default function Training() {
           {/* Weekly volume + conditioning */}
           <WeeklyVolumeCard volume={volume} volumeNotes={volumeNotes} />
 
-          {/* Frequency selector */}
-          <div className="bg-card rounded-[20px] border border-hair p-[18px]">
-            <p className="text-[12.5px] font-bold text-tx-3 mb-2">Gym frequency</p>
-            <div className="flex gap-2">
-              {[3, 4].map(f => (
-                <button
-                  key={f}
-                  onClick={() => handleFrequencyChange(f)}
-                  className="flex-1 py-2.5 rounded-[13px] text-[14px] font-bold press-scale"
-                  style={{
-                    background: frequency === f ? 'color-mix(in oklab, var(--points) 14%, transparent)' : 'transparent',
-                    border: frequency === f ? '2px solid var(--points)' : '1px solid var(--hair)',
-                    color: frequency === f ? 'var(--points)' : 'var(--text-3)',
-                  }}
-                >
-                  {f} days · {f === 3 ? 'Full Body' : 'Upper/Lower'}
-                </button>
-              ))}
-            </div>
-          </div>
         </div>
       </div>
 
@@ -1310,7 +1256,7 @@ function CompleteScreen({ data: cd, allData, onBack }) {
           Session logged
         </div>
         <div className="text-[15px] font-semibold text-tx-2 mt-1">
-          {cd.workout.label}{cd.sessionMode !== 'full' ? ` (${cd.sessionMode}-min)` : ''} · that's {cd.gymThisWeek} of {cd.targetGym} this week
+          {cd.workout.label} · that's {cd.gymThisWeek} this week
         </div>
         <div
           className="mt-2.5 text-[14px] font-bold text-points rounded-full px-4 py-1.5"

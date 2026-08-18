@@ -1,4 +1,13 @@
-// Service worker for push notifications
+// Service worker for push notifications — v2
+const SW_VERSION = 'v2';
+
+self.addEventListener('install', () => {
+  self.skipWaiting();
+});
+
+self.addEventListener('activate', (event) => {
+  event.waitUntil(self.clients.claim());
+});
 
 self.addEventListener('push', (event) => {
   if (!event.data) return;

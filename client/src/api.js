@@ -89,8 +89,6 @@ export const api = {
 
   // Training
   getTraining: () => req('GET', '/training'),
-  setFrequency: (frequency) => req('PUT', '/training/frequency', { frequency }),
-  setSessionMode: (mode) => req('PUT', '/training/session-mode', { mode }),
   startSession: () => req('POST', '/training/sessions'),
   getSession: (id) => req('GET', `/training/sessions/${id}`),
   logSet: (sessionId, data) => req('POST', `/training/sessions/${sessionId}/sets`, data),
@@ -133,4 +131,5 @@ export const api = {
   unsubscribePush: (data) => req('POST', '/push/unsubscribe', data),
   getPushStatus: (endpoint) => req('GET', `/push/status?${new URLSearchParams({ endpoint })}`),
   checkPush: () => req('POST', '/push/check'),
+  testPush: (endpoint) => req('POST', '/push/test', { endpoint }),
 };

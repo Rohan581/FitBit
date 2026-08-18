@@ -390,7 +390,7 @@ function MealSection({ type, label, color, entries, onAdd, onDelete, onCopyYeste
             {entries.map(entry => (
               <div key={entry.id} className="flex items-center px-4 py-2.5">
                 <button
-                  className="flex-1 min-w-0 text-left"
+                  className="flex-1 min-w-0 text-left press-scale"
                   onClick={() => onEdit?.(entry)}
                 >
                   <p className="text-sm text-tx truncate">
@@ -400,7 +400,7 @@ function MealSection({ type, label, color, entries, onAdd, onDelete, onCopyYeste
                 </button>
                 <button
                   onClick={() => onDelete(entry.id)}
-                  className="ml-3 text-tx-3 text-lg leading-none active:text-danger"
+                  className="ml-3 text-tx-3 text-lg leading-none active:text-danger press-scale"
                   aria-label="Remove"
                 >
                   ×
@@ -543,7 +543,7 @@ function FoodSearchSheet({ open, onClose, mealType, onLogged, targetDate }) {
                 <p className="text-sm font-medium text-tx">{selected.name}</p>
                 <p className="text-xs text-tx-3">{selected.serving_unit}</p>
               </div>
-              <button onClick={() => setSelected(null)} className="text-tx-3 text-lg">×</button>
+              <button onClick={() => setSelected(null)} className="text-tx-3 text-lg press-scale">×</button>
             </div>
 
             {units && units.length > 1 && (
@@ -552,7 +552,7 @@ function FoodSearchSheet({ open, onClose, mealType, onLogged, targetDate }) {
                   <button
                     key={u.unit}
                     onClick={() => setSelectedUnit(u.unit)}
-                    className={`px-2.5 py-1 rounded-lg text-xs whitespace-nowrap border transition-colors ${
+                    className={`px-2.5 py-1 rounded-lg text-xs whitespace-nowrap border transition-colors press-scale ${
                       selectedUnit === u.unit
                         ? 'border-current'
                         : 'border-hair text-tx-3'
@@ -639,7 +639,7 @@ function FoodRow({ food, selected, onSelect, onToggleFavorite, mealColor }) {
   return (
     <button
       onClick={() => onSelect(food)}
-      className={`w-full flex items-center justify-between px-4 py-3 rounded-card text-left transition-colors ${
+      className={`w-full flex items-center justify-between px-4 py-3 rounded-card text-left transition-colors press-scale ${
         isSelected ? 'border' : 'bg-card border border-transparent'
       }`}
       style={isSelected ? {
@@ -654,7 +654,7 @@ function FoodRow({ food, selected, onSelect, onToggleFavorite, mealColor }) {
       <div className="flex items-center gap-2 ml-3 flex-shrink-0">
         <button
           onClick={(e) => onToggleFavorite(food, e)}
-          className="text-sm"
+          className="text-sm press-scale"
           aria-label={food.is_favorite ? 'Unfavorite' : 'Favorite'}
         >
           <span style={{ color: food.is_favorite ? 'var(--star)' : 'var(--hair)' }}>

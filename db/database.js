@@ -224,6 +224,8 @@ function initDB() {
       keys_json TEXT NOT NULL,
       measurement_reminder INTEGER DEFAULT 0,
       stale_workout INTEGER DEFAULT 0,
+      food_reminder INTEGER DEFAULT 0,
+      food_reminder_time TEXT DEFAULT '21:00',
       created_at TEXT DEFAULT (datetime('now'))
     );
 
@@ -234,6 +236,13 @@ function initDB() {
       ref_id TEXT
     );
   `);
+
+  // Migration: add food_reminder columns to push_subscriptions
+  const pushCols = db.prepare("PRAGMA table_info(push_subscriptions)").all().map(c => c.name);
+  if (pushCols.length > 0 && !pushCols.includes('food_reminder')) {
+    db.exec(`ALTER TABLE push_subscriptions ADD COLUMN food_reminder INTEGER DEFAULT 0`);
+    db.exec(`ALTER TABLE push_subscriptions ADD COLUMN food_reminder_time TEXT DEFAULT '21:00'`);
+  }
 
   // ── Finance module tables ──────────────────────────────────
   db.exec(`
