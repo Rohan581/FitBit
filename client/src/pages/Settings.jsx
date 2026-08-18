@@ -372,15 +372,19 @@ function NotificationsSection() {
   }
 
   async function handleTestPush() {
-    if (!subEndpoint) return;
+    if (!subEndpoint) {
+      setTestResult('No subscription endpoint — try disabling and re-enabling');
+      setTimeout(() => setTestResult(null), 5000);
+      return;
+    }
     setTestResult('sending');
     try {
       await api.testPush(subEndpoint);
       setTestResult('sent');
-      setTimeout(() => setTestResult(null), 3000);
+      setTimeout(() => setTestResult(null), 4000);
     } catch (e) {
-      setTestResult(e.message || 'failed');
-      setTimeout(() => setTestResult(null), 5000);
+      setTestResult(e.message || 'Send failed');
+      setTimeout(() => setTestResult(null), 8000);
     }
   }
 
@@ -399,6 +403,9 @@ function NotificationsSection() {
         <h2 className="text-sm font-semibold text-tx">Notifications</h2>
         <span className={`text-[11px] font-semibold ${statusColor}`}>{statusLabel}</span>
       </div>
+      {pushState.subscribed && !pushState.vapid_configured && (
+        <p className="text-xs text-danger">Server VAPID keys not configured — push will not deliver. Set VAPID_PUBLIC_KEY and VAPID_PRIVATE_KEY env vars.</p>
+      )}
 
       {!pushState.supported ? (
         <p className="text-xs text-tx-3">Push notifications are not supported in this browser.</p>

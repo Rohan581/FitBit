@@ -40,6 +40,14 @@ app.use('/api/bank', require('./routes/bank'));
 // Serve React app in production
 if (process.env.NODE_ENV === 'production') {
   const clientDist = path.join(__dirname, 'client', 'dist');
+
+  // Service worker must not be cached — serve with no-cache headers
+  app.get('/sw.js', (req, res) => {
+    res.set('Cache-Control', 'no-cache, no-store, must-revalidate');
+    res.set('Service-Worker-Allowed', '/');
+    res.sendFile(path.join(clientDist, 'sw.js'));
+  });
+
   app.use(express.static(clientDist));
   app.get('*', (req, res) => {
     res.sendFile(path.join(clientDist, 'index.html'));
