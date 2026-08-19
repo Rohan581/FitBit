@@ -275,6 +275,14 @@ function NotificationsSection() {
   });
   const [testResult, setTestResult] = useState(null);
   const [subEndpoint, setSubEndpoint] = useState(null);
+  const [showDiag, setShowDiag] = useState(false);
+  const [diag, setDiag] = useState(null);
+  const [vapidKey, setVapidKey] = useState(null); // pre-fetched for iOS gesture safety
+
+  // Pre-fetch VAPID key at mount so enableNotifications doesn't need async before requestPermission
+  useEffect(() => {
+    api.getVapidKey().then(r => setVapidKey(r.publicKey)).catch(() => {});
+  }, []);
 
   useEffect(() => {
     async function check() {
@@ -320,14 +328,24 @@ function NotificationsSection() {
     check();
   }, []);
 
+  // iOS-safe: no awaits before requestPermission. VAPID key is pre-fetched.
   async function enableNotifications() {
     try {
+      // 1. Request permission FIRST (must be synchronous from user gesture on iOS)
+      const perm = await Notification.requestPermission();
+      if (perm !== 'granted') {
+        setPushState(s => ({ ...s, permissionDenied: perm === 'denied' }));
+        return;
+      }
+      // 2. Register SW (permission already granted, safe to await)
       const reg = await navigator.serviceWorker.register('/sw.js', { updateViaCache: 'none' });
-      const { publicKey } = await api.getVapidKey();
-      if (!publicKey) return;
+      await navigator.serviceWorker.ready;
+      // 3. Use pre-fetched VAPID key
+      const key = vapidKey || (await api.getVapidKey()).publicKey;
+      if (!key) return;
       const sub = await reg.pushManager.subscribe({
         userVisibleOnly: true,
-        applicationServerKey: urlBase64ToUint8Array(publicKey),
+        applicationServerKey: urlBase64ToUint8Array(key),
       });
       setSubEndpoint(sub.endpoint);
       await api.subscribePush({
@@ -336,12 +354,15 @@ function NotificationsSection() {
         food_reminder: false, food_reminder_time: '21:00',
       });
       setPushState(s => ({
-        ...s, subscribed: true, measurement_reminder: true, stale_workout: true,
+        ...s, subscribed: true, permissionDenied: false,
+        measurement_reminder: true, stale_workout: true,
         food_reminder: false, food_reminder_time: '21:00',
       }));
-    } catch {
+    } catch (e) {
       if (typeof Notification !== 'undefined' && Notification.permission === 'denied') {
         setPushState(s => ({ ...s, permissionDenied: true }));
+      } else {
+        setPushState(s => ({ ...s, error: e.message || 'Enable failed' }));
       }
     }
   }
@@ -394,6 +415,57 @@ function NotificationsSection() {
     }
   }
 
+  async function runDiagnostics() {
+    const results = {};
+
+    // 1. HTTPS or localhost
+    results.https = location.protocol === 'https:' || location.hostname === 'localhost';
+
+    // 2. Standalone (home screen) mode
+    results.standalone = window.matchMedia('(display-mode: standalone)').matches
+      || navigator.standalone === true;
+
+    // 3. Service Worker API
+    results.swApi = 'serviceWorker' in navigator;
+
+    // 4. SW registration
+    try {
+      const reg = await navigator.serviceWorker.getRegistration('/sw.js');
+      results.swRegistered = !!reg;
+      if (reg) results.swState = reg.active ? 'active' : reg.waiting ? 'waiting' : reg.installing ? 'installing' : 'none';
+    } catch { results.swRegistered = false; }
+
+    // 5. Notification API available
+    results.notifApi = typeof Notification !== 'undefined';
+    results.notifPerm = results.notifApi ? Notification.permission : 'n/a';
+
+    // 6. PushManager API
+    results.pushApi = 'PushManager' in window;
+
+    // 7. Push subscription
+    try {
+      const reg = await navigator.serviceWorker.getRegistration('/sw.js');
+      const sub = reg ? await reg.pushManager.getSubscription() : null;
+      results.pushSub = !!sub;
+      if (sub) results.pushEndpoint = sub.endpoint.slice(0, 60) + '...';
+    } catch { results.pushSub = false; }
+
+    // 8. VAPID key from server
+    try {
+      const { publicKey } = await api.getVapidKey();
+      results.vapidKey = !!publicKey;
+    } catch { results.vapidKey = false; }
+
+    // 9. Scheduler status
+    try {
+      const sched = await api.getSchedulerStatus();
+      results.schedulerLastRun = sched.last_run || 'never';
+      results.vapidServer = sched.vapid_configured;
+    } catch { results.schedulerLastRun = 'error'; results.vapidServer = false; }
+
+    setDiag(results);
+  }
+
   if (pushState.loading) {
     return (
       <div className="bg-card rounded-card p-4 space-y-3 stagger-enter">
@@ -432,7 +504,7 @@ function NotificationsSection() {
           <button onClick={enableNotifications} className="text-sm text-points border border-points/30 bg-card rounded-card px-3 py-1.5 press-scale">
             Enable notifications
           </button>
-          <p className="text-xs text-tx-3">On iOS, notifications only work when the app is added to your home screen. Tap the share button then "Add to Home Screen" first.</p>
+          <p className="text-xs text-tx-3">On iOS, notifications only work when the app is added to your home screen. Tap the share button then &ldquo;Add to Home Screen&rdquo; first.</p>
         </>
       ) : (
         <>
@@ -474,6 +546,46 @@ function NotificationsSection() {
           </button>
         </>
       )}
+
+      {/* Diagnostics panel */}
+      <button
+        onClick={() => { setShowDiag(d => !d); if (!diag) runDiagnostics(); }}
+        className="text-xs text-tx-3 mt-2 press-scale"
+      >
+        {showDiag ? 'Hide diagnostics' : 'Debug push notifications'}
+      </button>
+
+      {showDiag && (
+        <div className="space-y-1 mt-1 text-[11px] font-mono">
+          {!diag ? (
+            <p className="text-tx-3">Running checks...</p>
+          ) : (
+            <>
+              <DiagRow label="1. HTTPS / localhost" ok={diag.https} detail={location.protocol} />
+              <DiagRow label="2. Standalone (home screen)" ok={diag.standalone} detail={diag.standalone ? 'yes' : 'open via home screen icon'} />
+              <DiagRow label="3. ServiceWorker API" ok={diag.swApi} />
+              <DiagRow label="4. SW registered" ok={diag.swRegistered} detail={diag.swState || ''} />
+              <DiagRow label="5. Notification API" ok={diag.notifApi} detail={`perm: ${diag.notifPerm}`} />
+              <DiagRow label="6. PushManager API" ok={diag.pushApi} />
+              <DiagRow label="7. Push subscription" ok={diag.pushSub} detail={diag.pushEndpoint || 'none'} />
+              <DiagRow label="8. VAPID key (server)" ok={diag.vapidKey} />
+              <DiagRow label="9. Server VAPID configured" ok={diag.vapidServer} />
+              <DiagRow label="10. Scheduler last run" ok={diag.schedulerLastRun !== 'never' && diag.schedulerLastRun !== 'error'} detail={diag.schedulerLastRun} />
+              <button onClick={runDiagnostics} className="text-points press-scale mt-1">Re-run checks</button>
+            </>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function DiagRow({ label, ok, detail }) {
+  return (
+    <div className="flex items-start gap-1.5">
+      <span>{ok ? '\u2705' : '\u274C'}</span>
+      <span className={ok ? 'text-tx-2' : 'text-danger'}>{label}</span>
+      {detail && <span className="text-tx-3 ml-auto text-right truncate max-w-[140px]">{detail}</span>}
     </div>
   );
 }

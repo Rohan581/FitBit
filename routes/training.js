@@ -60,12 +60,28 @@ function estimateDuration(exercises) {
   return Math.round(totalSecs / 60);
 }
 
-// ─── Catch-up logic (redesigned) ─────────────────────────────
-// Only derives from exercises with zero logged sets inside completed sessions this week.
-// Only applied in session 3 and 4 of the week. Substitutes lowest-priority slots, never adds.
-function computeCatchUp(db, weekDays, templateExercises, weekSessionOrdinal) {
-  // Catch-up only in sessions 3 and 4
+// ─── Region mapping ─────────────────────────────────────────
+const LOWER_MUSCLES = new Set(['quads', 'hamstrings', 'glutes', 'calves']);
+const UPPER_MUSCLES = new Set(['chest', 'lats', 'upper_back', 'traps', 'front_delts', 'side_delts', 'rear_delts', 'biceps', 'triceps']);
+// abs can go in either, but prefer lower
+function muscleRegion(muscle) {
+  if (LOWER_MUSCLES.has(muscle)) return 'lower';
+  if (UPPER_MUSCLES.has(muscle)) return 'upper';
+  return 'lower'; // abs, lower_back → lower
+}
+function workoutRegion(workoutType) {
+  return workoutType.includes('lower') ? 'lower' : 'upper';
+}
+
+// ─── Catch-up logic ─────────────────────────────────────────
+// Rules: only from skipped exercises in completed sessions this week;
+// only in sessions 3-4; substitutes within 5-slot cap (max 2);
+// region-matched (lower catch-ups into lower workouts only);
+// least-sets-this-week priority, muscle-size as tie-break.
+function computeCatchUp(db, weekDays, templateExercises, weekSessionOrdinal, nextWorkoutType) {
   if (weekSessionOrdinal < 3) return { substitutions: [], notes: {} };
+
+  const sessionRegion = workoutRegion(nextWorkoutType);
 
   // Find all completed sessions this week
   const completedSessions = db.prepare(`
@@ -76,26 +92,36 @@ function computeCatchUp(db, weekDays, templateExercises, weekSessionOrdinal) {
 
   if (completedSessions.length === 0) return { substitutions: [], notes: {} };
 
-  // Find exercises that were in session templates but got zero sets logged
+  // Tally total sets per muscle this week (for least-hit ordering)
+  const setsPerMuscle = {};
+  for (const session of completedSessions) {
+    const sets = db.prepare(`
+      SELECT e.primary_muscles, COUNT(*) as cnt
+      FROM workout_sets wset JOIN exercises e ON e.id = wset.exercise_id
+      WHERE wset.session_id = ? GROUP BY wset.exercise_id
+    `).all(session.id);
+    for (const row of sets) {
+      for (const m of JSON.parse(row.primary_muscles)) {
+        setsPerMuscle[m] = (setsPerMuscle[m] || 0) + row.cnt;
+      }
+    }
+  }
+
+  // Find muscles with zero logged sets from exercises in completed session templates
   const missedMuscles = new Map(); // muscle -> reason
   for (const session of completedSessions) {
-    // Get what the template had for this session type
     const templateWorkout = ROTATION.find(w => w.type === session.workout_type);
     if (!templateWorkout) continue;
 
     for (const templateEx of templateWorkout.exercises) {
-      // Look up exercise_id
       const dbEx = db.prepare('SELECT id, primary_muscles FROM exercises WHERE name = ?').get(templateEx.name);
       if (!dbEx) continue;
-
-      // Check if any sets were logged for this exercise in this session
       const loggedSets = db.prepare(
         'SELECT COUNT(*) as cnt FROM workout_sets WHERE session_id = ? AND exercise_id = ?'
       ).get(session.id, dbEx.id)?.cnt || 0;
 
       if (loggedSets === 0) {
-        const muscles = JSON.parse(dbEx.primary_muscles);
-        for (const m of muscles) {
+        for (const m of JSON.parse(dbEx.primary_muscles)) {
           if (!missedMuscles.has(m)) {
             missedMuscles.set(m, `${templateEx.name} skipped in ${session.workout_type.replace(/_/g, ' ')}`);
           }
@@ -106,9 +132,20 @@ function computeCatchUp(db, weekDays, templateExercises, weekSessionOrdinal) {
 
   if (missedMuscles.size === 0) return { substitutions: [], notes: {} };
 
-  // Sort by muscle priority (largest groups first), take at most 2
-  const sorted = MUSCLE_PRIORITY.filter(m => missedMuscles.has(m));
-  const toSubstitute = sorted.slice(0, 2);
+  // Filter to muscles whose region matches the next session
+  const regionMatched = [...missedMuscles.keys()].filter(m => muscleRegion(m) === sessionRegion);
+  if (regionMatched.length === 0) return { substitutions: [], notes: {} };
+
+  // Sort by least sets this week (ascending), then by muscle-size tie-break
+  const sizePriority = MUSCLE_PRIORITY.reduce((acc, m, i) => { acc[m] = i; return acc; }, {});
+  regionMatched.sort((a, b) => {
+    const setsA = setsPerMuscle[a] || 0;
+    const setsB = setsPerMuscle[b] || 0;
+    if (setsA !== setsB) return setsA - setsB; // least sets first
+    return (sizePriority[a] ?? 99) - (sizePriority[b] ?? 99); // larger muscle first
+  });
+
+  const toSubstitute = regionMatched.slice(0, 2);
 
   // Build substitution exercises
   const substitutions = [];
@@ -118,19 +155,14 @@ function computeCatchUp(db, weekDays, templateExercises, weekSessionOrdinal) {
   for (const muscle of toSubstitute) {
     const exName = CATCH_UP_EXERCISES[muscle];
     if (!exName || templateNames.has(exName)) continue;
-
     const dbEx = db.prepare('SELECT id, name, primary_muscles, secondary_muscles, rest_seconds FROM exercises WHERE name = ?').get(exName);
     if (dbEx) {
       substitutions.push({
-        name: dbEx.name,
-        exercise_id: dbEx.id,
-        sets: 3,
-        reps: '8-12',
+        name: dbEx.name, exercise_id: dbEx.id, sets: 3, reps: '8-12',
         primary_muscles: JSON.parse(dbEx.primary_muscles),
         secondary_muscles: JSON.parse(dbEx.secondary_muscles),
         rest_seconds: dbEx.rest_seconds || 75,
-        is_catchup: true,
-        catchup_reason: missedMuscles.get(muscle),
+        is_catchup: true, catchup_reason: missedMuscles.get(muscle),
       });
       notes[muscle] = missedMuscles.get(muscle);
     }
@@ -242,7 +274,7 @@ router.get('/', (req, res) => {
   const weekSessionOrdinal = weekGymSessions + 1;
 
   // Catch-up (new logic)
-  const catchUp = computeCatchUp(db, weekDays, exercises, weekSessionOrdinal);
+  const catchUp = computeCatchUp(db, weekDays, exercises, weekSessionOrdinal, nextWorkout.type);
 
   // Apply substitutions to template (within the 5-slot cap)
   const finalExercises = applySubstitutions(exercises, catchUp.substitutions);

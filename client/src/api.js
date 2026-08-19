@@ -132,4 +132,5 @@ export const api = {
   getPushStatus: (endpoint) => req('GET', `/push/status?${new URLSearchParams({ endpoint })}`),
   checkPush: () => req('POST', '/push/check'),
   testPush: (endpoint) => req('POST', '/push/test', { endpoint }),
+  getSchedulerStatus: () => req('GET', '/push/scheduler-status'),
 };

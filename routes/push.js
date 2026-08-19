@@ -203,11 +203,18 @@ router.post('/check', async (req, res) => {
   res.json({ ok: true });
 });
 
+// GET /api/push/scheduler-status — last scheduler run timestamp
+let _lastSchedulerRun = null;
+router.get('/scheduler-status', (req, res) => {
+  res.json({ last_run: _lastSchedulerRun, vapid_configured: !!(VAPID_PUBLIC && VAPID_PRIVATE) });
+});
+
 // Start a periodic check (every 15 minutes) when this module loads on the server
 let _checkInterval = null;
 function startScheduler() {
   if (_checkInterval) return;
   _checkInterval = setInterval(async () => {
+    _lastSchedulerRun = new Date().toISOString();
     try {
       const db = getDB();
       // Reuse the check logic directly
