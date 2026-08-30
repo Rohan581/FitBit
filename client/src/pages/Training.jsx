@@ -104,6 +104,9 @@ export default function Training() {
   // Cancel confirmation
   const [showCancelConfirm, setShowCancelConfirm] = useState(false);
 
+  // "Train anyway" override (weekly cap)
+  const [showTrainAnywayConfirm, setShowTrainAnywayConfirm] = useState(false);
+
   // Sheets
   const [detailExercise, setDetailExercise] = useState(null);
   const [swapExercise, setSwapExercise] = useState(null);
@@ -786,9 +789,11 @@ export default function Training() {
   const volumeNotes = data.volume_notes || {};
 
   // Determine hero card state
-  let heroState = 'next_up'; // next_up | in_progress | left_open
+  let heroState = 'next_up'; // next_up | in_progress | left_open | week_complete
   if (activeSession) {
     heroState = activeSession.stale ? 'left_open' : 'in_progress';
+  } else if (data.week_complete) {
+    heroState = 'week_complete';
   }
 
   return (
@@ -889,6 +894,54 @@ export default function Training() {
                 >
                   Discard
                 </button>
+              </div>
+            </div>
+          )}
+
+          {heroState === 'week_complete' && (
+            <div className="rounded-[20px] border border-hair p-[18px]" style={{ background: 'var(--accent-surface)' }}>
+              <div className="flex items-center justify-between">
+                <span className="text-[12.5px] font-bold text-points">Week complete</span>
+                <span className="text-[12.5px] font-semibold text-tx-3">{gymCount} of 4 sessions</span>
+              </div>
+              <div className="text-[22px] font-bold mt-2" style={{ fontFamily: "'Space Grotesk', system-ui, sans-serif", letterSpacing: '-0.01em' }}>
+                You're done for the week
+              </div>
+              <p className="text-[14px] text-tx-2 mt-1 leading-[1.5]">
+                Next up: {next_workout.label}, from Monday.
+              </p>
+              <button
+                onClick={() => setShowTrainAnywayConfirm(true)}
+                className="mt-3 text-[13px] font-semibold text-tx-3 press-scale"
+              >
+                Train anyway
+              </button>
+            </div>
+          )}
+
+          {/* Train anyway confirmation */}
+          {showTrainAnywayConfirm && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ background: 'rgba(0,0,0,0.5)' }}>
+              <div className="bg-card rounded-[20px] p-6 mx-8 max-w-sm w-full">
+                <h3 className="text-[17px] font-bold text-tx">Train anyway?</h3>
+                <p className="text-[14px] text-tx-2 mt-2 leading-[1.5]">
+                  You've hit 4 sessions this week — recovery is when the adaptation happens.
+                </p>
+                <div className="flex gap-3 mt-5">
+                  <button
+                    onClick={() => setShowTrainAnywayConfirm(false)}
+                    className="flex-1 h-[48px] rounded-[13px] border border-hair text-[15px] font-bold text-tx-2 press-scale"
+                  >
+                    Rest up
+                  </button>
+                  <button
+                    onClick={() => { setShowTrainAnywayConfirm(false); handleStartWorkout(); }}
+                    className="flex-1 h-[48px] rounded-[13px] text-[15px] font-bold press-scale"
+                    style={{ background: 'var(--points)', color: 'var(--accent-surface)' }}
+                  >
+                    Start workout
+                  </button>
+                </div>
               </div>
             </div>
           )}

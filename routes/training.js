@@ -590,6 +590,18 @@ router.get('/', (req, res) => {
     }
   }
 
+  // Weekly cap: 4 completed gym sessions per Mon–Sun week
+  const WEEKLY_GYM_CAP = 4;
+  const weekComplete = weekGymSessions >= WEEKLY_GYM_CAP;
+
+  // Compute next Monday for the "resumes from Monday" label
+  let nextMonday = null;
+  if (weekComplete) {
+    const m = new Date(monday + 'T12:00:00Z');
+    m.setUTCDate(m.getUTCDate() + 7);
+    nextMonday = m.toISOString().split('T')[0];
+  }
+
   res.json({
     workout_index: index,
     next_workout: { ...nextWorkout, exercises: finalExercises, subtitle },
@@ -607,6 +619,8 @@ router.get('/', (req, res) => {
     duration_estimate: estMin,
     equipment_notes: equipmentNotes,
     gym_equipment_set: !!goal?.gym_equipment_set,
+    week_complete: weekComplete,
+    next_monday: nextMonday,
   });
 });
 
