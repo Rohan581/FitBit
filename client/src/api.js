@@ -104,6 +104,10 @@ export const api = {
   acceptRefresh: () => req('POST', '/training/refresh'),
   snoozeRefresh: () => req('POST', '/training/refresh/snooze'),
 
+  // Equipment
+  getEquipment: () => req('GET', '/training/equipment'),
+  updateEquipment: (availability) => req('PUT', '/training/equipment', { availability }),
+
   // Session cardio
   addSessionCardio: (sessionId, data) => req('POST', `/training/sessions/${sessionId}/cardio`, data),
   removeSessionCardio: (sessionId, cardioId) => req('DELETE', `/training/sessions/${sessionId}/cardio/${cardioId}`),

@@ -3,12 +3,13 @@ const router = express.Router();
 const { getDB } = require('../db/database');
 const { todayIST, daysAgoIST, getMondayIST, getDaysOfWeek } = require('../dateUtils');
 const { getNextWorkout, ROTATION } = require('../db/workoutTemplates');
+const { EQUIPMENT_CATALOG } = require('../db/equipmentData');
 
 // ─── Constants ───────────────────────────────────────────────
 const SESSION_CAP = 5; // hard cap: 5 exercise slots, no exceptions
 
 const COMPOUND_SET = new Set([
-  'Barbell Back Squat', 'Barbell Bench Press', 'Conventional Deadlift',
+  'Barbell Back Squat', 'Smith Machine Squat', 'Barbell Bench Press', 'Conventional Deadlift',
   'Romanian Deadlift', 'Standing Overhead Press', 'Barbell Row',
   'Leg Press', 'Bulgarian Split Squat', 'Incline Dumbbell Press',
   'Pull-Up', 'Hip Thrust', 'Dips',
@@ -25,6 +26,204 @@ const CATCH_UP_EXERCISES = {
   biceps: 'Cable Bicep Curl', triceps: 'Cable Tricep Pushdown', abs: 'Cable Crunch',
   calves: 'Standing Calf Raise', lower_back: 'Romanian Deadlift', traps: 'Face Pull',
 };
+
+// ─── Slot counting (paired block = 1 slot) ─────────────────
+// Single source of truth for slot counting everywhere.
+function countSlots(exercises) {
+  const paired = new Set();
+  let slots = 0;
+  for (let i = 0; i < exercises.length; i++) {
+    if (paired.has(i)) continue;
+    const ex = exercises[i];
+    // Check if this exercise is part of a pair
+    if (ex.paired || (ex.pair_group && !COMPOUND_SET.has(ex.name))) {
+      for (let j = i + 1; j < exercises.length; j++) {
+        if (paired.has(j)) continue;
+        const matchByFlag = ex.paired && exercises[j].paired;
+        const matchByGroup = ex.pair_group && ex.pair_group === exercises[j].pair_group;
+        if (matchByFlag || matchByGroup) {
+          paired.add(i);
+          paired.add(j);
+          break;
+        }
+      }
+    }
+    slots++; // paired block or standalone = 1 slot
+  }
+  return slots;
+}
+
+// Hard-truncate to SESSION_CAP slots — last step in the pipeline.
+// Removes lowest-priority exercises (from the end) until within cap.
+function enforceSlotCap(exercises) {
+  let slotCount = countSlots(exercises);
+  if (slotCount <= SESSION_CAP) return exercises;
+
+  console.warn(`[SLOT CAP] Session generated with ${slotCount} slots (cap: ${SESSION_CAP}). Truncating. Exercises: ${exercises.map(e => e.name).join(', ')}`);
+
+  const result = [...exercises];
+  // Remove from the end (lowest priority) until within cap
+  while (countSlots(result) > SESSION_CAP && result.length > 0) {
+    const last = result[result.length - 1];
+    // If this exercise is part of a pair, remove its partner too
+    if (last.paired) {
+      // Find the partner (the other paired exercise closest to end)
+      for (let j = result.length - 2; j >= 0; j--) {
+        if (result[j].paired) {
+          result.splice(result.length - 1, 1);
+          result.splice(j, 1);
+          break;
+        }
+      }
+    } else {
+      result.pop();
+    }
+  }
+  return result;
+}
+
+// ─── Equipment availability ─────────────────────────────────
+// Seed all equipment as available if table is empty (first run).
+function ensureEquipmentSeeded(db) {
+  const count = db.prepare('SELECT COUNT(*) as c FROM gym_equipment').get().c;
+  if (count === 0) {
+    const insert = db.prepare('INSERT OR IGNORE INTO gym_equipment (equipment_key, available) VALUES (?, 1)');
+    for (const eq of EQUIPMENT_CATALOG) {
+      insert.run(eq.key);
+    }
+  }
+}
+
+// Get set of available equipment keys.
+function getAvailableEquipment(db) {
+  ensureEquipmentSeeded(db);
+  const rows = db.prepare('SELECT equipment_key FROM gym_equipment WHERE available = 1').all();
+  return new Set(rows.map(r => r.equipment_key));
+}
+
+// Check if an exercise is servable given available equipment.
+function isExerciseServable(exercise, availableEquipment) {
+  const required = exercise.required_equipment;
+  if (!required || required.length === 0) return true;
+  const reqArr = typeof required === 'string' ? JSON.parse(required) : required;
+  if (reqArr.length === 0) return true;
+  return reqArr.every(key => availableEquipment.has(key));
+}
+
+// Find the best available substitute for an unavailable exercise.
+// Priority: substitutes chain → same primary muscle group fallback.
+function findAvailableSubstitute(db, exercise, availableEquipment, usedNames) {
+  // 1. Try the exercise's own substitutes list
+  const subs = exercise.substitutes || [];
+  const subArr = typeof subs === 'string' ? JSON.parse(subs) : subs;
+  for (const subName of subArr) {
+    if (usedNames.has(subName)) continue;
+    const subEx = db.prepare('SELECT id, name, primary_muscles, secondary_muscles, rest_seconds, pair_group, equipment_type, required_equipment, substitutes FROM exercises WHERE name = ?').get(subName);
+    if (subEx && isExerciseServable(subEx, availableEquipment)) {
+      return subEx;
+    }
+  }
+
+  // 2. Fallback: any exercise for the same primary muscle group
+  const primaryMuscles = typeof exercise.primary_muscles === 'string' ? JSON.parse(exercise.primary_muscles) : exercise.primary_muscles;
+  if (primaryMuscles && primaryMuscles.length > 0) {
+    const allExercises = db.prepare('SELECT id, name, primary_muscles, secondary_muscles, rest_seconds, pair_group, equipment_type, required_equipment, substitutes FROM exercises').all();
+    for (const candidate of allExercises) {
+      if (usedNames.has(candidate.name)) continue;
+      if (candidate.name === exercise.name) continue;
+      const candMuscles = JSON.parse(candidate.primary_muscles);
+      const overlap = primaryMuscles.some(m => candMuscles.includes(m));
+      if (overlap && isExerciseServable(candidate, availableEquipment)) {
+        return candidate;
+      }
+    }
+  }
+
+  return null; // No substitute available
+}
+
+// Apply equipment filtering to a list of template exercises.
+// Returns { exercises, equipmentNotes }.
+function applyEquipmentFilter(db, exercises, availableEquipment) {
+  const usedNames = new Set(exercises.map(e => e.name));
+  const result = [];
+  const notes = [];
+
+  for (const ex of exercises) {
+    if (isExerciseServable(ex, availableEquipment)) {
+      result.push(ex);
+      continue;
+    }
+
+    // Special handling: squat slot is always preserved if any squat variant is available
+    const isSquatSlot = ['Barbell Back Squat', 'Smith Machine Squat', 'Front Squat', 'Hack Squat'].includes(ex.name);
+    if (isSquatSlot) {
+      // Try Smith Machine Squat first (user default), then other squat variants
+      const squatVariants = ['Smith Machine Squat', 'Barbell Back Squat', 'Front Squat', 'Hack Squat', 'Leg Press', 'Bulgarian Split Squat'];
+      let found = false;
+      for (const variant of squatVariants) {
+        if (variant === ex.name) continue;
+        if (usedNames.has(variant)) continue;
+        const varEx = db.prepare('SELECT id, name, primary_muscles, secondary_muscles, rest_seconds, pair_group, equipment_type, required_equipment, substitutes FROM exercises WHERE name = ?').get(variant);
+        if (varEx && isExerciseServable(varEx, availableEquipment)) {
+          result.push({
+            ...ex,
+            name: varEx.name,
+            exercise_id: varEx.id,
+            primary_muscles: JSON.parse(varEx.primary_muscles),
+            secondary_muscles: JSON.parse(varEx.secondary_muscles),
+            rest_seconds: varEx.rest_seconds || ex.rest_seconds,
+            pair_group: varEx.pair_group || ex.pair_group,
+          });
+          usedNames.add(varEx.name);
+          found = true;
+          break;
+        }
+      }
+      if (!found) {
+        notes.push(`No available equipment for a squat movement today`);
+      }
+      continue;
+    }
+
+    // Find substitute
+    const sub = findAvailableSubstitute(db, ex, availableEquipment, usedNames);
+    if (sub) {
+      result.push({
+        ...ex,
+        name: sub.name,
+        exercise_id: sub.id,
+        primary_muscles: JSON.parse(sub.primary_muscles),
+        secondary_muscles: JSON.parse(sub.secondary_muscles),
+        rest_seconds: sub.rest_seconds || ex.rest_seconds,
+        pair_group: sub.pair_group || ex.pair_group,
+      });
+      usedNames.add(sub.name);
+    } else {
+      // Drop the slot with a note
+      const primaryMuscles = typeof ex.primary_muscles === 'string' ? JSON.parse(ex.primary_muscles) : ex.primary_muscles;
+      const muscleLabel = primaryMuscles?.[0]?.replace(/_/g, ' ') || 'this muscle group';
+      notes.push(`No available equipment for a ${muscleLabel} movement today`);
+    }
+  }
+
+  return { exercises: result, equipmentNotes: notes };
+}
+
+// For Lower A: serve Smith Machine Squat as default squat when available
+function resolveSquatVariant(db, availableEquipment) {
+  // Prefer Smith Machine Squat when smith_machine is available
+  if (availableEquipment.has('smith_machine')) {
+    const smithEx = db.prepare('SELECT id, name FROM exercises WHERE name = ?').get('Smith Machine Squat');
+    if (smithEx) return smithEx;
+  }
+  // Fallback to Barbell Back Squat
+  if (availableEquipment.has('squat_rack') && availableEquipment.has('barbell')) {
+    const bbEx = db.prepare('SELECT id, name FROM exercises WHERE name = ?').get('Barbell Back Squat');
+    if (bbEx) return bbEx;
+  }
+  return null; // Will be handled by equipment filter
+}
 
 // Estimate session duration in minutes
 function estimateDuration(exercises) {
@@ -214,21 +413,35 @@ const VARIATION_MAP = {
 // GET /api/training — current state
 router.get('/', (req, res) => {
   const db = getDB();
-  const goal = db.prepare('SELECT current_workout_index, template_start_date, refresh_snoozed_until FROM goal WHERE id = 1').get();
+  const goal = db.prepare('SELECT current_workout_index, template_start_date, refresh_snoozed_until, gym_equipment_set FROM goal WHERE id = 1').get();
   const index = goal?.current_workout_index || 0;
   const nextWorkout = getNextWorkout(index);
 
+  // Get available equipment
+  const availableEquipment = getAvailableEquipment(db);
+
   // Resolve exercise IDs for the template
+  // For Lower A: default to Smith Machine Squat when available
+  const squat = nextWorkout.type === 'lower_a' ? resolveSquatVariant(db, availableEquipment) : null;
+
   const exercises = nextWorkout.exercises.map(ex => {
-    const dbEx = db.prepare('SELECT id, name, primary_muscles, secondary_muscles, rest_seconds, pair_group FROM exercises WHERE name = ?').get(ex.name);
+    // Swap squat variant for Lower A
+    let exName = ex.name;
+    if (squat && ex.name === 'Barbell Back Squat') {
+      exName = squat.name;
+    }
+    const dbEx = db.prepare('SELECT id, name, primary_muscles, secondary_muscles, rest_seconds, pair_group, equipment_type, required_equipment FROM exercises WHERE name = ?').get(exName);
     return {
       ...ex,
+      name: exName,
       exercise_id: dbEx?.id || null,
       primary_muscles: dbEx ? JSON.parse(dbEx.primary_muscles) : [],
       secondary_muscles: dbEx ? JSON.parse(dbEx.secondary_muscles) : [],
       rest_seconds: dbEx?.rest_seconds || 75,
       pair_group: dbEx?.pair_group || null,
       paired: ex.paired || false,
+      required_equipment: dbEx ? JSON.parse(dbEx.required_equipment || '[]') : [],
+      equipment_type: dbEx?.equipment_type || null,
     };
   });
 
@@ -277,10 +490,23 @@ router.get('/', (req, res) => {
   const catchUp = computeCatchUp(db, weekDays, exercises, weekSessionOrdinal, nextWorkout.type);
 
   // Apply substitutions to template (within the 5-slot cap)
-  const finalExercises = applySubstitutions(exercises, catchUp.substitutions);
+  let finalExercises = applySubstitutions(exercises, catchUp.substitutions);
 
-  // Fetch last numbers for any catch-up substitutions
-  for (const ex of catchUp.substitutions) {
+  // Equipment filtering: replace unavailable exercises with available substitutes
+  const equipmentResult = applyEquipmentFilter(db, finalExercises, availableEquipment);
+  finalExercises = equipmentResult.exercises;
+  const equipmentNotes = equipmentResult.equipmentNotes;
+
+  // Dev assertion: log if generation produced >5 slots before truncation
+  const preTruncSlots = countSlots(finalExercises);
+  if (preTruncSlots > SESSION_CAP) {
+    console.warn(`[SLOT CAP VIOLATION] ${nextWorkout.type} produced ${preTruncSlots} slots before enforceSlotCap. Exercises: ${finalExercises.map(e => e.name).join(', ')}`);
+  }
+  // Hard-truncate — no code path bypasses this
+  finalExercises = enforceSlotCap(finalExercises);
+
+  // Fetch last numbers for any substituted exercises (catch-up + equipment swaps)
+  for (const ex of finalExercises) {
     if (!ex.exercise_id || lastNumbers[ex.exercise_id]) continue;
     const lastSession = db.prepare(`
       SELECT ws.id FROM workout_sessions ws
@@ -379,6 +605,8 @@ router.get('/', (req, res) => {
     active_session: activeSessionInfo,
     variation_refresh,
     duration_estimate: estMin,
+    equipment_notes: equipmentNotes,
+    gym_equipment_set: !!goal?.gym_equipment_set,
   });
 });
 
@@ -507,6 +735,7 @@ router.get('/exercises', (req, res) => {
     form_cues: JSON.parse(ex.form_cues),
     common_mistakes: JSON.parse(ex.common_mistakes),
     substitutes: JSON.parse(ex.substitutes),
+    required_equipment: JSON.parse(ex.required_equipment || '[]'),
   })));
 });
 
@@ -522,6 +751,7 @@ router.get('/exercises/:id', (req, res) => {
     form_cues: JSON.parse(ex.form_cues),
     common_mistakes: JSON.parse(ex.common_mistakes),
     substitutes: JSON.parse(ex.substitutes),
+    required_equipment: JSON.parse(ex.required_equipment || '[]'),
   });
 });
 
@@ -694,6 +924,46 @@ router.delete('/sessions/:id', (req, res) => {
   db.prepare('DELETE FROM workout_cardio WHERE session_id = ?').run(req.params.id);
   db.prepare('DELETE FROM workout_sessions WHERE id = ?').run(req.params.id);
   res.json({ ok: true, discarded: true });
+});
+
+// ─── Equipment API ──────────────────────────────────────────
+
+// GET /api/training/equipment — get all equipment with availability
+router.get('/equipment', (req, res) => {
+  const db = getDB();
+  ensureEquipmentSeeded(db);
+  const rows = db.prepare('SELECT equipment_key, available FROM gym_equipment ORDER BY equipment_key').all();
+  const byKey = {};
+  for (const r of rows) byKey[r.equipment_key] = !!r.available;
+  res.json({
+    catalog: EQUIPMENT_CATALOG,
+    availability: byKey,
+  });
+});
+
+// PUT /api/training/equipment — update equipment availability
+router.put('/equipment', (req, res) => {
+  const db = getDB();
+  ensureEquipmentSeeded(db);
+  const { availability } = req.body; // { equipment_key: boolean }
+  if (!availability || typeof availability !== 'object') {
+    return res.status(400).json({ error: 'availability object required' });
+  }
+
+  const update = db.prepare('UPDATE gym_equipment SET available = ? WHERE equipment_key = ?');
+  const insert = db.prepare('INSERT OR IGNORE INTO gym_equipment (equipment_key, available) VALUES (?, ?)');
+  const tx = db.transaction(() => {
+    for (const [key, available] of Object.entries(availability)) {
+      insert.run(key, available ? 1 : 0);
+      update.run(available ? 1 : 0, key);
+    }
+  });
+  tx();
+
+  // Mark equipment as set (first-run flag)
+  db.prepare('UPDATE goal SET gym_equipment_set = 1 WHERE id = 1').run();
+
+  res.json({ ok: true });
 });
 
 module.exports = router;

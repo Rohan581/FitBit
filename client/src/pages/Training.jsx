@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { api } from '../api';
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
@@ -79,6 +80,7 @@ const GYM_CARDIO_TYPES = [
 
 // ─── Main component ─────────────────────────────────────────
 export default function Training() {
+  const navigate = useNavigate();
   const [screen, setScreen] = useState('home'); // home | workout | progression | complete
   const [data, setData] = useState(null);
   const [volume, setVolume] = useState(null);
@@ -473,6 +475,15 @@ export default function Training() {
     load();
   }
 
+  // ─── First-run equipment skip handler ─────────────────────
+  async function handleSkipEquipment() {
+    try {
+      // Send empty update to mark equipment as set without changing defaults
+      await api.updateEquipment({});
+      load();
+    } catch {}
+  }
+
   // ─── Render ──────────────────────────────────────────────
   if (screen === 'complete' && completionData) {
     return <CompleteScreen data={completionData} allData={data} onBack={handleBackToHome} />;
@@ -553,6 +564,16 @@ export default function Training() {
         {/* Exercise cards */}
         <div className="flex-1 overflow-y-auto px-4 pt-3 pb-32" style={{ WebkitOverflowScrolling: 'touch' }}>
           <div className="flex flex-col gap-3">
+            {/* Equipment notes — dropped/substituted slots */}
+            {data.equipment_notes?.length > 0 && (
+              <div className="rounded-[14px] px-4 py-2.5" style={{ background: 'var(--card-2)' }}>
+                <div className="text-[11.5px] font-bold text-tx-3 uppercase tracking-wider mb-1">Equipment notes</div>
+                {data.equipment_notes.map((note, i) => (
+                  <div key={i} className="text-[12.5px] text-tx-2 leading-[1.5]">{note}</div>
+                ))}
+              </div>
+            )}
+
             {/* Template exercises — singles and paired blocks */}
             {renderItems.map((item, ri) => {
               if (item.type === 'single') {
@@ -867,6 +888,31 @@ export default function Training() {
                   className="h-[48px] px-5 rounded-[14px] border border-hair text-[15px] font-bold text-tx-3 press-scale"
                 >
                   Discard
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* First-run equipment prompt */}
+          {!data.gym_equipment_set && (
+            <div className="rounded-[20px] border border-hair p-[18px]" style={{ background: 'var(--card)' }}>
+              <div className="text-[15px] font-bold text-tx">What equipment does your gym have?</div>
+              <p className="text-[13px] text-tx-2 mt-1.5 leading-[1.5]">
+                We'll only programme exercises you can actually do. Takes 30 seconds.
+              </p>
+              <div className="flex gap-2 mt-3.5">
+                <button
+                  onClick={() => navigate('/settings#equipment')}
+                  className="flex-1 h-[44px] rounded-[12px] text-[14px] font-bold press-scale flex items-center justify-center"
+                  style={{ background: 'var(--points)', color: 'var(--accent-surface)' }}
+                >
+                  Set up equipment
+                </button>
+                <button
+                  onClick={handleSkipEquipment}
+                  className="h-[44px] px-5 rounded-[12px] border border-hair text-[14px] font-bold text-tx-3 press-scale"
+                >
+                  Skip
                 </button>
               </div>
             </div>
@@ -1468,6 +1514,22 @@ function SwapSheet({ exercise, originalName, onSwap, onClose }) {
   useEffect(() => {
     async function loadSubs() {
       let found = [];
+      let allExercises = [];
+
+      // Fetch equipment availability and all exercises in parallel
+      let availableEquipment = null;
+      try {
+        const [equipData, allEx] = await Promise.all([
+          api.getEquipment().catch(() => null),
+          api.getExercises().catch(() => []),
+        ]);
+        allExercises = allEx || [];
+        if (equipData?.availability) {
+          availableEquipment = new Set(
+            Object.entries(equipData.availability).filter(([, v]) => v).map(([k]) => k)
+          );
+        }
+      } catch {}
 
       // 1. Try API by numeric ID
       if (exercise.exercise_id && typeof exercise.exercise_id === 'number') {
@@ -1479,11 +1541,8 @@ function SwapSheet({ exercise, originalName, onSwap, onClose }) {
 
       // 2. Fallback: search all exercises API by name
       if (!found.length) {
-        try {
-          const all = await api.getExercises();
-          const match = all.find(e => e.name === exercise.name);
-          if (match?.substitutes?.length) found = match.substitutes;
-        } catch {}
+        const match = allExercises.find(e => e.name === exercise.name);
+        if (match?.substitutes?.length) found = match.substitutes;
       }
 
       // 3. Fallback: offline library
@@ -1491,6 +1550,21 @@ function SwapSheet({ exercise, originalName, onSwap, onClose }) {
         const lib = getExerciseLib();
         const entry = lib[exercise.name];
         if (entry?.substitutes?.length) found = entry.substitutes;
+      }
+
+      // Filter by equipment availability
+      if (availableEquipment) {
+        found = found.filter(subName => {
+          // Always allow "swap back to original"
+          if (subName === originalName) return true;
+          // Check if the substitute's required equipment is available
+          const subEx = allExercises.find(e => e.name === subName);
+          if (!subEx) return true; // unknown exercise, allow it
+          const req = subEx.required_equipment;
+          if (!req || req.length === 0) return true;
+          const reqArr = typeof req === 'string' ? JSON.parse(req) : req;
+          return reqArr.every(key => availableEquipment.has(key));
+        });
       }
 
       // Add "swap back to original" if this is already a swapped exercise

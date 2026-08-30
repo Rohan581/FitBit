@@ -18,8 +18,32 @@ const EXERCISES = {
       'Rising hips first out of the hole ("good-morning squat"), which shifts load onto the lower back instead of the legs.',
       'Cutting depth short of parallel, reducing quad and glute activation.'
     ],
-    substitutes: ['Leg Press', 'Bulgarian Split Squat', 'Goblet Squat'],
-    youtube_search_term: 'barbell back squat proper form'
+    substitutes: ['Smith Machine Squat', 'Leg Press', 'Bulgarian Split Squat', 'Goblet Squat'],
+    youtube_search_term: 'barbell back squat proper form',
+    equipment_type: 'barbell',
+    required_equipment: ['squat_rack', 'barbell'],
+  },
+
+  'Smith Machine Squat': {
+    name: 'Smith Machine Squat',
+    primary_muscles: ['quads', 'glutes'],
+    secondary_muscles: ['hamstrings', 'abs'],
+    form_cues: [
+      'Position yourself under the Smith machine bar with it resting across your upper traps; set your feet slightly forward of the bar (about 6-12 inches) and shoulder-width apart with toes turned out 15-30 degrees.',
+      'The bar path is fixed and vertical \u2014 use this to your advantage by placing feet forward enough to keep shins near-vertical, which shifts emphasis to the quads and glutes while reducing knee stress.',
+      'Unrack by rotating the bar to release the hooks; brace your core, then descend by bending at the hips and knees simultaneously until your thighs reach parallel or below.',
+      'Drive up through your whole foot, pressing your back firmly into the bar throughout; the guided path lets you focus on pushing hard without worrying about balance.',
+      'Re-rack by rotating the bar into the nearest set of hooks at the top. Control the depth on every rep \u2014 the fixed path makes it easy to cut short, so consciously hit your target depth.'
+    ],
+    common_mistakes: [
+      'Placing feet directly under the bar (as in a free squat) \u2014 on a Smith machine, feet should be slightly forward to accommodate the vertical bar path and protect the knees.',
+      'Relying on the machine for balance and losing core engagement \u2014 brace as if you were squatting free.',
+      'Cutting depth short because the guided bar path makes partial reps feel complete \u2014 always aim for at least parallel.'
+    ],
+    substitutes: ['Barbell Back Squat', 'Leg Press', 'Hack Squat'],
+    youtube_search_term: 'smith machine squat proper form',
+    equipment_type: 'machine',
+    required_equipment: ['smith_machine'],
   },
 
   'Barbell Bench Press': {

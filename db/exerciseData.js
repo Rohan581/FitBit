@@ -16,8 +16,33 @@ const EXERCISE_DATA = [
       'Rising hips first out of the hole ("good-morning squat"), which shifts load onto the lower back instead of the legs.',
       'Cutting depth short of parallel, reducing quad and glute activation.'
     ],
-    substitutes: ['Leg Press', 'Bulgarian Split Squat', 'Goblet Squat'],
-    youtube_search_term: 'barbell back squat proper form'
+    substitutes: ['Smith Machine Squat', 'Leg Press', 'Bulgarian Split Squat', 'Goblet Squat'],
+    youtube_search_term: 'barbell back squat proper form',
+    equipment_type: 'barbell',
+    required_equipment: ['squat_rack', 'barbell'],
+  },
+
+  // ── 1b. Smith Machine Squat ───────────────────────────────────────
+  {
+    name: 'Smith Machine Squat',
+    primary_muscles: ['quads', 'glutes'],
+    secondary_muscles: ['hamstrings', 'abs'],
+    form_cues: [
+      'Position yourself under the Smith machine bar with it resting across your upper traps; set your feet slightly forward of the bar (about 6-12 inches) and shoulder-width apart with toes turned out 15-30 degrees.',
+      'The bar path is fixed and vertical — use this to your advantage by placing feet forward enough to keep shins near-vertical, which shifts emphasis to the quads and glutes while reducing knee stress.',
+      'Unrack by rotating the bar to release the hooks; brace your core, then descend by bending at the hips and knees simultaneously until your thighs reach parallel or below.',
+      'Drive up through your whole foot, pressing your back firmly into the bar throughout; the guided path lets you focus on pushing hard without worrying about balance.',
+      'Re-rack by rotating the bar into the nearest set of hooks at the top. Control the depth on every rep — the fixed path makes it easy to cut short, so consciously hit your target depth.'
+    ],
+    common_mistakes: [
+      'Placing feet directly under the bar (as in a free squat) — on a Smith machine, feet should be slightly forward to accommodate the vertical bar path and protect the knees.',
+      'Relying on the machine for balance and losing core engagement — brace as if you were squatting free.',
+      'Cutting depth short because the guided bar path makes partial reps feel complete — always aim for at least parallel.'
+    ],
+    substitutes: ['Barbell Back Squat', 'Leg Press', 'Hack Squat'],
+    youtube_search_term: 'smith machine squat proper form',
+    equipment_type: 'machine',
+    required_equipment: ['smith_machine'],
   },
 
   // ── 2. Barbell Bench Press ─────────────────────────────────────────
@@ -38,7 +63,9 @@ const EXERCISE_DATA = [
       'Lifting the hips off the bench during the press, reducing stability and risking lower back strain.'
     ],
     substitutes: ['Incline Dumbbell Press', 'Dips', 'Dumbbell Bench Press'],
-    youtube_search_term: 'barbell bench press proper form'
+    youtube_search_term: 'barbell bench press proper form',
+    equipment_type: 'barbell',
+    required_equipment: ['barbell', 'flat_bench'],
   },
 
   // ── 3. Lat Pulldown ───────────────────────────────────────────────
@@ -59,7 +86,9 @@ const EXERCISE_DATA = [
       'Gripping too wide, which reduces range of motion and lat activation.'
     ],
     substitutes: ['Pull-Up', 'Seated Cable Row', 'Dumbbell Row'],
-    youtube_search_term: 'lat pulldown proper form'
+    youtube_search_term: 'lat pulldown proper form',
+    equipment_type: 'machine',
+    required_equipment: ['lat_pulldown_machine'],
   },
 
   // ── 4. Romanian Deadlift ──────────────────────────────────────────
@@ -80,7 +109,9 @@ const EXERCISE_DATA = [
       'Letting the bar drift away from the body, increasing the moment arm on the lower back.'
     ],
     substitutes: ['Lying Leg Curl', 'Seated Leg Curl', 'Stiff-Leg Deadlift'],
-    youtube_search_term: 'romanian deadlift proper form'
+    youtube_search_term: 'romanian deadlift proper form',
+    equipment_type: 'barbell',
+    required_equipment: ['barbell'],
   },
 
   // ── 5. Dumbbell Lateral Raise ─────────────────────────────────────
@@ -101,7 +132,9 @@ const EXERCISE_DATA = [
       'Keeping the arms perfectly straight, which stresses the elbow joint — maintain a slight bend.'
     ],
     substitutes: ['Cable Lateral Raise', 'Machine Lateral Raise'],
-    youtube_search_term: 'dumbbell lateral raise proper form'
+    youtube_search_term: 'dumbbell lateral raise proper form',
+    equipment_type: 'dumbbell',
+    required_equipment: ['dumbbells'],
   },
 
   // ── 6. Cable Bicep Curl ───────────────────────────────────────────
@@ -122,7 +155,9 @@ const EXERCISE_DATA = [
       'Not fully extending the arms at the bottom, cutting the range of motion short.'
     ],
     substitutes: ['Dumbbell Hammer Curl', 'Barbell Curl', 'Incline Dumbbell Curl'],
-    youtube_search_term: 'cable bicep curl proper form'
+    youtube_search_term: 'cable bicep curl proper form',
+    equipment_type: 'cable',
+    required_equipment: ['cable_crossover'],
   },
 
   // ── 7. Cable Tricep Pushdown ──────────────────────────────────────
@@ -143,7 +178,9 @@ const EXERCISE_DATA = [
       'Using a partial range of motion by not fully extending the arms at the bottom.'
     ],
     substitutes: ['Overhead Tricep Extension', 'Dips', 'Skull Crushers'],
-    youtube_search_term: 'cable tricep pushdown proper form'
+    youtube_search_term: 'cable tricep pushdown proper form',
+    equipment_type: 'cable',
+    required_equipment: ['cable_crossover'],
   },
 
   // ── 8. Conventional Deadlift ──────────────────────────────────────
@@ -164,7 +201,9 @@ const EXERCISE_DATA = [
       'Letting the bar drift away from the body, which massively increases the load on the lower back.'
     ],
     substitutes: ['Romanian Deadlift', 'Barbell Row', 'Trap Bar Deadlift'],
-    youtube_search_term: 'conventional deadlift proper form'
+    youtube_search_term: 'conventional deadlift proper form',
+    equipment_type: 'barbell',
+    required_equipment: ['barbell'],
   },
 
   // ── 9. Standing Overhead Press ────────────────────────────────────
@@ -185,7 +224,9 @@ const EXERCISE_DATA = [
       'Not fully locking out at the top, missing the full range of motion and overhead stability benefits.'
     ],
     substitutes: ['Seated Dumbbell Shoulder Press', 'Dumbbell Lateral Raise', 'Machine Shoulder Press'],
-    youtube_search_term: 'standing overhead press barbell proper form'
+    youtube_search_term: 'standing overhead press barbell proper form',
+    equipment_type: 'barbell',
+    required_equipment: ['barbell'],
   },
 
   // ── 10. Barbell Row ───────────────────────────────────────────────
@@ -206,7 +247,9 @@ const EXERCISE_DATA = [
       'Rounding the lower back under fatigue, which puts the spine at risk in a loaded hinge position.'
     ],
     substitutes: ['Seated Cable Row', 'Lat Pulldown', 'Dumbbell Row'],
-    youtube_search_term: 'barbell row proper form'
+    youtube_search_term: 'barbell row proper form',
+    equipment_type: 'barbell',
+    required_equipment: ['barbell'],
   },
 
   // ── 11. Leg Press ─────────────────────────────────────────────────
@@ -227,7 +270,9 @@ const EXERCISE_DATA = [
       'Locking the knees fully at the top, which transfers load to the joints instead of the muscles.'
     ],
     substitutes: ['Barbell Back Squat', 'Bulgarian Split Squat', 'Hack Squat'],
-    youtube_search_term: 'leg press machine proper form'
+    youtube_search_term: 'leg press machine proper form',
+    equipment_type: 'machine',
+    required_equipment: ['leg_press'],
   },
 
   // ── 12. Face Pull ─────────────────────────────────────────────────
@@ -248,7 +293,9 @@ const EXERCISE_DATA = [
       'Leaning back excessively and using body weight to move the load instead of isolating the rear delts.'
     ],
     substitutes: ['Rear Delt Fly', 'Band Pull-Apart', 'Reverse Pec Deck'],
-    youtube_search_term: 'face pull cable proper form'
+    youtube_search_term: 'face pull cable proper form',
+    equipment_type: 'cable',
+    required_equipment: ['cable_crossover', 'rope_handle_attachments'],
   },
 
   // ── 13. Dumbbell Hammer Curl ──────────────────────────────────────
@@ -269,7 +316,9 @@ const EXERCISE_DATA = [
       'Rushing the eccentric (lowering) phase — slow it down to 2-3 seconds for more muscle activation.'
     ],
     substitutes: ['Cable Bicep Curl', 'Barbell Curl', 'Rope Cable Curl'],
-    youtube_search_term: 'dumbbell hammer curl proper form'
+    youtube_search_term: 'dumbbell hammer curl proper form',
+    equipment_type: 'dumbbell',
+    required_equipment: ['dumbbells'],
   },
 
   // ── 14. Dips ──────────────────────────────────────────────────────
@@ -290,7 +339,9 @@ const EXERCISE_DATA = [
       'Shrugging the shoulders up toward the ears at the top instead of keeping them depressed.'
     ],
     substitutes: ['Cable Tricep Pushdown', 'Barbell Bench Press', 'Close-Grip Bench Press'],
-    youtube_search_term: 'dips chest triceps proper form'
+    youtube_search_term: 'dips chest triceps proper form',
+    equipment_type: 'bodyweight',
+    required_equipment: ['dip_station'],
   },
 
   // ── 15. Bulgarian Split Squat ─────────────────────────────────────
@@ -311,7 +362,9 @@ const EXERCISE_DATA = [
       'Losing balance by rushing — use a slow, controlled tempo until you have the movement pattern dialed in.'
     ],
     substitutes: ['Barbell Back Squat', 'Leg Press', 'Walking Lunges'],
-    youtube_search_term: 'bulgarian split squat proper form'
+    youtube_search_term: 'bulgarian split squat proper form',
+    equipment_type: 'dumbbell',
+    required_equipment: ['dumbbells'],
   },
 
   // ── 16. Incline Dumbbell Press ────────────────────────────────────
@@ -332,7 +385,9 @@ const EXERCISE_DATA = [
       'Not achieving a full range of motion — dumbbells should come down to chest level for complete pec activation.'
     ],
     substitutes: ['Barbell Bench Press', 'Cable Chest Fly', 'Dips'],
-    youtube_search_term: 'incline dumbbell press proper form'
+    youtube_search_term: 'incline dumbbell press proper form',
+    equipment_type: 'dumbbell',
+    required_equipment: ['dumbbells', 'adjustable_bench'],
   },
 
   // ── 17. Seated Cable Row ──────────────────────────────────────────
@@ -353,7 +408,9 @@ const EXERCISE_DATA = [
       'Using only the arms to pull without initiating the movement with the shoulder blades.'
     ],
     substitutes: ['Barbell Row', 'Lat Pulldown', 'Dumbbell Row'],
-    youtube_search_term: 'seated cable row proper form'
+    youtube_search_term: 'seated cable row proper form',
+    equipment_type: 'cable',
+    required_equipment: ['seated_cable_row_machine'],
   },
 
   // ── 18. Lying Leg Curl ────────────────────────────────────────────
@@ -374,7 +431,9 @@ const EXERCISE_DATA = [
       'Going too heavy and jerking the weight, which can strain the hamstring tendons.'
     ],
     substitutes: ['Romanian Deadlift', 'Seated Leg Curl', 'Nordic Hamstring Curl'],
-    youtube_search_term: 'lying leg curl proper form'
+    youtube_search_term: 'lying leg curl proper form',
+    equipment_type: 'machine',
+    required_equipment: ['lying_leg_curl'],
   },
 
   // ── 19. Rear Delt Fly ─────────────────────────────────────────────
@@ -395,7 +454,9 @@ const EXERCISE_DATA = [
       'Bending the elbows too much (past 30 degrees), which shortens the lever arm and reduces difficulty.'
     ],
     substitutes: ['Face Pull', 'Cable Rear Delt Fly', 'Reverse Pec Deck'],
-    youtube_search_term: 'rear delt fly dumbbell proper form'
+    youtube_search_term: 'rear delt fly dumbbell proper form',
+    equipment_type: 'dumbbell',
+    required_equipment: ['dumbbells'],
   },
 
   // ── 20. Cable Crunch ──────────────────────────────────────────────
@@ -416,7 +477,9 @@ const EXERCISE_DATA = [
       'Not achieving full spinal flexion, performing the movement with a flat back instead of rounding.'
     ],
     substitutes: ['Hanging Leg Raise', 'Ab Wheel Rollout', 'Weighted Decline Crunch'],
-    youtube_search_term: 'cable crunch abs proper form'
+    youtube_search_term: 'cable crunch abs proper form',
+    equipment_type: 'cable',
+    required_equipment: ['cable_crossover', 'rope_handle_attachments'],
   },
 
   // ── 21. Hanging Leg Raise ─────────────────────────────────────────
@@ -437,7 +500,9 @@ const EXERCISE_DATA = [
       'Dropping the legs too quickly on the descent, losing the eccentric benefit and creating swing.'
     ],
     substitutes: ['Cable Crunch', 'Lying Leg Raise', 'Knee Raise'],
-    youtube_search_term: 'hanging leg raise proper form'
+    youtube_search_term: 'hanging leg raise proper form',
+    equipment_type: 'bodyweight',
+    required_equipment: ['pull_up_bar'],
   },
 
   // ── 22. Pull-Up ───────────────────────────────────────────────────
@@ -458,7 +523,9 @@ const EXERCISE_DATA = [
       'Ignoring scapular engagement and relying solely on arm strength, which limits lat activation.'
     ],
     substitutes: ['Lat Pulldown', 'Seated Cable Row', 'Assisted Pull-Up Machine'],
-    youtube_search_term: 'pull up proper form'
+    youtube_search_term: 'pull up proper form',
+    equipment_type: 'bodyweight',
+    required_equipment: ['pull_up_bar'],
   },
 
   // ── 23. Seated Dumbbell Shoulder Press ────────────────────────────
@@ -479,7 +546,9 @@ const EXERCISE_DATA = [
       'Not pressing to full lockout, missing the full range of motion overhead.'
     ],
     substitutes: ['Standing Overhead Press', 'Dumbbell Lateral Raise', 'Arnold Press'],
-    youtube_search_term: 'seated dumbbell shoulder press proper form'
+    youtube_search_term: 'seated dumbbell shoulder press proper form',
+    equipment_type: 'dumbbell',
+    required_equipment: ['dumbbells', 'adjustable_bench'],
   },
 
   // ── 24. Cable Chest Fly ───────────────────────────────────────────
@@ -500,7 +569,9 @@ const EXERCISE_DATA = [
       'Leaning too far forward, which shifts the emphasis off the chest and onto the front delts.'
     ],
     substitutes: ['Incline Dumbbell Press', 'Barbell Bench Press', 'Pec Deck Machine'],
-    youtube_search_term: 'cable chest fly proper form'
+    youtube_search_term: 'cable chest fly proper form',
+    equipment_type: 'cable',
+    required_equipment: ['cable_crossover'],
   },
 
   // ── 25. Overhead Tricep Extension ─────────────────────────────────
@@ -521,7 +592,9 @@ const EXERCISE_DATA = [
       'Arching the lower back excessively, especially with heavy loads, which risks lower back injury.'
     ],
     substitutes: ['Cable Tricep Pushdown', 'Dips', 'Skull Crushers'],
-    youtube_search_term: 'overhead tricep extension proper form'
+    youtube_search_term: 'overhead tricep extension proper form',
+    equipment_type: 'dumbbell',
+    required_equipment: ['dumbbells'],
   },
 
   // ── 26. Leg Extension ─────────────────────────────────────────────
@@ -542,7 +615,9 @@ const EXERCISE_DATA = [
       'Locking out aggressively and hyperextending the knees at the top of the movement.'
     ],
     substitutes: ['Barbell Back Squat', 'Leg Press', 'Bulgarian Split Squat'],
-    youtube_search_term: 'leg extension machine proper form'
+    youtube_search_term: 'leg extension machine proper form',
+    equipment_type: 'machine',
+    required_equipment: ['leg_extension'],
   },
 
   // ── 27. Seated Leg Curl ───────────────────────────────────────────
@@ -563,7 +638,9 @@ const EXERCISE_DATA = [
       'Going too heavy and using a jerking motion to initiate the curl instead of a smooth contraction.'
     ],
     substitutes: ['Lying Leg Curl', 'Romanian Deadlift', 'Nordic Hamstring Curl'],
-    youtube_search_term: 'seated leg curl machine proper form'
+    youtube_search_term: 'seated leg curl machine proper form',
+    equipment_type: 'machine',
+    required_equipment: ['seated_leg_curl'],
   },
 
   // ── 28. Hip Thrust ────────────────────────────────────────────────
@@ -584,7 +661,9 @@ const EXERCISE_DATA = [
       'Pushing through the toes instead of driving through the heels, which reduces glute activation.'
     ],
     substitutes: ['Barbell Back Squat', 'Bulgarian Split Squat', 'Glute Bridge'],
-    youtube_search_term: 'barbell hip thrust proper form'
+    youtube_search_term: 'barbell hip thrust proper form',
+    equipment_type: 'barbell',
+    required_equipment: ['barbell', 'flat_bench'],
   },
 
   // ── 29. Standing Calf Raise ───────────────────────────────────────
@@ -605,7 +684,9 @@ const EXERCISE_DATA = [
       'Bending the knees excessively, which shifts emphasis to the soleus and reduces gastrocnemius activation.'
     ],
     substitutes: ['Seated Calf Raise', 'Leg Press Calf Raise', 'Single-Leg Calf Raise'],
-    youtube_search_term: 'standing calf raise proper form'
+    youtube_search_term: 'standing calf raise proper form',
+    equipment_type: 'machine',
+    required_equipment: ['standing_calf_raise_machine'],
   },
 
   // ── 30. Seated Calf Raise ────────────────────────────────────────
@@ -626,7 +707,9 @@ const EXERCISE_DATA = [
       'Going too heavy and sacrificing range of motion — this is an isolation exercise that responds to controlled reps and time under tension.'
     ],
     substitutes: ['Standing Calf Raise', 'Leg Press Calf Raise', 'Single-Leg Calf Raise'],
-    youtube_search_term: 'seated calf raise proper form'
+    youtube_search_term: 'seated calf raise proper form',
+    equipment_type: 'machine',
+    required_equipment: ['seated_calf_raise_machine'],
   },
 
   // ── Variation exercises (for 7-week refresh cycles) ──────────────
@@ -648,7 +731,9 @@ const EXERCISE_DATA = [
       'Cutting depth short — front squats reward full range.'
     ],
     substitutes: ['Barbell Back Squat', 'Goblet Squat', 'Hack Squat'],
-    youtube_search_term: 'front squat proper form'
+    youtube_search_term: 'front squat proper form',
+    equipment_type: 'barbell',
+    required_equipment: ['squat_rack', 'barbell'],
   },
   {
     name: 'Hack Squat',
@@ -667,7 +752,9 @@ const EXERCISE_DATA = [
       'Using too short a range of motion.'
     ],
     substitutes: ['Barbell Back Squat', 'Front Squat', 'Leg Press'],
-    youtube_search_term: 'hack squat machine form'
+    youtube_search_term: 'hack squat machine form',
+    equipment_type: 'machine',
+    required_equipment: ['hack_squat_machine'],
   },
   {
     name: 'Incline Barbell Press',
@@ -686,7 +773,9 @@ const EXERCISE_DATA = [
       'Bouncing the bar off the chest.'
     ],
     substitutes: ['Barbell Bench Press', 'Incline Dumbbell Press', 'Dumbbell Flat Press'],
-    youtube_search_term: 'incline barbell bench press form'
+    youtube_search_term: 'incline barbell bench press form',
+    equipment_type: 'barbell',
+    required_equipment: ['barbell', 'adjustable_bench'],
   },
   {
     name: 'Dumbbell Flat Press',
@@ -705,7 +794,9 @@ const EXERCISE_DATA = [
       'Not controlling the eccentric — dumbbells should descend in 2-3 seconds.'
     ],
     substitutes: ['Barbell Bench Press', 'Incline Dumbbell Press', 'Incline Barbell Press'],
-    youtube_search_term: 'dumbbell bench press proper form'
+    youtube_search_term: 'dumbbell bench press proper form',
+    equipment_type: 'dumbbell',
+    required_equipment: ['dumbbells', 'flat_bench'],
   },
   {
     name: 'Trap Bar Deadlift',
@@ -724,7 +815,9 @@ const EXERCISE_DATA = [
       'Jerking the bar off the floor instead of building tension first.'
     ],
     substitutes: ['Conventional Deadlift', 'Romanian Deadlift'],
-    youtube_search_term: 'trap bar deadlift proper form'
+    youtube_search_term: 'trap bar deadlift proper form',
+    equipment_type: 'barbell',
+    required_equipment: ['barbell'],
   },
   {
     name: 'Deficit Romanian Deadlift',
@@ -743,7 +836,9 @@ const EXERCISE_DATA = [
       'Using too much weight and losing the hamstring stretch.'
     ],
     substitutes: ['Romanian Deadlift', 'Conventional Deadlift'],
-    youtube_search_term: 'deficit romanian deadlift form'
+    youtube_search_term: 'deficit romanian deadlift form',
+    equipment_type: 'barbell',
+    required_equipment: ['barbell'],
   },
   {
     name: 'Chest Supported Row',
@@ -762,7 +857,9 @@ const EXERCISE_DATA = [
       'Using too much weight and losing the squeeze at the top.'
     ],
     substitutes: ['Barbell Row', 'Seated Cable Row', 'Dumbbell Row'],
-    youtube_search_term: 'chest supported row dumbbell form'
+    youtube_search_term: 'chest supported row dumbbell form',
+    equipment_type: 'dumbbell',
+    required_equipment: ['dumbbells', 'adjustable_bench'],
   }
 ];
 

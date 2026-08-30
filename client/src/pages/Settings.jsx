@@ -13,6 +13,14 @@ export default function Settings() {
   const [theme, setTheme] = useState(getThemeSetting);
 
   useEffect(() => {
+    if (window.location.hash === '#equipment') {
+      setTimeout(() => {
+        document.getElementById('equipment')?.scrollIntoView({ behavior: 'smooth' });
+      }, 400);
+    }
+  }, []);
+
+  useEffect(() => {
     api.getGoal().then(g => {
       setGoal(g);
       setForm({
@@ -227,6 +235,8 @@ export default function Settings() {
           <p className="text-xs text-tx-3 px-1">Amount credited to your bank each week you hit threshold.</p>
         </Section>
 
+        <EquipmentSection />
+
         <NotificationsSection />
 
         <Section title="Appearance">
@@ -262,6 +272,115 @@ export default function Settings() {
           {saving ? 'Saving...' : saved ? 'Saved!' : 'Save settings'}
         </button>
       </div>
+    </div>
+  );
+}
+
+function EquipmentSection() {
+  const [data, setData] = useState(null);
+  const [availability, setAvailability] = useState({});
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+
+  useEffect(() => {
+    api.getEquipment().then(d => {
+      setData(d);
+      setAvailability(d.availability || {});
+    });
+  }, []);
+
+  async function handleSave() {
+    setSaving(true);
+    setSaved(false);
+    try {
+      await api.updateEquipment(availability);
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2000);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  function toggleEquipment(key) {
+    setAvailability(prev => ({ ...prev, [key]: !prev[key] }));
+  }
+
+  function toggleCategory(categoryItems, allOn) {
+    setAvailability(prev => {
+      const updated = { ...prev };
+      for (const item of categoryItems) {
+        updated[item.key] = !allOn;
+      }
+      return updated;
+    });
+  }
+
+  if (!data) return (
+    <div className="bg-card rounded-card p-4 space-y-3 stagger-enter">
+      <h2 className="text-sm font-semibold text-tx">My gym equipment</h2>
+      <p className="text-xs text-tx-3">Loading...</p>
+    </div>
+  );
+
+  const catalog = data.catalog || [];
+  const categories = [...new Set(catalog.map(e => e.category))];
+
+  return (
+    <div id="equipment" className="bg-card rounded-card p-4 space-y-3 stagger-enter">
+      <div className="flex items-center justify-between">
+        <h2 className="text-sm font-semibold text-tx">My gym equipment</h2>
+        <span className="text-[11px] text-tx-3">
+          {Object.values(availability).filter(Boolean).length} / {catalog.length}
+        </span>
+      </div>
+      <p className="text-xs text-tx-3">Untick anything your gym doesn't have. We'll only program exercises you can actually do.</p>
+
+      {categories.map(cat => {
+        const items = catalog.filter(e => e.category === cat);
+        const allOn = items.every(e => availability[e.key] !== false);
+        return (
+          <div key={cat}>
+            <div className="flex items-center justify-between mt-2 mb-1.5">
+              <span className="text-[12px] font-bold text-tx-3 uppercase tracking-wider">{cat}</span>
+              <button
+                onClick={() => toggleCategory(items, allOn)}
+                className="text-[11px] font-semibold text-points press-scale"
+              >
+                {allOn ? 'None' : 'All'}
+              </button>
+            </div>
+            <div className="space-y-1">
+              {items.map(eq => (
+                <button
+                  key={eq.key}
+                  onClick={() => toggleEquipment(eq.key)}
+                  className="flex items-center gap-2.5 w-full py-1.5 press-scale"
+                >
+                  <div
+                    className="w-5 h-5 rounded flex-shrink-0 flex items-center justify-center text-[12px] transition-colors"
+                    style={{
+                      background: availability[eq.key] !== false ? 'var(--points)' : 'transparent',
+                      border: availability[eq.key] !== false ? '1px solid var(--points)' : '1px solid var(--hair)',
+                      color: availability[eq.key] !== false ? 'white' : 'transparent',
+                    }}
+                  >
+                    {availability[eq.key] !== false ? '\u2713' : ''}
+                  </div>
+                  <span className="text-[13.5px] text-tx-2 text-left">{eq.label}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        );
+      })}
+
+      <button
+        onClick={handleSave}
+        disabled={saving}
+        className="w-full py-2.5 rounded-card text-sm transition-colors press-scale bg-points text-white disabled:opacity-40 mt-2"
+      >
+        {saving ? 'Saving...' : saved ? 'Saved!' : 'Save equipment'}
+      </button>
     </div>
   );
 }

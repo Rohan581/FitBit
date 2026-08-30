@@ -356,6 +356,14 @@ function initDB() {
     );
   `);
 
+  // Gym equipment inventory
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS gym_equipment (
+      equipment_key TEXT PRIMARY KEY,
+      available INTEGER NOT NULL DEFAULT 1
+    );
+  `);
+
   // Run migrations for existing databases
   runMigrations(db);
 
@@ -613,6 +621,11 @@ function runMigrations(db) {
   // Reward credit amount
   if (!goalColsSession.includes('reward_credit_amount')) {
     db.exec(`ALTER TABLE goal ADD COLUMN reward_credit_amount REAL DEFAULT 2000`);
+  }
+
+  // Gym equipment setup flag
+  if (!goalColsSession.includes('gym_equipment_set')) {
+    db.exec(`ALTER TABLE goal ADD COLUMN gym_equipment_set INTEGER DEFAULT 0`);
   }
 
   // Variation refresh tracking
