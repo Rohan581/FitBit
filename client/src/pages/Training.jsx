@@ -52,10 +52,12 @@ function fmtTime(secs) {
 
 // ─── Constants ───────────────────────────────────────────────
 const COMPOUND_EXERCISES = new Set([
-  'Barbell Back Squat', 'Barbell Bench Press', 'Conventional Deadlift',
+  'Barbell Back Squat', 'Smith Machine Squat', 'Barbell Bench Press', 'Conventional Deadlift',
   'Romanian Deadlift', 'Standing Overhead Press', 'Barbell Row',
   'Leg Press', 'Bulgarian Split Squat', 'Incline Dumbbell Press',
-  'Pull-Up', 'Hip Thrust', 'Dips',
+  'Pull-Up', 'Hip Thrust', 'Dips', 'Chest Press Machine',
+  'Chest-Supported Row Machine', 'Shoulder Press Machine',
+  'Assisted Pull-Up Machine', 'Cable Pull-Through', 'Hip Thrust Machine',
 ]);
 
 const ACTIVITY_TYPES = [
@@ -248,14 +250,9 @@ export default function Training() {
       return { ...prev, [exId]: exSets };
     });
 
-    // Start rest timer — use per-exercise rest_seconds, shorter for paired accessories
+    // Start rest timer — compounds 2–3 min, accessories 60–90 s
     const exerciseData = next_workout.exercises.find(e => e.exercise_id === exId);
-    const isPaired = (exerciseData?.paired || (exerciseData?.pair_group && !COMPOUND_EXERCISES.has(exName))) &&
-      next_workout.exercises.some(e => e.exercise_id !== exId && (
-        (exerciseData.paired && e.paired) ||
-        (e.pair_group && e.pair_group === exerciseData.pair_group)
-      ));
-    const restSecs = isPaired ? 50 : (exerciseData?.rest_seconds || (COMPOUND_EXERCISES.has(exName) ? 150 : 75));
+    const restSecs = exerciseData?.rest_seconds || (COMPOUND_EXERCISES.has(exName) ? 150 : 75);
     setRestDuration(restSecs);
     setRestStartedAt(Date.now());
     setRestExerciseName(exName);
@@ -509,46 +506,8 @@ export default function Training() {
     const catchUpExercises = effectiveExercises.filter(e => e.is_catchup);
     const templateExercises = effectiveExercises.filter(e => !e.is_catchup);
 
-    // Build paired blocks for ALL modes (paired accessories superset always)
-    const pairedIndices = new Set();
-    const pairedBlocks = [];
-    for (let i = 0; i < templateExercises.length; i++) {
-      if (pairedIndices.has(i)) continue;
-      const ex = templateExercises[i];
-      // Match by template paired flag or pair_group
-      if (ex.paired || (ex.pair_group && !COMPOUND_EXERCISES.has(ex.name))) {
-        for (let j = i + 1; j < templateExercises.length; j++) {
-          if (pairedIndices.has(j)) continue;
-          const matchByFlag = ex.paired && templateExercises[j].paired;
-          const matchByGroup = ex.pair_group && ex.pair_group === templateExercises[j].pair_group;
-          if (matchByFlag || matchByGroup) {
-            pairedIndices.add(i);
-            pairedIndices.add(j);
-            pairedBlocks.push([i, j]);
-            break;
-          }
-        }
-      }
-    }
-
     const isLastTenSecs = restRemaining > 0 && restRemaining <= 10;
     const isRestComplete = restStartedAt && restRemaining <= 0;
-
-    // Build render items (singles + paired blocks in order)
-    const renderItems = [];
-    const usedIndices = new Set();
-    for (let i = 0; i < templateExercises.length; i++) {
-      if (usedIndices.has(i)) continue;
-      const pairBlock = pairedBlocks.find(([a, b]) => a === i || b === i);
-      if (pairBlock) {
-        renderItems.push({ type: 'pair', indices: pairBlock });
-        usedIndices.add(pairBlock[0]);
-        usedIndices.add(pairBlock[1]);
-      } else {
-        renderItems.push({ type: 'single', index: i });
-        usedIndices.add(i);
-      }
-    }
 
     return (
       <div className="flex flex-col h-full">
@@ -577,62 +536,22 @@ export default function Training() {
               </div>
             )}
 
-            {/* Template exercises — singles and paired blocks */}
-            {renderItems.map((item, ri) => {
-              if (item.type === 'single') {
-                const ex = templateExercises[item.index];
-                return (
-                  <ExerciseCard
-                    key={ex.exercise_id || ri}
-                    ex={ex}
-                    sets={sessionSets[ex.exercise_id] || []}
-                    last={last_numbers[ex.exercise_id] || []}
-                    onSetChange={handleSetChange}
-                    onCompleteSet={handleCompleteSet}
-                    onAddSet={handleAddSet}
-                    onDeleteSet={handleDeleteSet}
-                    onDetail={setDetailExercise}
-                    onProg={setProgExercise}
-                    onSwap={setSwapExercise}
-                  />
-                );
-              }
-              // Paired block
-              const exA = templateExercises[item.indices[0]];
-              const exB = templateExercises[item.indices[1]];
-              return (
-                <div key={`pair-${ri}`} className="rounded-[20px] border-2 p-1.5 space-y-1.5" style={{ borderColor: 'color-mix(in oklab, var(--points) 30%, var(--hair))' }}>
-                  <div className="flex items-center gap-2 px-3 pt-1">
-                    <span className="text-[11px] font-bold text-points uppercase tracking-wider">Paired set</span>
-                    <span className="text-[11px] text-tx-3">A1 ↔ A2 · 45–60 s rest</span>
-                  </div>
-                  <ExerciseCard
-                    ex={exA}
-                    sets={sessionSets[exA.exercise_id] || []}
-                    last={last_numbers[exA.exercise_id] || []}
-                    onSetChange={handleSetChange}
-                    onCompleteSet={handleCompleteSet}
-                    onAddSet={handleAddSet}
-                    onDeleteSet={handleDeleteSet}
-                    onDetail={setDetailExercise}
-                    onProg={setProgExercise}
-                    onSwap={setSwapExercise}
-                  />
-                  <ExerciseCard
-                    ex={exB}
-                    sets={sessionSets[exB.exercise_id] || []}
-                    last={last_numbers[exB.exercise_id] || []}
-                    onSetChange={handleSetChange}
-                    onCompleteSet={handleCompleteSet}
-                    onAddSet={handleAddSet}
-                    onDeleteSet={handleDeleteSet}
-                    onDetail={setDetailExercise}
-                    onProg={setProgExercise}
-                    onSwap={setSwapExercise}
-                  />
-                </div>
-              );
-            })}
+            {/* Template exercises — flat list, every exercise is a standalone slot */}
+            {templateExercises.map((ex, i) => (
+              <ExerciseCard
+                key={ex.exercise_id || i}
+                ex={ex}
+                sets={sessionSets[ex.exercise_id] || []}
+                last={last_numbers[ex.exercise_id] || []}
+                onSetChange={handleSetChange}
+                onCompleteSet={handleCompleteSet}
+                onAddSet={handleAddSet}
+                onDeleteSet={handleDeleteSet}
+                onDetail={setDetailExercise}
+                onProg={setProgExercise}
+                onSwap={setSwapExercise}
+              />
+            ))}
 
             {/* Catch-up block */}
             {catchUpExercises.length > 0 && (
@@ -1619,6 +1538,18 @@ function SwapSheet({ exercise, originalName, onSwap, onClose }) {
           return reqArr.every(key => availableEquipment.has(key));
         });
       }
+
+      // Rank machine/cable options above free-weight (barbell/dumbbell)
+      const eqRank = { machine: 0, cable: 1, bodyweight: 2, dumbbell: 3, barbell: 4 };
+      found.sort((a, b) => {
+        if (a === originalName) return -1;
+        if (b === originalName) return 1;
+        const exA = allExercises.find(e => e.name === a);
+        const exB = allExercises.find(e => e.name === b);
+        const rankA = eqRank[exA?.equipment_type] ?? 2;
+        const rankB = eqRank[exB?.equipment_type] ?? 2;
+        return rankA - rankB;
+      });
 
       // Add "swap back to original" if this is already a swapped exercise
       if (originalName && originalName !== exercise.name) {

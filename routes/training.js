@@ -6,80 +6,40 @@ const { getNextWorkout, ROTATION } = require('../db/workoutTemplates');
 const { EQUIPMENT_CATALOG } = require('../db/equipmentData');
 
 // ─── Constants ───────────────────────────────────────────────
-const SESSION_CAP = 5; // hard cap: 5 exercise slots, no exceptions
+const SESSION_CAP = 5; // hard cap: 5 exercises per session, no exceptions
 
 const COMPOUND_SET = new Set([
   'Barbell Back Squat', 'Smith Machine Squat', 'Barbell Bench Press', 'Conventional Deadlift',
   'Romanian Deadlift', 'Standing Overhead Press', 'Barbell Row',
   'Leg Press', 'Bulgarian Split Squat', 'Incline Dumbbell Press',
-  'Pull-Up', 'Hip Thrust', 'Dips',
+  'Pull-Up', 'Hip Thrust', 'Dips', 'Chest Press Machine',
+  'Chest-Supported Row Machine', 'Shoulder Press Machine',
+  'Assisted Pull-Up Machine', 'Cable Pull-Through', 'Hip Thrust Machine',
 ]);
 
 // Muscle group priority for catch-up (largest first)
 const MUSCLE_PRIORITY = ['quads', 'hamstrings', 'glutes', 'lats', 'upper_back', 'chest', 'front_delts', 'side_delts', 'rear_delts', 'biceps', 'triceps', 'abs', 'calves', 'lower_back', 'traps'];
 
-// Exercise to use when catching up a muscle group
+// Exercise to use when catching up a muscle group — machine/cable preferred
 const CATCH_UP_EXERCISES = {
-  quads: 'Leg Press', hamstrings: 'Lying Leg Curl', glutes: 'Hip Thrust',
-  lats: 'Lat Pulldown', upper_back: 'Seated Cable Row', chest: 'Incline Dumbbell Press',
-  front_delts: 'Standing Overhead Press', side_delts: 'Dumbbell Lateral Raise', rear_delts: 'Face Pull',
+  quads: 'Leg Press', hamstrings: 'Seated Leg Curl', glutes: 'Hip Thrust Machine',
+  lats: 'Lat Pulldown', upper_back: 'Seated Cable Row', chest: 'Chest Press Machine',
+  front_delts: 'Shoulder Press Machine', side_delts: 'Cable Lateral Raise', rear_delts: 'Face Pull',
   biceps: 'Cable Bicep Curl', triceps: 'Cable Tricep Pushdown', abs: 'Cable Crunch',
-  calves: 'Standing Calf Raise', lower_back: 'Romanian Deadlift', traps: 'Face Pull',
+  calves: 'Standing Calf Raise', lower_back: 'Cable Pull-Through', traps: 'Face Pull',
 };
 
-// ─── Slot counting (paired block = 1 slot) ─────────────────
-// Single source of truth for slot counting everywhere.
+// ─── Slot counting ─────────────────────────────────────────
+// One exercise = one slot. No pairing.
 function countSlots(exercises) {
-  const paired = new Set();
-  let slots = 0;
-  for (let i = 0; i < exercises.length; i++) {
-    if (paired.has(i)) continue;
-    const ex = exercises[i];
-    // Check if this exercise is part of a pair
-    if (ex.paired || (ex.pair_group && !COMPOUND_SET.has(ex.name))) {
-      for (let j = i + 1; j < exercises.length; j++) {
-        if (paired.has(j)) continue;
-        const matchByFlag = ex.paired && exercises[j].paired;
-        const matchByGroup = ex.pair_group && ex.pair_group === exercises[j].pair_group;
-        if (matchByFlag || matchByGroup) {
-          paired.add(i);
-          paired.add(j);
-          break;
-        }
-      }
-    }
-    slots++; // paired block or standalone = 1 slot
-  }
-  return slots;
+  return exercises.length;
 }
 
-// Hard-truncate to SESSION_CAP slots — last step in the pipeline.
-// Removes lowest-priority exercises (from the end) until within cap.
+// Hard-truncate to SESSION_CAP — last step in the pipeline.
 function enforceSlotCap(exercises) {
-  let slotCount = countSlots(exercises);
-  if (slotCount <= SESSION_CAP) return exercises;
-
-  console.warn(`[SLOT CAP] Session generated with ${slotCount} slots (cap: ${SESSION_CAP}). Truncating. Exercises: ${exercises.map(e => e.name).join(', ')}`);
-
-  const result = [...exercises];
-  // Remove from the end (lowest priority) until within cap
-  while (countSlots(result) > SESSION_CAP && result.length > 0) {
-    const last = result[result.length - 1];
-    // If this exercise is part of a pair, remove its partner too
-    if (last.paired) {
-      // Find the partner (the other paired exercise closest to end)
-      for (let j = result.length - 2; j >= 0; j--) {
-        if (result[j].paired) {
-          result.splice(result.length - 1, 1);
-          result.splice(j, 1);
-          break;
-        }
-      }
-    } else {
-      result.pop();
-    }
-  }
-  return result;
+  if (exercises.length <= SESSION_CAP) return exercises;
+  console.warn(`[SLOT CAP] Session generated with ${exercises.length} exercises (cap: ${SESSION_CAP}). Truncating. Exercises: ${exercises.map(e => e.name).join(', ')}`);
+  return exercises.slice(0, SESSION_CAP);
 }
 
 // ─── Equipment availability ─────────────────────────────────
@@ -118,25 +78,30 @@ function findAvailableSubstitute(db, exercise, availableEquipment, usedNames) {
   const subArr = typeof subs === 'string' ? JSON.parse(subs) : subs;
   for (const subName of subArr) {
     if (usedNames.has(subName)) continue;
-    const subEx = db.prepare('SELECT id, name, primary_muscles, secondary_muscles, rest_seconds, pair_group, equipment_type, required_equipment, substitutes FROM exercises WHERE name = ?').get(subName);
+    const subEx = db.prepare('SELECT id, name, primary_muscles, secondary_muscles, rest_seconds, equipment_type, required_equipment, substitutes FROM exercises WHERE name = ?').get(subName);
     if (subEx && isExerciseServable(subEx, availableEquipment)) {
       return subEx;
     }
   }
 
-  // 2. Fallback: any exercise for the same primary muscle group
+  // 2. Fallback: any exercise for the same primary muscle group, preferring machine/cable
   const primaryMuscles = typeof exercise.primary_muscles === 'string' ? JSON.parse(exercise.primary_muscles) : exercise.primary_muscles;
   if (primaryMuscles && primaryMuscles.length > 0) {
-    const allExercises = db.prepare('SELECT id, name, primary_muscles, secondary_muscles, rest_seconds, pair_group, equipment_type, required_equipment, substitutes FROM exercises').all();
+    const eqRank = { machine: 0, cable: 1, bodyweight: 2, dumbbell: 3, barbell: 4 };
+    const allExercises = db.prepare('SELECT id, name, primary_muscles, secondary_muscles, rest_seconds, equipment_type, required_equipment, substitutes FROM exercises').all();
+    const candidates = [];
     for (const candidate of allExercises) {
       if (usedNames.has(candidate.name)) continue;
       if (candidate.name === exercise.name) continue;
       const candMuscles = JSON.parse(candidate.primary_muscles);
       const overlap = primaryMuscles.some(m => candMuscles.includes(m));
       if (overlap && isExerciseServable(candidate, availableEquipment)) {
-        return candidate;
+        candidates.push(candidate);
       }
     }
+    // Sort machine/cable first
+    candidates.sort((a, b) => (eqRank[a.equipment_type] ?? 2) - (eqRank[b.equipment_type] ?? 2));
+    if (candidates.length > 0) return candidates[0];
   }
 
   return null; // No substitute available
@@ -164,7 +129,7 @@ function applyEquipmentFilter(db, exercises, availableEquipment) {
       for (const variant of squatVariants) {
         if (variant === ex.name) continue;
         if (usedNames.has(variant)) continue;
-        const varEx = db.prepare('SELECT id, name, primary_muscles, secondary_muscles, rest_seconds, pair_group, equipment_type, required_equipment, substitutes FROM exercises WHERE name = ?').get(variant);
+        const varEx = db.prepare('SELECT id, name, primary_muscles, secondary_muscles, rest_seconds, equipment_type, required_equipment, substitutes FROM exercises WHERE name = ?').get(variant);
         if (varEx && isExerciseServable(varEx, availableEquipment)) {
           result.push({
             ...ex,
@@ -173,7 +138,6 @@ function applyEquipmentFilter(db, exercises, availableEquipment) {
             primary_muscles: JSON.parse(varEx.primary_muscles),
             secondary_muscles: JSON.parse(varEx.secondary_muscles),
             rest_seconds: varEx.rest_seconds || ex.rest_seconds,
-            pair_group: varEx.pair_group || ex.pair_group,
           });
           usedNames.add(varEx.name);
           found = true;
@@ -196,7 +160,6 @@ function applyEquipmentFilter(db, exercises, availableEquipment) {
         primary_muscles: JSON.parse(sub.primary_muscles),
         secondary_muscles: JSON.parse(sub.secondary_muscles),
         rest_seconds: sub.rest_seconds || ex.rest_seconds,
-        pair_group: sub.pair_group || ex.pair_group,
       });
       usedNames.add(sub.name);
     } else {
@@ -210,50 +173,15 @@ function applyEquipmentFilter(db, exercises, availableEquipment) {
   return { exercises: result, equipmentNotes: notes };
 }
 
-// For Lower A: serve Smith Machine Squat as default squat when available
-function resolveSquatVariant(db, availableEquipment) {
-  // Prefer Smith Machine Squat when smith_machine is available
-  if (availableEquipment.has('smith_machine')) {
-    const smithEx = db.prepare('SELECT id, name FROM exercises WHERE name = ?').get('Smith Machine Squat');
-    if (smithEx) return smithEx;
-  }
-  // Fallback to Barbell Back Squat
-  if (availableEquipment.has('squat_rack') && availableEquipment.has('barbell')) {
-    const bbEx = db.prepare('SELECT id, name FROM exercises WHERE name = ?').get('Barbell Back Squat');
-    if (bbEx) return bbEx;
-  }
-  return null; // Will be handled by equipment filter
-}
 
 // Estimate session duration in minutes
 function estimateDuration(exercises) {
   const SET_TIME = 40;
   const TRANSITION = 60;
   let totalSecs = 0;
-
-  const paired = new Set();
-  for (let i = 0; i < exercises.length; i++) {
-    if (paired.has(i)) continue;
-    const ex = exercises[i];
-    if (ex.paired || (ex.pair_group && !COMPOUND_SET.has(ex.name))) {
-      for (let j = i + 1; j < exercises.length; j++) {
-        if (paired.has(j)) continue;
-        const matchByFlag = ex.paired && exercises[j].paired;
-        const matchByGroup = ex.pair_group && ex.pair_group === exercises[j].pair_group;
-        if (matchByFlag || matchByGroup) {
-          paired.add(i);
-          paired.add(j);
-          const maxSets = Math.max(ex.sets || 3, exercises[j].sets || 3);
-          totalSecs += maxSets * 2 * (SET_TIME + 50) + TRANSITION;
-          break;
-        }
-      }
-    }
-  }
-  for (let i = 0; i < exercises.length; i++) {
-    if (paired.has(i)) continue;
-    const sets = exercises[i].sets || 3;
-    const rest = exercises[i].rest_seconds || (COMPOUND_SET.has(exercises[i].name) ? 150 : 75);
+  for (const ex of exercises) {
+    const sets = ex.sets || 3;
+    const rest = ex.rest_seconds || (COMPOUND_SET.has(ex.name) ? 150 : 75);
     totalSecs += sets * (SET_TIME + rest) + TRANSITION;
   }
   return Math.round(totalSecs / 60);
@@ -375,11 +303,10 @@ function applySubstitutions(exercises, substitutions) {
   if (substitutions.length === 0) return exercises;
 
   const result = [...exercises];
-  // Find lowest-priority slots to replace (non-compound, non-paired accessories from the end)
+  // Find lowest-priority slots to replace (non-compound accessories from the end)
   const replaceable = [];
   for (let i = result.length - 1; i >= 0; i--) {
-    const ex = result[i];
-    if (!COMPOUND_SET.has(ex.name) && !ex.paired) {
+    if (!COMPOUND_SET.has(result[i].name)) {
       replaceable.push(i);
     }
   }
@@ -392,22 +319,20 @@ function applySubstitutions(exercises, substitutions) {
 }
 
 // ─── Variation refresh mappings ──────────────────────────────
+// Machine/cable exercises swap within the same equipment category.
 const VARIATION_MAP = {
-  'Barbell Back Squat': ['Front Squat', 'Hack Squat'],
-  'Front Squat': ['Barbell Back Squat', 'Hack Squat'],
-  'Hack Squat': ['Barbell Back Squat', 'Front Squat'],
-  'Barbell Bench Press': ['Incline Barbell Press', 'Dumbbell Flat Press'],
-  'Incline Barbell Press': ['Barbell Bench Press', 'Dumbbell Flat Press'],
-  'Dumbbell Flat Press': ['Barbell Bench Press', 'Incline Barbell Press'],
-  'Conventional Deadlift': ['Trap Bar Deadlift', 'Deficit Romanian Deadlift'],
-  'Trap Bar Deadlift': ['Conventional Deadlift', 'Deficit Romanian Deadlift'],
-  'Deficit Romanian Deadlift': ['Conventional Deadlift', 'Trap Bar Deadlift'],
-  'Standing Overhead Press': ['Seated Dumbbell Shoulder Press'],
-  'Seated Dumbbell Shoulder Press': ['Standing Overhead Press'],
-  'Barbell Row': ['Chest Supported Row'],
-  'Chest Supported Row': ['Barbell Row'],
-  'Lat Pulldown': ['Pull-Up'],
-  'Pull-Up': ['Lat Pulldown'],
+  'Smith Machine Squat': ['Hack Squat', 'Leg Press'],
+  'Hack Squat': ['Smith Machine Squat', 'Leg Press'],
+  'Chest Press Machine': ['Incline Dumbbell Press'],
+  'Incline Dumbbell Press': ['Chest Press Machine'],
+  'Chest-Supported Row Machine': ['Seated Cable Row'],
+  'Seated Cable Row': ['Chest-Supported Row Machine'],
+  'Cable Pull-Through': ['Hip Thrust Machine'],
+  'Hip Thrust Machine': ['Cable Pull-Through'],
+  'Shoulder Press Machine': ['Cable Lateral Raise'],
+  'Cable Lateral Raise': ['Shoulder Press Machine'],
+  'Assisted Pull-Up Machine': ['Lat Pulldown'],
+  'Lat Pulldown': ['Assisted Pull-Up Machine'],
 };
 
 // GET /api/training — current state
@@ -421,25 +346,14 @@ router.get('/', (req, res) => {
   const availableEquipment = getAvailableEquipment(db);
 
   // Resolve exercise IDs for the template
-  // For Lower A: default to Smith Machine Squat when available
-  const squat = nextWorkout.type === 'lower_a' ? resolveSquatVariant(db, availableEquipment) : null;
-
   const exercises = nextWorkout.exercises.map(ex => {
-    // Swap squat variant for Lower A
-    let exName = ex.name;
-    if (squat && ex.name === 'Barbell Back Squat') {
-      exName = squat.name;
-    }
-    const dbEx = db.prepare('SELECT id, name, primary_muscles, secondary_muscles, rest_seconds, pair_group, equipment_type, required_equipment FROM exercises WHERE name = ?').get(exName);
+    const dbEx = db.prepare('SELECT id, name, primary_muscles, secondary_muscles, rest_seconds, equipment_type, required_equipment FROM exercises WHERE name = ?').get(ex.name);
     return {
       ...ex,
-      name: exName,
       exercise_id: dbEx?.id || null,
       primary_muscles: dbEx ? JSON.parse(dbEx.primary_muscles) : [],
       secondary_muscles: dbEx ? JSON.parse(dbEx.secondary_muscles) : [],
       rest_seconds: dbEx?.rest_seconds || 75,
-      pair_group: dbEx?.pair_group || null,
-      paired: ex.paired || false,
       required_equipment: dbEx ? JSON.parse(dbEx.required_equipment || '[]') : [],
       equipment_type: dbEx?.equipment_type || null,
     };

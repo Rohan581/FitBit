@@ -860,7 +860,157 @@ const EXERCISE_DATA = [
     youtube_search_term: 'chest supported row dumbbell form',
     equipment_type: 'dumbbell',
     required_equipment: ['dumbbells', 'adjustable_bench'],
-  }
+  },
+
+  // ── Machine-template exercises ─────────────────────────────────
+
+  {
+    name: 'Chest Press Machine',
+    primary_muscles: ['chest'],
+    secondary_muscles: ['triceps', 'front_delts'],
+    form_cues: [
+      'Adjust the seat so the handles are at mid-chest height; sit back with your shoulder blades pressed into the pad.',
+      'Grip the handles with a full grip and press forward until your arms are extended but not locked out.',
+      'Lower the handles slowly back until you feel a stretch across your chest — do not let the weight stack slam.',
+      'Keep your feet flat on the floor and your back pressed into the pad throughout.',
+      'Exhale as you press, inhale as you return; focus on squeezing the chest at full extension.'
+    ],
+    common_mistakes: [
+      'Flaring the elbows too wide — keep them at roughly 45-60 degrees from the torso.',
+      'Letting the shoulders roll forward off the pad during the press.',
+      'Using momentum or bouncing the weight at the bottom of the rep.'
+    ],
+    substitutes: ['Barbell Bench Press', 'Incline Dumbbell Press', 'Dips'],
+    youtube_search_term: 'chest press machine proper form',
+    equipment_type: 'machine',
+    required_equipment: ['chest_press_machine'],
+  },
+  {
+    name: 'Chest-Supported Row Machine',
+    primary_muscles: ['upper_back', 'lats'],
+    secondary_muscles: ['biceps', 'rear_delts'],
+    form_cues: [
+      'Sit or lean into the chest pad so your torso is fully supported; grip the handles with arms extended.',
+      'Pull the handles toward your torso by driving your elbows back, squeezing your shoulder blades together.',
+      'Hold the peak contraction for a one-second squeeze, keeping your chest pressed into the pad.',
+      'Return the handles forward under control, letting your shoulder blades protract for a full stretch.',
+      'Exhale as you pull; keep your head neutral and avoid lifting your chest off the pad.'
+    ],
+    common_mistakes: [
+      'Lifting the chest off the pad to use body momentum.',
+      'Shrugging the shoulders up instead of retracting the shoulder blades.',
+      'Cutting the range of motion short — fully extend at the bottom for a lat stretch.'
+    ],
+    substitutes: ['Seated Cable Row', 'Barbell Row', 'Chest Supported Row'],
+    youtube_search_term: 'chest supported row machine form',
+    equipment_type: 'machine',
+    required_equipment: ['chest_supported_row_machine'],
+  },
+  {
+    name: 'Shoulder Press Machine',
+    primary_muscles: ['front_delts', 'side_delts'],
+    secondary_muscles: ['triceps'],
+    form_cues: [
+      'Adjust the seat so the handles start at shoulder height; sit with your back flat against the pad.',
+      'Grip the handles and press overhead until your arms are fully extended but not locked out aggressively.',
+      'Lower the handles back to shoulder height under control — do not let the weight stack slam.',
+      'Keep your feet flat on the floor and your core braced throughout the movement.',
+      'Exhale as you press up; keep your head neutral and avoid arching your lower back.'
+    ],
+    common_mistakes: [
+      'Arching the lower back off the pad to cheat the weight up.',
+      'Not pressing to full extension, cutting the range of motion short.',
+      'Setting the seat too low, which forces the shoulders into an uncomfortable starting position.'
+    ],
+    substitutes: ['Standing Overhead Press', 'Seated Dumbbell Shoulder Press', 'Dumbbell Lateral Raise'],
+    youtube_search_term: 'shoulder press machine proper form',
+    equipment_type: 'machine',
+    required_equipment: ['shoulder_press_machine'],
+  },
+  {
+    name: 'Assisted Pull-Up Machine',
+    primary_muscles: ['lats', 'upper_back'],
+    secondary_muscles: ['biceps', 'forearms', 'rear_delts'],
+    form_cues: [
+      'Select a counterweight that allows you to complete your target reps with good form — more weight = more assistance.',
+      'Kneel on the pad (or stand, depending on machine type) and grip the handles slightly wider than shoulder width.',
+      'Pull yourself up by driving your elbows down and back, aiming to get your chin above the handles.',
+      'Lower yourself under control to full arm extension, feeling a stretch in your lats.',
+      'Exhale as you pull up; keep your core tight and avoid swinging.'
+    ],
+    common_mistakes: [
+      'Using too much assistance — challenge yourself with a weight that makes the last 2 reps difficult.',
+      'Not achieving full range of motion — go all the way down and all the way up.',
+      'Kipping or swinging the body instead of using a controlled pull.'
+    ],
+    substitutes: ['Pull-Up', 'Lat Pulldown', 'Seated Cable Row'],
+    youtube_search_term: 'assisted pull up machine proper form',
+    equipment_type: 'machine',
+    required_equipment: ['assisted_pullup_machine'],
+  },
+  {
+    name: 'Cable Lateral Raise',
+    primary_muscles: ['side_delts'],
+    secondary_muscles: ['traps'],
+    form_cues: [
+      'Set a cable pulley to the lowest position; stand sideways to the machine and grab the handle with the far hand.',
+      'With a slight bend in your elbow, raise your arm out to the side until it is parallel with the floor.',
+      'Hold briefly at the top, then lower under control — the cable provides constant tension throughout.',
+      'Keep your torso upright and avoid leaning away from the cable to cheat.',
+      'Exhale as you raise; perform all reps on one side, then switch.'
+    ],
+    common_mistakes: [
+      'Using too much weight and compensating with body lean or momentum.',
+      'Raising the arm above shoulder height, which shifts tension to the traps.',
+      'Standing too close to the machine, which reduces the effective range of motion.'
+    ],
+    substitutes: ['Dumbbell Lateral Raise', 'Machine Lateral Raise'],
+    youtube_search_term: 'cable lateral raise proper form',
+    equipment_type: 'cable',
+    required_equipment: ['cable_crossover'],
+  },
+  {
+    name: 'Hip Thrust Machine',
+    primary_muscles: ['glutes'],
+    secondary_muscles: ['hamstrings', 'quads'],
+    form_cues: [
+      'Sit in the machine with your upper back against the pad and feet flat on the platform, shoulder-width apart.',
+      'Drive through your heels to extend your hips until your body forms a straight line from shoulders to knees.',
+      'Squeeze your glutes maximally at the top and hold for a one-second pause.',
+      'Lower the weight under control — do not let it drop.',
+      'Keep your chin slightly tucked and avoid hyperextending your lower back at the top.'
+    ],
+    common_mistakes: [
+      'Hyperextending the lower back instead of achieving full hip extension through glute squeeze.',
+      'Pushing through the toes instead of driving through the heels.',
+      'Rushing the reps — use a controlled 2-second eccentric for more glute activation.'
+    ],
+    substitutes: ['Hip Thrust', 'Glute Bridge', 'Bulgarian Split Squat'],
+    youtube_search_term: 'hip thrust machine proper form',
+    equipment_type: 'machine',
+    required_equipment: ['hip_thrust_machine'],
+  },
+  {
+    name: 'Cable Pull-Through',
+    primary_muscles: ['glutes', 'hamstrings'],
+    secondary_muscles: ['lower_back'],
+    form_cues: [
+      'Set a cable pulley to the lowest position with a rope attachment; straddle the cable facing away from the machine.',
+      'Hinge at the hips, pushing them back while keeping a slight knee bend, letting the rope pull between your legs.',
+      'Drive your hips forward explosively by squeezing your glutes, standing tall at the top.',
+      'Keep your arms straight throughout — they are just hooks holding the rope, not pulling.',
+      'Exhale as you drive forward; keep your back flat and core braced during the hinge.'
+    ],
+    common_mistakes: [
+      'Squatting the movement instead of hinging — push the hips back, not the knees forward.',
+      'Rounding the lower back during the hinge portion.',
+      'Using the arms to pull the cable instead of driving with the glutes.'
+    ],
+    substitutes: ['Romanian Deadlift', 'Hip Thrust', 'Hip Thrust Machine'],
+    youtube_search_term: 'cable pull through proper form',
+    equipment_type: 'cable',
+    required_equipment: ['cable_crossover', 'rope_handle_attachments'],
+  },
 ];
 
 module.exports = { EXERCISE_DATA };
