@@ -113,6 +113,10 @@ export const api = {
   removeSessionCardio: (sessionId, cardioId) => req('DELETE', `/training/sessions/${sessionId}/cardio/${cardioId}`),
   getSessionCardio: (sessionId) => req('GET', `/training/sessions/${sessionId}/cardio`),
 
+  // Rotation queue
+  getRotation: () => req('GET', '/training/rotation'),
+  setRotationIndex: (index) => req('PUT', '/training/rotation', { index }),
+
   // Cancel session
   cancelSession: (sessionId) => req('DELETE', `/training/sessions/${sessionId}`),
 

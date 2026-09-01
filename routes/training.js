@@ -894,4 +894,29 @@ router.put('/equipment', (req, res) => {
   res.json({ ok: true });
 });
 
+// GET /api/training/rotation — queue position + next workouts (for Settings)
+router.get('/rotation', (req, res) => {
+  const db = getDB();
+  const goal = db.prepare('SELECT current_workout_index FROM goal WHERE id = 1').get();
+  const index = goal?.current_workout_index || 0;
+  const queue = [];
+  for (let i = 0; i < ROTATION.length; i++) {
+    const pos = (index + i) % ROTATION.length;
+    queue.push({ type: ROTATION[pos].type, label: ROTATION[pos].label, subtitle: ROTATION[pos].subtitle });
+  }
+  res.json({ current_index: index, queue });
+});
+
+// PUT /api/training/rotation — manually set queue position (debug/repair)
+router.put('/rotation', (req, res) => {
+  const db = getDB();
+  const { index } = req.body;
+  if (typeof index !== 'number' || index < 0 || index >= ROTATION.length) {
+    return res.status(400).json({ error: `index must be 0-${ROTATION.length - 1}` });
+  }
+  db.prepare('UPDATE goal SET current_workout_index = ? WHERE id = 1').run(index);
+  const workout = getNextWorkout(index);
+  res.json({ ok: true, current_index: index, next_workout: workout.label });
+});
+
 module.exports = router;
