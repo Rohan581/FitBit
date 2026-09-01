@@ -115,7 +115,6 @@ export const api = {
 
   // Rotation queue
   getRotation: () => req('GET', '/training/rotation'),
-  setRotationIndex: (index) => req('PUT', '/training/rotation', { index }),
 
   // Cancel session
   cancelSession: (sessionId) => req('DELETE', `/training/sessions/${sessionId}`),

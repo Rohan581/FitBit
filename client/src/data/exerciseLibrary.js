@@ -40,7 +40,7 @@ const EXERCISES = {
       'Relying on the machine for balance and losing core engagement \u2014 brace as if you were squatting free.',
       'Cutting depth short because the guided bar path makes partial reps feel complete \u2014 always aim for at least parallel.'
     ],
-    substitutes: ['Barbell Back Squat', 'Leg Press', 'Hack Squat'],
+    substitutes: ['Barbell Back Squat', 'Leg Press', 'Goblet Squat'],
     youtube_search_term: 'smith machine squat proper form',
     equipment_type: 'machine',
     required_equipment: ['smith_machine'],
@@ -382,7 +382,7 @@ const EXERCISES = {
       'Using a partial range of motion — not curling high enough or not extending fully at the bottom.',
       'Going too heavy and jerking the weight, which can strain the hamstring tendons.'
     ],
-    substitutes: ['Romanian Deadlift', 'Seated Leg Curl', 'Nordic Hamstring Curl'],
+    substitutes: ['Romanian Deadlift', 'Back Extension', 'Smith Machine Romanian Deadlift'],
     youtube_search_term: 'lying leg curl proper form'
   },
 
@@ -502,7 +502,7 @@ const EXERCISES = {
       'Using too much weight, which forces you to shorten the range of motion and lose the chest stretch.',
       'Leaning too far forward, which shifts the emphasis off the chest and onto the front delts.'
     ],
-    substitutes: ['Incline Dumbbell Press', 'Barbell Bench Press', 'Pec Deck Machine'],
+    substitutes: ['Incline Dumbbell Press', 'Smith Machine Bench Press', 'Pec Deck'],
     youtube_search_term: 'cable chest fly proper form'
   },
 
@@ -562,7 +562,7 @@ const EXERCISES = {
       'Setting the ankle pad too high on the calves, which reduces hamstring leverage and effectiveness.',
       'Going too heavy and using a jerking motion to initiate the curl instead of a smooth contraction.'
     ],
-    substitutes: ['Lying Leg Curl', 'Romanian Deadlift', 'Nordic Hamstring Curl'],
+    substitutes: ['Lying Leg Curl', 'Romanian Deadlift', 'Back Extension'],
     youtube_search_term: 'seated leg curl machine proper form'
   },
 
@@ -757,6 +757,216 @@ const EXERCISES = {
     ],
     substitutes: ['Romanian Deadlift', 'Hip Thrust', 'Hip Thrust Machine'],
     youtube_search_term: 'cable pull through proper form'
+  },
+  'Smith Machine Bench Press': {
+    name: 'Smith Machine Bench Press',
+    primary_muscles: ['chest'],
+    secondary_muscles: ['triceps', 'front_delts'],
+    form_cues: [
+      'Position a flat bench centered under the Smith bar so that the bar lines up with your mid-chest when you lie down; retract and depress your shoulder blades against the bench to create a stable pressing shelf.',
+      'Unrack the bar by rotating your wrists to release the hooks; set the safety catches one inch above your chest so you can bail safely without a spotter.',
+      'Lower the bar in a controlled manner to your lower chest, keeping your elbows tucked at roughly 45-75 degrees from your torso — the fixed vertical path means you must position your body to match the bar, not the other way around.',
+      'Press the bar straight up until your arms are fully extended, driving through your palms; exhale forcefully past the sticking point.',
+      'Keep your feet flat on the floor, maintain a slight natural arch in your lower back, and re-rack by rotating the bar back into the hooks at the top.'
+    ],
+    common_mistakes: [
+      'Not centering the bench under the bar, which forces an unnatural bar path and stresses the shoulders.',
+      'Forgetting to set the safety catches, eliminating the key safety advantage of the Smith machine.',
+      'Flaring the elbows to 90 degrees instead of tucking them, which puts excessive stress on the shoulder joint.'
+    ],
+    substitutes: ['Dumbbell Flat Press', 'Dips', 'Pec Deck'],
+    youtube_search_term: 'smith machine bench press proper form',
+    equipment_type: 'machine',
+    required_equipment: ['smith_machine', 'flat_bench'],
+  },
+  'Smith Machine Romanian Deadlift': {
+    name: 'Smith Machine Romanian Deadlift',
+    primary_muscles: ['hamstrings', 'glutes'],
+    secondary_muscles: ['lower_back'],
+    form_cues: [
+      'Stand close to the Smith bar with your feet hip-width apart and the bar touching your thighs; grip the bar just outside your hips with an overhand grip.',
+      'Unrack by rotating the bar to release the hooks; the fixed vertical path eliminates the need to balance the bar, letting you focus entirely on the hip hinge pattern.',
+      'Hinge at the hips by pushing them straight back while maintaining a slight bend in the knees (about 15-20 degrees), letting the bar skim down your thighs and shins.',
+      'Lower until you feel a deep stretch in your hamstrings (typically mid-shin level), then drive your hips forward to return to standing, squeezing your glutes hard at the top.',
+      'Set the safety catches just below knee height so you can bail if needed; keep your back flat and chest up throughout.'
+    ],
+    common_mistakes: [
+      'Standing too far from the bar, which forces an awkward bar path and increases lower back stress.',
+      'Bending the knees too much, turning the movement into a squat rather than a hip hinge.',
+      'Rounding the lower back during the descent, which puts dangerous shear force on the lumbar spine.'
+    ],
+    substitutes: ['Romanian Deadlift', 'Back Extension', 'Cable Pull-Through'],
+    youtube_search_term: 'smith machine romanian deadlift proper form',
+    equipment_type: 'machine',
+    required_equipment: ['smith_machine'],
+  },
+  'T-Bar Row': {
+    name: 'T-Bar Row',
+    primary_muscles: ['upper_back', 'lats'],
+    secondary_muscles: ['biceps', 'rear_delts', 'lower_back'],
+    form_cues: [
+      'Position your chest against the pad (if the machine has one) with your feet on the foot plates shoulder-width apart; keep a slight bend in your knees and a flat back.',
+      'Choose your grip — a narrow neutral grip emphasizes the lats and lower traps, while a wider grip targets the upper back and rear delts more.',
+      'Pull the handles toward your lower chest by driving your elbows back and squeezing your shoulder blades together at the peak contraction.',
+      'Lower the weight under control to full arm extension, allowing a stretch in the lats before initiating the next rep.',
+      'Exhale as you row up, inhale as you lower; keep your torso angle consistent and avoid jerking the weight up with body momentum.'
+    ],
+    common_mistakes: [
+      'Lifting the chest off the pad and using body momentum to heave the weight up, reducing back activation.',
+      'Pulling too high toward the neck, which shifts tension to the traps instead of the lats and mid-back.',
+      'Using a partial range of motion by not fully extending the arms at the bottom, missing the lat stretch.'
+    ],
+    substitutes: ['Seated Cable Row', 'Barbell Row', 'Lat Pulldown'],
+    youtube_search_term: 't-bar row proper form',
+    equipment_type: 'machine',
+    required_equipment: ['t_bar_row'],
+  },
+  'Pec Deck': {
+    name: 'Pec Deck',
+    primary_muscles: ['chest'],
+    secondary_muscles: ['front_delts'],
+    form_cues: [
+      'Adjust the seat height so the machine handles are at mid-chest level when your arms are extended to the sides; sit with your back flat against the pad.',
+      'Place your forearms against the pads (or grip the handles) with your elbows slightly bent at about 10-20 degrees — maintain this elbow angle throughout.',
+      'Bring the pads together in a controlled arc by squeezing your chest, focusing on driving with the pecs rather than pushing with the arms.',
+      'Squeeze hard when the pads meet in front of your chest, holding the peak contraction for a one-second pause.',
+      'Return to the starting position slowly under control, feeling a deep stretch across your chest — do not let the weight stack slam.'
+    ],
+    common_mistakes: [
+      'Setting the seat too low or too high, which misaligns the movement arc with the chest and shifts stress to the shoulders.',
+      'Straightening the arms fully and turning the fly into a pressing motion, which reduces chest isolation.',
+      'Using too much weight and cutting the range of motion short, missing the stretch and squeeze that make this exercise effective.'
+    ],
+    substitutes: ['Cable Chest Fly', 'Incline Dumbbell Press', 'Dips'],
+    youtube_search_term: 'pec deck machine proper form',
+    equipment_type: 'machine',
+    required_equipment: ['pec_deck'],
+  },
+  'Preacher Curl (EZ Bar)': {
+    name: 'Preacher Curl (EZ Bar)',
+    primary_muscles: ['biceps'],
+    secondary_muscles: ['forearms'],
+    form_cues: [
+      'Adjust the preacher bench so your armpits rest at the top of the angled pad; sit or stand with your upper arms flat against the pad from armpit to elbow.',
+      'Grip the EZ curl bar on the angled inner handles — the cambered grip reduces wrist strain compared to a straight bar.',
+      'Curl the bar upward by contracting your biceps, keeping your elbows firmly pressed into the pad throughout the entire movement.',
+      'Squeeze your biceps hard at the top, then lower the bar slowly under control to near-full extension — do not drop into a dead hang, which can hyperextend the elbow.',
+      'Exhale as you curl up, inhale as you lower; keep your wrists neutral and avoid flexing them forward at the top.'
+    ],
+    common_mistakes: [
+      'Lifting the elbows off the pad at the top of the curl, which recruits the front delts and reduces bicep isolation.',
+      'Lowering the bar too fast or to full lockout with heavy weight, which puts dangerous stress on the elbow tendons.',
+      'Leaning back or rocking the torso to generate momentum instead of isolating the biceps.'
+    ],
+    substitutes: ['Cable Bicep Curl', 'Dumbbell Hammer Curl'],
+    youtube_search_term: 'preacher curl ez bar proper form',
+    equipment_type: 'dumbbell',
+    required_equipment: ['preacher_curl_bench', 'ez_curl_bar'],
+  },
+  'Back Extension': {
+    name: 'Back Extension',
+    primary_muscles: ['lower_back', 'glutes'],
+    secondary_muscles: ['hamstrings'],
+    form_cues: [
+      'Position yourself on the back extension bench with the hip pad at your hip crease (not your waist) and your ankles locked securely under the foot pads.',
+      'Cross your arms over your chest or place your hands behind your head; start with your torso hanging straight down, forming roughly a 90-degree angle at the hips.',
+      'Raise your torso by extending at the hips and contracting your glutes and lower back, lifting until your body forms a straight line from head to heels.',
+      'Squeeze your glutes hard at the top for a one-second hold — do not hyperextend past the straight-line position.',
+      'Lower your torso back down under control with a 2-3 second eccentric; keep your core braced and neck neutral throughout.'
+    ],
+    common_mistakes: [
+      'Placing the hip pad too high (at the waist), which limits range of motion and reduces glute engagement.',
+      'Hyperextending the spine at the top by arching past a neutral straight-line position, which compresses the lumbar discs.',
+      'Swinging the torso up with momentum instead of using a controlled contraction through the glutes and erectors.'
+    ],
+    substitutes: ['Smith Machine Romanian Deadlift', 'Romanian Deadlift', 'Cable Pull-Through'],
+    youtube_search_term: 'back extension proper form',
+    equipment_type: 'bodyweight',
+    required_equipment: ['back_extension_bench'],
+  },
+  'Single-Leg Leg Press': {
+    name: 'Single-Leg Leg Press',
+    primary_muscles: ['quads', 'glutes'],
+    secondary_muscles: ['hamstrings', 'adductors'],
+    form_cues: [
+      'Sit in the leg press machine with your back and hips flush against the pad; place one foot in the center of the platform at about shoulder height, and rest the other foot safely on the floor or the machine frame.',
+      'Use significantly less weight than your bilateral leg press — start with roughly 40-50 percent of your two-leg weight to account for the single-leg demand.',
+      'Release the safety handles and lower the platform by bending your working knee, descending in a controlled manner until your knee reaches about 90 degrees.',
+      'Press the platform away by driving through your whole foot, focusing on even pressure across the heel and mid-foot — do not let your knee cave inward.',
+      'Keep your lower back pressed firmly into the seat throughout; if your hip starts to tuck under at the bottom, reduce the depth slightly.'
+    ],
+    common_mistakes: [
+      'Using the same weight as bilateral leg press, which compromises form and risks injury on the working leg.',
+      'Letting the knee collapse inward (valgus) during the press, especially under fatigue — actively push the knee outward over the toes.',
+      'Placing the foot too low on the platform, which puts excessive stress on the knee and reduces glute involvement.'
+    ],
+    substitutes: ['Bulgarian Split Squat', 'Leg Press', 'Smith Machine Squat'],
+    youtube_search_term: 'single leg leg press proper form',
+    equipment_type: 'machine',
+    required_equipment: ['leg_press'],
+  },
+  'Goblet Squat': {
+    name: 'Goblet Squat',
+    primary_muscles: ['quads', 'glutes'],
+    secondary_muscles: ['abs', 'upper_back'],
+    form_cues: [
+      'Hold a dumbbell vertically at chest height, cupping the top end with both hands close to your body; stand with feet shoulder-width apart and toes turned out 15-30 degrees.',
+      'Brace your core and sit straight down between your hips by bending at the knees and hips simultaneously, keeping the dumbbell tight against your chest.',
+      'Descend until your elbows touch or pass the inside of your knees (or as deep as mobility allows), keeping your chest up and back flat throughout.',
+      'Drive up through your whole foot to return to standing, squeezing your glutes at the top; the front-loaded weight naturally keeps your torso upright.',
+      'Exhale as you stand up; keep your knees tracking over your toes and avoid letting them cave inward.'
+    ],
+    common_mistakes: [
+      'Letting the dumbbell drift away from the chest, which pulls the torso forward and rounds the upper back.',
+      'Rising onto the toes during the descent, which shifts load to the knees and reduces stability — keep your heels grounded.',
+      'Cutting depth short instead of sitting deep between the hips, which limits quad and glute activation.'
+    ],
+    substitutes: ['Smith Machine Squat', 'Leg Press', 'Bulgarian Split Squat'],
+    youtube_search_term: 'goblet squat proper form',
+    equipment_type: 'dumbbell',
+    required_equipment: ['dumbbells'],
+  },
+  'Dumbbell Romanian Deadlift': {
+    name: 'Dumbbell Romanian Deadlift',
+    primary_muscles: ['hamstrings', 'glutes'],
+    secondary_muscles: ['lower_back'],
+    form_cues: [
+      'Stand with feet hip-width apart, holding a dumbbell in each hand at your sides with palms facing your thighs; pull your shoulders back and down.',
+      'Hinge at the hips by pushing them straight back while maintaining a slight bend in the knees (about 15-20 degrees), letting the dumbbells slide down the front of your legs.',
+      'Lower until you feel a deep stretch in your hamstrings (typically mid-shin level), keeping the dumbbells close to your body throughout.',
+      'Drive your hips forward to return to standing, squeezing your glutes hard at the top without hyperextending your lower back.',
+      'Keep your back flat and chest up throughout; the dumbbells allow a slightly more natural arm position than a barbell, so let them hang naturally beside your thighs.'
+    ],
+    common_mistakes: [
+      'Rounding the lower back during the descent, which puts dangerous shear force on the lumbar spine — maintain a flat back throughout.',
+      'Letting the dumbbells drift away from the body, increasing the moment arm and overloading the lower back.',
+      'Bending the knees too much, turning the hip hinge into a squat and reducing hamstring engagement.'
+    ],
+    substitutes: ['Romanian Deadlift', 'Lying Leg Curl', 'Back Extension'],
+    youtube_search_term: 'dumbbell romanian deadlift proper form',
+    equipment_type: 'dumbbell',
+    required_equipment: ['dumbbells'],
+  },
+  'EZ Bar Curl': {
+    name: 'EZ Bar Curl',
+    primary_muscles: ['biceps'],
+    secondary_muscles: ['forearms'],
+    form_cues: [
+      'Stand with feet shoulder-width apart, holding the EZ curl bar on the angled inner handles with an underhand grip — the cambered bar reduces wrist and forearm strain compared to a straight bar.',
+      'Keep your elbows pinned to your sides throughout the movement; curl the bar upward by contracting your biceps.',
+      'Squeeze your biceps hard at the top of the contraction, then lower the bar slowly under control (2-3 second eccentric) to full arm extension.',
+      'Keep your torso upright and avoid swinging — if you need to rock your body or lean back, the weight is too heavy.',
+      'Exhale as you curl up, inhale as you lower; maintain a neutral wrist position and let the angled grip do the work of reducing strain.'
+    ],
+    common_mistakes: [
+      'Swinging the body and using momentum to cheat the bar up, which takes tension off the biceps.',
+      'Allowing the elbows to drift forward during the curl, which recruits the front delts and reduces bicep isolation.',
+      'Gripping the bar on the outer (wider) handles unintentionally, which changes the muscle emphasis and can feel less natural.'
+    ],
+    substitutes: ['Cable Bicep Curl', 'Preacher Curl (EZ Bar)', 'Dumbbell Hammer Curl'],
+    youtube_search_term: 'ez bar curl proper form',
+    equipment_type: 'dumbbell',
+    required_equipment: ['ez_curl_bar'],
   }
 };
 

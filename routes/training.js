@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const { getDB } = require('../db/database');
 const { todayIST, daysAgoIST, getMondayIST, getDaysOfWeek } = require('../dateUtils');
-const { getNextWorkout, ROTATION } = require('../db/workoutTemplates');
+const { getNextWorkoutType, getWorkoutByType, ROTATION, SUCCESSOR_MAP } = require('../db/workoutTemplates');
 const { EQUIPMENT_CATALOG } = require('../db/equipmentData');
 
 // ─── Constants ───────────────────────────────────────────────
@@ -12,9 +12,9 @@ const COMPOUND_SET = new Set([
   'Barbell Back Squat', 'Smith Machine Squat', 'Barbell Bench Press', 'Conventional Deadlift',
   'Romanian Deadlift', 'Standing Overhead Press', 'Barbell Row',
   'Leg Press', 'Bulgarian Split Squat', 'Incline Dumbbell Press',
-  'Pull-Up', 'Hip Thrust', 'Dips', 'Chest Press Machine',
-  'Chest-Supported Row Machine', 'Shoulder Press Machine',
-  'Assisted Pull-Up Machine', 'Cable Pull-Through', 'Hip Thrust Machine',
+  'Pull-Up', 'Hip Thrust', 'Dips', 'Shoulder Press Machine',
+  'Assisted Pull-Up Machine', 'Smith Machine Bench Press',
+  'Smith Machine Romanian Deadlift', 'T-Bar Row', 'Single-Leg Leg Press',
 ]);
 
 // Muscle group priority for catch-up (largest first)
@@ -22,11 +22,11 @@ const MUSCLE_PRIORITY = ['quads', 'hamstrings', 'glutes', 'lats', 'upper_back', 
 
 // Exercise to use when catching up a muscle group — machine/cable preferred
 const CATCH_UP_EXERCISES = {
-  quads: 'Leg Press', hamstrings: 'Seated Leg Curl', glutes: 'Hip Thrust Machine',
-  lats: 'Lat Pulldown', upper_back: 'Seated Cable Row', chest: 'Chest Press Machine',
+  quads: 'Leg Press', hamstrings: 'Lying Leg Curl', glutes: 'Back Extension',
+  lats: 'Lat Pulldown', upper_back: 'Seated Cable Row', chest: 'Pec Deck',
   front_delts: 'Shoulder Press Machine', side_delts: 'Cable Lateral Raise', rear_delts: 'Face Pull',
   biceps: 'Cable Bicep Curl', triceps: 'Cable Tricep Pushdown', abs: 'Cable Crunch',
-  calves: 'Standing Calf Raise', lower_back: 'Cable Pull-Through', traps: 'Face Pull',
+  calves: 'Seated Calf Raise', lower_back: 'Back Extension', traps: 'Face Pull',
 };
 
 // ─── Slot counting ─────────────────────────────────────────
@@ -121,10 +121,10 @@ function applyEquipmentFilter(db, exercises, availableEquipment) {
     }
 
     // Special handling: squat slot is always preserved if any squat variant is available
-    const isSquatSlot = ['Barbell Back Squat', 'Smith Machine Squat', 'Front Squat', 'Hack Squat'].includes(ex.name);
+    const isSquatSlot = ['Barbell Back Squat', 'Smith Machine Squat', 'Front Squat'].includes(ex.name);
     if (isSquatSlot) {
       // Try Smith Machine Squat first (user default), then other squat variants
-      const squatVariants = ['Smith Machine Squat', 'Barbell Back Squat', 'Front Squat', 'Hack Squat', 'Leg Press', 'Bulgarian Split Squat'];
+      const squatVariants = ['Smith Machine Squat', 'Barbell Back Squat', 'Front Squat', 'Leg Press', 'Bulgarian Split Squat'];
       let found = false;
       for (const variant of squatVariants) {
         if (variant === ex.name) continue;
@@ -321,26 +321,38 @@ function applySubstitutions(exercises, substitutions) {
 // ─── Variation refresh mappings ──────────────────────────────
 // Machine/cable exercises swap within the same equipment category.
 const VARIATION_MAP = {
-  'Smith Machine Squat': ['Hack Squat', 'Leg Press'],
-  'Hack Squat': ['Smith Machine Squat', 'Leg Press'],
-  'Chest Press Machine': ['Incline Dumbbell Press'],
-  'Incline Dumbbell Press': ['Chest Press Machine'],
-  'Chest-Supported Row Machine': ['Seated Cable Row'],
-  'Seated Cable Row': ['Chest-Supported Row Machine'],
-  'Cable Pull-Through': ['Hip Thrust Machine'],
-  'Hip Thrust Machine': ['Cable Pull-Through'],
+  'Smith Machine Bench Press': ['Incline Dumbbell Press', 'Pec Deck'],
+  'Incline Dumbbell Press': ['Smith Machine Bench Press', 'Pec Deck'],
+  'Lat Pulldown': ['Assisted Pull-Up Machine'],
+  'Assisted Pull-Up Machine': ['Lat Pulldown'],
+  'Seated Cable Row': ['T-Bar Row'],
+  'T-Bar Row': ['Seated Cable Row'],
   'Shoulder Press Machine': ['Cable Lateral Raise'],
   'Cable Lateral Raise': ['Shoulder Press Machine'],
-  'Assisted Pull-Up Machine': ['Lat Pulldown'],
-  'Lat Pulldown': ['Assisted Pull-Up Machine'],
+  'Smith Machine Romanian Deadlift': ['Back Extension'],
+  'Back Extension': ['Smith Machine Romanian Deadlift'],
 };
+
+// ─── Deterministic rotation lookup ──────────────────────────
+// Query the most recent completed session to derive the next workout.
+function resolveNextWorkout(db) {
+  const lastCompleted = db.prepare(`
+    SELECT workout_type, date, logged_at FROM workout_sessions
+    WHERE completed = 1 ORDER BY logged_at DESC LIMIT 1
+  `).get();
+  const lastType = lastCompleted?.workout_type || null;
+  const nextType = getNextWorkoutType(lastType);
+  return {
+    workout: getWorkoutByType(nextType),
+    lastCompleted: lastCompleted || null,
+  };
+}
 
 // GET /api/training — current state
 router.get('/', (req, res) => {
   const db = getDB();
-  const goal = db.prepare('SELECT current_workout_index, template_start_date, refresh_snoozed_until, gym_equipment_set FROM goal WHERE id = 1').get();
-  const index = goal?.current_workout_index || 0;
-  const nextWorkout = getNextWorkout(index);
+  const goal = db.prepare('SELECT template_start_date, refresh_snoozed_until, gym_equipment_set FROM goal WHERE id = 1').get();
+  const { workout: nextWorkout, lastCompleted } = resolveNextWorkout(db);
 
   // Get available equipment
   const availableEquipment = getAvailableEquipment(db);
@@ -517,7 +529,7 @@ router.get('/', (req, res) => {
   }
 
   res.json({
-    workout_index: index,
+    last_completed: lastCompleted ? { type: lastCompleted.workout_type, date: lastCompleted.date } : null,
     next_workout: { ...nextWorkout, exercises: finalExercises, subtitle },
     last_numbers: lastNumbers,
     recent_sessions: recentSessions,
@@ -570,9 +582,7 @@ router.post('/refresh/snooze', (req, res) => {
 router.post('/sessions', (req, res) => {
   const db = getDB();
   const today = todayIST();
-  const goal = db.prepare('SELECT current_workout_index FROM goal WHERE id = 1').get();
-  const index = goal?.current_workout_index || 0;
-  const workout = getNextWorkout(index);
+  const { workout } = resolveNextWorkout(db);
 
   const result = db.prepare(`
     INSERT INTO workout_sessions (date, workout_type, completed) VALUES (?, ?, 0)
@@ -628,10 +638,8 @@ router.post('/sessions/:id/complete', (req, res) => {
   const duration = req.body.duration_min || null;
   db.prepare('UPDATE workout_sessions SET completed = 1, duration_min = ? WHERE id = ?').run(duration, req.params.id);
 
-  // Advance the rolling queue (always 4-day rotation)
-  const goal = db.prepare('SELECT current_workout_index FROM goal WHERE id = 1').get();
-  const nextIndex = ((goal?.current_workout_index || 0) + 1) % ROTATION.length;
-  db.prepare('UPDATE goal SET current_workout_index = ? WHERE id = 1').run(nextIndex);
+  // Rotation is deterministic — no counter to advance.
+  // The next workout is derived from this session's workout_type via SUCCESSOR_MAP.
 
   // Double-count guard
   const existingGymLog = db.prepare(
@@ -649,7 +657,8 @@ router.post('/sessions/:id/complete', (req, res) => {
     ).run(session.date, 'Gym', duration || 60, 'moderate', `Gym session: ${session.workout_type} (session:${req.params.id})`);
   }
 
-  res.json({ ok: true, next_index: nextIndex, exercise_log_action });
+  const nextType = SUCCESSOR_MAP[session.workout_type] || 'upper_a';
+  res.json({ ok: true, next_type: nextType, exercise_log_action });
 });
 
 // GET /api/training/exercises — full exercise library
@@ -894,29 +903,29 @@ router.put('/equipment', (req, res) => {
   res.json({ ok: true });
 });
 
-// GET /api/training/rotation — queue position + next workouts (for Settings)
+// GET /api/training/rotation — deterministic queue state (for Settings debug)
 router.get('/rotation', (req, res) => {
   const db = getDB();
-  const goal = db.prepare('SELECT current_workout_index FROM goal WHERE id = 1').get();
-  const index = goal?.current_workout_index || 0;
-  const queue = [];
-  for (let i = 0; i < ROTATION.length; i++) {
-    const pos = (index + i) % ROTATION.length;
-    queue.push({ type: ROTATION[pos].type, label: ROTATION[pos].label, subtitle: ROTATION[pos].subtitle });
-  }
-  res.json({ current_index: index, queue });
-});
+  const { workout, lastCompleted } = resolveNextWorkout(db);
 
-// PUT /api/training/rotation — manually set queue position (debug/repair)
-router.put('/rotation', (req, res) => {
-  const db = getDB();
-  const { index } = req.body;
-  if (typeof index !== 'number' || index < 0 || index >= ROTATION.length) {
-    return res.status(400).json({ error: `index must be 0-${ROTATION.length - 1}` });
+  // Build the upcoming queue starting from the resolved next workout
+  const queue = [];
+  let type = workout.type;
+  for (let i = 0; i < ROTATION.length; i++) {
+    const w = getWorkoutByType(type);
+    queue.push({ type: w.type, label: w.label, subtitle: w.subtitle });
+    type = SUCCESSOR_MAP[type] || 'upper_a';
   }
-  db.prepare('UPDATE goal SET current_workout_index = ? WHERE id = 1').run(index);
-  const workout = getNextWorkout(index);
-  res.json({ ok: true, current_index: index, next_workout: workout.label });
+
+  res.json({
+    last_completed: lastCompleted ? {
+      type: lastCompleted.workout_type,
+      date: lastCompleted.date,
+      logged_at: lastCompleted.logged_at,
+    } : null,
+    next_type: workout.type,
+    queue,
+  });
 });
 
 module.exports = router;

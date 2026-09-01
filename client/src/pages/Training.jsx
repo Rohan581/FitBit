@@ -400,7 +400,7 @@ export default function Training() {
         duration,
         totalSets,
         totalVolume: Math.round(totalVolume),
-        nextIndex: result.next_index,
+        nextType: result.next_type,
         gymThisWeek: (data.week_gym_sessions || 0) + 1,
         cardio: sessionCardio,
       });
@@ -410,7 +410,7 @@ export default function Training() {
         duration,
         totalSets,
         totalVolume: Math.round(totalVolume),
-        nextIndex: null,
+        nextType: null,
         gymThisWeek: (data.week_gym_sessions || 0) + 1,
         cardio: sessionCardio,
       });
@@ -1257,8 +1257,8 @@ function WeeklyVolumeCard({ volume, volumeNotes }) {
 
 // ─── Session Complete Screen ─────────────────────────────────
 function CompleteScreen({ data: cd, allData, onBack }) {
-  const nextWorkoutLabel = cd.nextIndex != null
-    ? formatWorkoutType(allData?.rotation?.[cd.nextIndex % (allData?.rotation?.length || 1)]?.type || '')
+  const nextWorkoutLabel = cd.nextType
+    ? formatWorkoutType(cd.nextType)
     : 'Next session';
 
   return (

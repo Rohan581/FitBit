@@ -281,22 +281,10 @@ export default function Settings() {
 
 function TrainingQueueSection() {
   const [data, setData] = useState(null);
-  const [adjusting, setAdjusting] = useState(false);
 
   useEffect(() => {
     api.getRotation().then(setData).catch(() => {});
   }, []);
-
-  async function handleSetIndex(idx) {
-    setAdjusting(true);
-    try {
-      await api.setRotationIndex(idx);
-      const updated = await api.getRotation();
-      setData(updated);
-    } finally {
-      setAdjusting(false);
-    }
-  }
 
   if (!data) return (
     <div className="bg-card rounded-card p-4 space-y-3 stagger-enter">
@@ -305,12 +293,16 @@ function TrainingQueueSection() {
     </div>
   );
 
-  const { queue } = data;
+  const { queue, last_completed } = data;
+  const lastLabel = last_completed
+    ? `${last_completed.type.replace(/_/g, ' ')} on ${last_completed.date}`
+    : 'none';
 
   return (
     <div id="training" className="bg-card rounded-card p-4 space-y-3 stagger-enter">
       <h2 className="text-sm font-semibold text-tx">Training queue</h2>
-      <p className="text-xs text-tx-3">4-day upper/lower rotation. Your next workout and the two after it:</p>
+      <p className="text-xs text-tx-3">4-day upper/lower rotation. Derived from last completed session.</p>
+      <p className="text-[11px] text-tx-3">Last completed: <span className="font-semibold text-tx-2">{lastLabel}</span></p>
       <div className="space-y-1.5">
         {queue.slice(0, 3).map((w, i) => (
           <div key={w.type} className={`flex items-center gap-2.5 py-1.5 px-2.5 rounded-lg ${i === 0 ? 'bg-points/10 border border-points/20' : 'bg-card-2'}`}>
@@ -321,25 +313,6 @@ function TrainingQueueSection() {
             </div>
           </div>
         ))}
-      </div>
-      <div className="pt-1">
-        <p className="text-[11px] text-tx-3 mb-1.5">Jump to a specific position:</p>
-        <div className="flex gap-1.5">
-          {['Upper A', 'Lower A', 'Upper B', 'Lower B'].map((label, idx) => (
-            <button
-              key={idx}
-              onClick={() => handleSetIndex(idx)}
-              disabled={adjusting || data.current_index === idx}
-              className={`flex-1 py-1.5 text-[11px] font-semibold rounded-lg transition-colors press-scale ${
-                data.current_index === idx
-                  ? 'bg-points text-white'
-                  : 'border border-hair text-tx-3 bg-card-2'
-              } disabled:opacity-40`}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
       </div>
     </div>
   );
