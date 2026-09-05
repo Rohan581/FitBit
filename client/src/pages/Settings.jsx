@@ -11,6 +11,7 @@ export default function Settings() {
   const [recalcResult, setRecalcResult] = useState(null);
   const [saved, setSaved] = useState(false);
   const [theme, setTheme] = useState(getThemeSetting);
+  const [exporting, setExporting] = useState(null);
 
   useEffect(() => {
     const hash = window.location.hash.slice(1);
@@ -103,6 +104,27 @@ export default function Settings() {
     } finally {
       setRecalculating(false);
     }
+  }
+
+  async function handleExport(format) {
+    setExporting(format);
+    try {
+      const res = await fetch(`/api/export/${format}`, { cache: 'no-store' });
+      if (!res.ok) throw new Error('Export failed');
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      const dateStr = new Date().toISOString().split('T')[0];
+      a.download = format === 'csv'
+        ? `earned-export-${dateStr}.zip`
+        : `earned-export-${dateStr}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (e) {
+      console.error('Export failed:', e);
+    }
+    setExporting(null);
   }
 
   if (!goal) return (
@@ -262,6 +284,26 @@ export default function Settings() {
                 {opt.label}
               </button>
             ))}
+          </div>
+        </Section>
+
+        <Section title="Export data">
+          <p className="text-xs text-tx-3 mb-1">Download all your logged data. CSV gives one file per table in a ZIP; JSON gives a single combined file.</p>
+          <div className="flex gap-2">
+            <button
+              onClick={() => handleExport('csv')}
+              disabled={!!exporting}
+              className="flex-1 py-2.5 rounded-card text-sm border border-hair bg-card text-tx press-scale disabled:opacity-40"
+            >
+              {exporting === 'csv' ? 'Preparing...' : 'CSV (ZIP)'}
+            </button>
+            <button
+              onClick={() => handleExport('json')}
+              disabled={!!exporting}
+              className="flex-1 py-2.5 rounded-card text-sm border border-hair bg-card text-tx press-scale disabled:opacity-40"
+            >
+              {exporting === 'json' ? 'Preparing...' : 'JSON'}
+            </button>
           </div>
         </Section>
 

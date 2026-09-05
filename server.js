@@ -36,6 +36,7 @@ app.use('/api/training', require('./routes/training'));
 app.use('/api/rest-days', require('./routes/restDays'));
 app.use('/api/push', require('./routes/push'));
 app.use('/api/bank', require('./routes/bank'));
+app.use('/api/export', require('./routes/export'));
 
 // Serve React app in production
 if (process.env.NODE_ENV === 'production') {
