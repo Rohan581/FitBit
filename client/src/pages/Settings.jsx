@@ -117,7 +117,7 @@ export default function Settings() {
       a.href = url;
       const dateStr = new Date().toISOString().split('T')[0];
       a.download = format === 'csv'
-        ? `earned-export-${dateStr}.zip`
+        ? `earned-export-${dateStr}.csv`
         : `earned-export-${dateStr}.json`;
       a.click();
       URL.revokeObjectURL(url);
@@ -288,14 +288,14 @@ export default function Settings() {
         </Section>
 
         <Section title="Export data">
-          <p className="text-xs text-tx-3 mb-1">Download all your logged data. CSV gives one file per table in a ZIP; JSON gives a single combined file.</p>
+          <p className="text-xs text-tx-3 mb-1">Download all your logged data as a single CSV or JSON file.</p>
           <div className="flex gap-2">
             <button
               onClick={() => handleExport('csv')}
               disabled={!!exporting}
               className="flex-1 py-2.5 rounded-card text-sm border border-hair bg-card text-tx press-scale disabled:opacity-40"
             >
-              {exporting === 'csv' ? 'Preparing...' : 'CSV (ZIP)'}
+              {exporting === 'csv' ? 'Preparing...' : 'CSV'}
             </button>
             <button
               onClick={() => handleExport('json')}

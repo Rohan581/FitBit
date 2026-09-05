@@ -17,26 +17,35 @@ initDB();
 app.use(cors());
 app.use(express.json());
 
-// API routes
-app.use('/api/foods', require('./routes/foods'));
-app.use('/api/saved-meals', require('./routes/savedMeals'));
-app.use('/api/food-logs', require('./routes/foodLogs'));
-app.use('/api/exercise-logs', require('./routes/exerciseLogs'));
-app.use('/api/sleep-logs', require('./routes/sleepLogs'));
-app.use('/api/weight-logs', require('./routes/weightLogs'));
-app.use('/api/points', require('./routes/points'));
-app.use('/api/goal', require('./routes/goal'));
-app.use('/api/weekly-summary', require('./routes/weeklySummary'));
-app.use('/api/trends', require('./routes/trends'));
-app.use('/api/suggestions', require('./routes/suggestions'));
-app.use('/api/measurements', require('./routes/measurementLogs'));
-app.use('/api/planning', require('./routes/planning'));
-app.use('/api/dashboard', require('./routes/dashboard'));
-app.use('/api/training', require('./routes/training'));
-app.use('/api/rest-days', require('./routes/restDays'));
-app.use('/api/push', require('./routes/push'));
-app.use('/api/bank', require('./routes/bank'));
-app.use('/api/export', require('./routes/export'));
+// API routes — safe loader so a broken module degrades instead of crash-looping
+function useRoute(path, mod) {
+  try {
+    app.use(path, require(mod));
+  } catch (err) {
+    console.error(`[ROUTE FAILED] ${path} (${mod}): ${err.message}`);
+    app.use(path, (req, res) => res.status(503).json({ error: `${path} is temporarily unavailable` }));
+  }
+}
+
+useRoute('/api/foods', './routes/foods');
+useRoute('/api/saved-meals', './routes/savedMeals');
+useRoute('/api/food-logs', './routes/foodLogs');
+useRoute('/api/exercise-logs', './routes/exerciseLogs');
+useRoute('/api/sleep-logs', './routes/sleepLogs');
+useRoute('/api/weight-logs', './routes/weightLogs');
+useRoute('/api/points', './routes/points');
+useRoute('/api/goal', './routes/goal');
+useRoute('/api/weekly-summary', './routes/weeklySummary');
+useRoute('/api/trends', './routes/trends');
+useRoute('/api/suggestions', './routes/suggestions');
+useRoute('/api/measurements', './routes/measurementLogs');
+useRoute('/api/planning', './routes/planning');
+useRoute('/api/dashboard', './routes/dashboard');
+useRoute('/api/training', './routes/training');
+useRoute('/api/rest-days', './routes/restDays');
+useRoute('/api/push', './routes/push');
+useRoute('/api/bank', './routes/bank');
+useRoute('/api/export', './routes/export');
 
 // Serve React app in production
 if (process.env.NODE_ENV === 'production') {

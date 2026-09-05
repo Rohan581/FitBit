@@ -1,6 +1,5 @@
 const express = require('express');
 const router = express.Router();
-const { ZipArchive } = require('archiver');
 const { getDB } = require('../db/database');
 
 // ─── CSV helpers ────────────────────────────────────────────
@@ -101,27 +100,37 @@ const CSV_COLUMNS = {
   reward_bank_ledger: ['id', 'date', 'delta', 'kind', 'description', 'week_start'],
 };
 
-// GET /api/export/csv — download ZIP of CSVs
+// GET /api/export/csv/:table — download a single table as CSV
+router.get('/csv/:table', (req, res) => {
+  const table = req.params.table;
+  const columns = CSV_COLUMNS[table];
+  if (!columns) return res.status(404).json({ error: `Unknown table: ${table}` });
+
+  const db = getDB();
+  const data = getAllData(db);
+  const rows = data[table] || [];
+  const dateStr = new Date().toISOString().split('T')[0];
+
+  res.setHeader('Content-Type', 'text/csv');
+  res.setHeader('Content-Disposition', `attachment; filename="${table}-${dateStr}.csv"`);
+  res.send(toCsv(rows, columns));
+});
+
+// GET /api/export/csv — download all tables concatenated into one CSV with section headers
 router.get('/csv', (req, res) => {
   const db = getDB();
   const data = getAllData(db);
   const dateStr = new Date().toISOString().split('T')[0];
-
-  res.setHeader('Content-Type', 'application/zip');
-  res.setHeader('Content-Disposition', `attachment; filename="earned-export-${dateStr}.zip"`);
-
-  const archive = new ZipArchive({ zlib: { level: 6 } });
-  archive.on('error', err => {
-    console.error('Archive error:', err);
-    if (!res.headersSent) res.status(500).json({ error: 'Export failed' });
-  });
-  archive.pipe(res);
+  const sections = [];
 
   for (const [table, columns] of Object.entries(CSV_COLUMNS)) {
-    archive.append(toCsv(data[table] || [], columns), { name: `${table}.csv` });
+    sections.push(`# ${table}`);
+    sections.push(toCsv(data[table] || [], columns));
   }
 
-  archive.finalize();
+  res.setHeader('Content-Type', 'text/csv');
+  res.setHeader('Content-Disposition', `attachment; filename="earned-export-${dateStr}.csv"`);
+  res.send(sections.join('\n'));
 });
 
 // GET /api/export/json — download combined JSON
