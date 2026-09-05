@@ -204,9 +204,11 @@ function workoutRegion(workoutType) {
 // Rules: only from skipped exercises in completed sessions this week;
 // only in sessions 3-4; substitutes within 5-slot cap (max 2);
 // region-matched (lower catch-ups into lower workouts only);
+// skip muscles already covered by the upcoming template;
+// equipment-aware (only pick servable exercises);
 // least-sets-this-week priority, muscle-size as tie-break.
-function computeCatchUp(db, weekDays, templateExercises, weekSessionOrdinal, nextWorkoutType) {
-  if (weekSessionOrdinal < 3) return { substitutions: [], notes: {} };
+function computeCatchUp(db, weekDays, templateExercises, weekSessionOrdinal, nextWorkoutType, availableEquipment) {
+  if (weekSessionOrdinal < 3) return { substitutions: [], notes: {}, debug: [] };
 
   const sessionRegion = workoutRegion(nextWorkoutType);
 
@@ -217,7 +219,7 @@ function computeCatchUp(db, weekDays, templateExercises, weekSessionOrdinal, nex
     ORDER BY ws.date ASC
   `).all(weekDays[0], weekDays[6]);
 
-  if (completedSessions.length === 0) return { substitutions: [], notes: {} };
+  if (completedSessions.length === 0) return { substitutions: [], notes: {}, debug: [] };
 
   // Tally total sets per muscle this week (for least-hit ordering)
   const setsPerMuscle = {};
@@ -235,7 +237,7 @@ function computeCatchUp(db, weekDays, templateExercises, weekSessionOrdinal, nex
   }
 
   // Find muscles with zero logged sets from exercises in completed session templates
-  const missedMuscles = new Map(); // muscle -> reason
+  const missedMuscles = new Map(); // muscle -> { reason, skipped_exercise, source_session_id, source_session_type }
   for (const session of completedSessions) {
     const templateWorkout = ROTATION.find(w => w.type === session.workout_type);
     if (!templateWorkout) continue;
@@ -250,52 +252,94 @@ function computeCatchUp(db, weekDays, templateExercises, weekSessionOrdinal, nex
       if (loggedSets === 0) {
         for (const m of JSON.parse(dbEx.primary_muscles)) {
           if (!missedMuscles.has(m)) {
-            missedMuscles.set(m, `${templateEx.name} skipped in ${session.workout_type.replace(/_/g, ' ')}`);
+            missedMuscles.set(m, {
+              reason: `${templateEx.name} skipped in ${session.workout_type.replace(/_/g, ' ')}`,
+              skipped_exercise: templateEx.name,
+              source_session_id: session.id,
+              source_session_type: session.workout_type,
+            });
           }
         }
       }
     }
   }
 
-  if (missedMuscles.size === 0) return { substitutions: [], notes: {} };
+  if (missedMuscles.size === 0) return { substitutions: [], notes: {}, debug: [] };
 
   // Filter to muscles whose region matches the next session
   const regionMatched = [...missedMuscles.keys()].filter(m => muscleRegion(m) === sessionRegion);
-  if (regionMatched.length === 0) return { substitutions: [], notes: {} };
+  if (regionMatched.length === 0) return { substitutions: [], notes: {}, debug: [] };
+
+  // Filter out muscles already covered by the upcoming template's primary muscles.
+  // If the template already trains hamstrings (via Smith RDL), don't insert a hamstring catch-up.
+  const templateMuscles = new Set();
+  for (const ex of templateExercises) {
+    const muscles = Array.isArray(ex.primary_muscles) ? ex.primary_muscles
+      : (typeof ex.primary_muscles === 'string' ? JSON.parse(ex.primary_muscles) : []);
+    for (const m of muscles) templateMuscles.add(m);
+  }
+  const needsCatchUp = regionMatched.filter(m => !templateMuscles.has(m));
+  if (needsCatchUp.length === 0) return { substitutions: [], notes: {}, debug: [] };
 
   // Sort by least sets this week (ascending), then by muscle-size tie-break
   const sizePriority = MUSCLE_PRIORITY.reduce((acc, m, i) => { acc[m] = i; return acc; }, {});
-  regionMatched.sort((a, b) => {
+  needsCatchUp.sort((a, b) => {
     const setsA = setsPerMuscle[a] || 0;
     const setsB = setsPerMuscle[b] || 0;
     if (setsA !== setsB) return setsA - setsB; // least sets first
     return (sizePriority[a] ?? 99) - (sizePriority[b] ?? 99); // larger muscle first
   });
 
-  const toSubstitute = regionMatched.slice(0, 2);
+  const toSubstitute = needsCatchUp.slice(0, 2);
 
   // Build substitution exercises
   const substitutions = [];
   const notes = {};
+  const debug = [];
   const templateNames = new Set(templateExercises.map(e => e.name));
 
   for (const muscle of toSubstitute) {
     const exName = CATCH_UP_EXERCISES[muscle];
     if (!exName || templateNames.has(exName)) continue;
-    const dbEx = db.prepare('SELECT id, name, primary_muscles, secondary_muscles, rest_seconds FROM exercises WHERE name = ?').get(exName);
-    if (dbEx) {
-      substitutions.push({
-        name: dbEx.name, exercise_id: dbEx.id, sets: 3, reps: '8-12',
-        primary_muscles: JSON.parse(dbEx.primary_muscles),
-        secondary_muscles: JSON.parse(dbEx.secondary_muscles),
-        rest_seconds: dbEx.rest_seconds || 75,
-        is_catchup: true, catchup_reason: missedMuscles.get(muscle),
-      });
-      notes[muscle] = missedMuscles.get(muscle);
+    const dbEx = db.prepare('SELECT id, name, primary_muscles, secondary_muscles, rest_seconds, equipment_type, required_equipment, substitutes FROM exercises WHERE name = ?').get(exName);
+    if (!dbEx) continue;
+
+    let finalEx = dbEx;
+    // Only pick exercises that are servable with current equipment
+    if (!isExerciseServable({ required_equipment: JSON.parse(dbEx.required_equipment || '[]') }, availableEquipment)) {
+      const sub = findAvailableSubstitute(db, {
+        ...dbEx,
+        primary_muscles: dbEx.primary_muscles,
+        substitutes: dbEx.substitutes,
+        required_equipment: JSON.parse(dbEx.required_equipment || '[]'),
+      }, availableEquipment, templateNames);
+      if (!sub) continue; // No servable alternative, skip this muscle
+      finalEx = sub;
     }
+
+    const missed = missedMuscles.get(muscle);
+    substitutions.push({
+      name: finalEx.name, exercise_id: finalEx.id, sets: 3, reps: '8-12',
+      primary_muscles: JSON.parse(finalEx.primary_muscles),
+      secondary_muscles: JSON.parse(finalEx.secondary_muscles),
+      rest_seconds: finalEx.rest_seconds || 75,
+      required_equipment: JSON.parse(finalEx.required_equipment || '[]'),
+      equipment_type: finalEx.equipment_type || null,
+      is_catchup: true, catchup_reason: missed.reason,
+    });
+    templateNames.add(finalEx.name);
+    notes[muscle] = missed.reason;
+    debug.push({
+      muscle,
+      catch_up_exercise: finalEx.name,
+      skipped_exercise: missed.skipped_exercise,
+      source_session_id: missed.source_session_id,
+      source_session_type: missed.source_session_type,
+      session_ordinal: weekSessionOrdinal,
+    });
   }
 
-  return { substitutions, notes };
+  return { substitutions, notes, debug };
 }
 
 // Apply catch-up substitutions to a template's exercises (substitute, never add)
@@ -412,8 +456,8 @@ router.get('/', (req, res) => {
   // Session ordinal = completed this week + 1 (the next session)
   const weekSessionOrdinal = weekGymSessions + 1;
 
-  // Catch-up (new logic)
-  const catchUp = computeCatchUp(db, weekDays, exercises, weekSessionOrdinal, nextWorkout.type);
+  // Catch-up (equipment-aware, template-coverage-aware)
+  const catchUp = computeCatchUp(db, weekDays, exercises, weekSessionOrdinal, nextWorkout.type, availableEquipment);
 
   // Apply substitutions to template (within the 5-slot cap)
   let finalExercises = applySubstitutions(exercises, catchUp.substitutions);
@@ -538,7 +582,7 @@ router.get('/', (req, res) => {
     swim_note: swimNote,
     rotation: ROTATION.map(w => ({ type: w.type, label: w.label, subtitle: w.subtitle })),
     week_strip: weekStrip,
-    catch_up: catchUpCount > 0 ? { count: catchUpCount, notes: catchUp.notes } : null,
+    catch_up: catchUpCount > 0 ? { count: catchUpCount, notes: catchUp.notes, debug: catchUp.debug } : null,
     volume_notes: catchUp.notes,
     active_session: activeSessionInfo,
     variation_refresh,
