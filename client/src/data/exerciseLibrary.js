@@ -331,18 +331,20 @@ const EXERCISES = {
     primary_muscles: ['chest', 'front_delts'],
     secondary_muscles: ['triceps'],
     form_cues: [
-      'Set an adjustable bench to 30-45 degrees; sit back with a dumbbell in each hand resting on your thighs, then kick them up to shoulder level as you lean back.',
-      'Start with the dumbbells at chest height, elbows at roughly 45-degree angle from your torso; retract and depress your shoulder blades against the bench.',
-      'Press the dumbbells up and slightly inward so they nearly touch at the top, with arms fully extended over your upper chest.',
-      'Lower the dumbbells slowly to the sides of your upper chest, feeling a stretch across the pecs.',
-      'Exhale on the press, inhale on the descent; keep your feet flat on the floor and back arched naturally.'
+      'Set the bench to 30°, not 45° — steeper angles shift the work to the front delts and away from the chest.',
+      'Keep your elbows at roughly 45-60° from your torso, not tucked tight to your sides — too narrow an angle turns this into a tricep-dominant press.',
+      'Lower the dumbbells to chest level until you feel a stretch across the pecs — stopping short means the chest never fully loads.',
+      'Press up AND slightly inward so the dumbbells converge at the top; that inward arc is what contracts the pecs through their full range.',
+      'Squeeze the chest hard at the top of each rep rather than just locking out the arms — focus on feeling the pecs shorten.',
+      'If you still don\'t feel this in your chest after adjusting form, swap to pec deck — it\'s a fixed path and gives much clearer chest feedback.'
     ],
     common_mistakes: [
-      'Setting the bench angle too steep (above 45 degrees), which turns the press into a shoulder exercise.',
-      'Flaring the elbows to 90 degrees instead of tucking them to 45-60 degrees, which stresses the shoulder.',
-      'Not achieving a full range of motion — dumbbells should come down to chest level for complete pec activation.'
+      'Bench angle too steep (above 30-35°), which turns the movement into a front delt press — most people set it too high.',
+      'Elbows tucked too narrow (below 45°), which shifts the load onto the triceps and front delts instead of the chest.',
+      'Cutting the range of motion short by not lowering the dumbbells to chest level, so the pecs never stretch or load.',
+      'Pressing straight up in parallel lines instead of converging the dumbbells inward, which misses the chest\'s adduction function.'
     ],
-    substitutes: ['Barbell Bench Press', 'Cable Chest Fly', 'Dips'],
+    substitutes: ['Pec Deck', 'Barbell Bench Press', 'Cable Chest Fly', 'Dips'],
     youtube_search_term: 'incline dumbbell press proper form'
   },
 
@@ -624,6 +626,50 @@ const EXERCISES = {
     ],
     substitutes: ['Standing Calf Raise', 'Leg Press Calf Raise', 'Single-Leg Calf Raise'],
     youtube_search_term: 'seated calf raise proper form'
+  },
+  'Smith Machine Calf Raise': {
+    name: 'Smith Machine Calf Raise',
+    primary_muscles: ['calves'],
+    secondary_muscles: [],
+    form_cues: [
+      'Place a weight plate or low step under the Smith machine bar; stand on it with the balls of your feet on the edge and your heels hanging off, then position the bar across your upper traps just as you would for a squat.',
+      'Unrack the bar by rotating it to release the hooks; start by lowering your heels as far below the plate as comfortable to get a full calf stretch.',
+      'Drive up onto the balls of your feet as high as possible, squeezing your calves hard at the peak contraction and pausing for one second at the top.',
+      'Lower your heels slowly back down under control (2-3 second eccentric) to the fully stretched position, pausing briefly at the bottom before the next rep.',
+      'Keep your knees straight throughout the entire movement — bending the knees shifts the emphasis from the gastrocnemius to the soleus, which defeats the purpose of standing calf work.'
+    ],
+    common_mistakes: [
+      'Bending the knees during the movement, which shifts the load from the gastrocnemius to the soleus — lock your knees (without hyperextending) for the full set.',
+      'Bouncing at the bottom using the Achilles tendon stretch reflex instead of performing controlled reps with a deliberate pause.',
+      'Using a partial range of motion — not lowering the heels fully off the plate or not rising all the way onto the toes.',
+      'Skipping the plate/step and standing flat on the floor, which eliminates the stretched position and cuts range of motion in half.'
+    ],
+    substitutes: ['Standing Calf Raise', 'Leg Press Calf Raise', 'Seated Calf Raise'],
+    youtube_search_term: 'smith machine calf raise standing proper form',
+    equipment_type: 'machine',
+    required_equipment: ['smith_machine'],
+  },
+  'Lying Leg Raise': {
+    name: 'Lying Leg Raise',
+    primary_muscles: ['abs'],
+    secondary_muscles: ['hip_flexors'],
+    form_cues: [
+      'Lie flat on your back on a bench or the floor with your legs straight and your hands at your sides (or gripping the bench behind your head for stability).',
+      'Press your lower back firmly into the floor or bench throughout the entire movement — this is the most important cue; if your lower back arches, your abs disengage and your hip flexors take over.',
+      'Raise your legs together in a controlled arc until they are perpendicular to the floor (or as high as you can while keeping your lower back flat), keeping them straight or with a slight bend at the knees.',
+      'Lower your legs slowly and under control — do not just drop them; use a 2-3 second descent and stop before your lower back begins to arch off the surface.',
+      'Exhale as you raise your legs and inhale as you lower them; if you cannot keep your lower back down with straight legs, bend your knees slightly to reduce the lever arm.'
+    ],
+    common_mistakes: [
+      'Letting the lower back arch off the floor during the lowering phase, which takes tension off the abs and stresses the lumbar spine.',
+      'Dropping the legs quickly instead of lowering them under control, which eliminates the eccentric ab work and can cause the back to arch.',
+      'Swinging the legs up with momentum instead of using a deliberate ab contraction to initiate the raise.',
+      'Lowering the legs too far — going past the point where the lower back can stay flat shifts the work entirely to the hip flexors.'
+    ],
+    substitutes: ['Hanging Leg Raise', 'Decline Sit-Up', 'Cable Crunch'],
+    youtube_search_term: 'lying leg raise abs proper form',
+    equipment_type: 'bodyweight',
+    required_equipment: [],
   },
   'Chest Press Machine': {
     name: 'Chest Press Machine',

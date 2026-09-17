@@ -25,8 +25,8 @@ const LOWER_A = {
     { name: 'Smith Machine Squat', sets: 4, reps: '6-8' },
     { name: 'Leg Press', sets: 3, reps: '10-12' },
     { name: 'Lying Leg Curl', sets: 3, reps: '10-12' },
-    { name: 'Seated Calf Raise', sets: 4, reps: '12-15' },
-    { name: 'Cable Crunch', sets: 3, reps: '12-15' },
+    { name: 'Smith Machine Calf Raise', sets: 4, reps: '12-15' },
+    { name: 'Lying Leg Raise', sets: 3, reps: '12-15' },
   ],
 };
 
@@ -52,7 +52,7 @@ const LOWER_B = {
     { name: 'Single-Leg Leg Press', sets: 3, reps: '8-10/leg' },
     { name: 'Leg Extension', sets: 3, reps: '12-15' },
     { name: 'Back Extension', sets: 3, reps: '12-15' },
-    { name: 'Seated Calf Raise', sets: 4, reps: '12-15' },
+    { name: 'Smith Machine Calf Raise', sets: 4, reps: '12-15' },
   ],
 };
 
