@@ -56,10 +56,8 @@ export default function CookRecipes({ onOpenSidebar }) {
     setLoading(true);
     setError(null);
     try {
-      const params = {
-        sort,
-        filters: [...activeFilters],
-      };
+      const params = { sort };
+      if (activeFilters.size > 0) params.chip = [...activeFilters].join(',');
       if (debouncedQuery.trim()) params.q = debouncedQuery.trim();
       const result = await api.getRecipes(params);
       setData(result);
@@ -329,7 +327,7 @@ function RecipeCard({ recipe: r, isFavourite, onToggleFavourite, onNavigate }) {
   const proteinDensity = ps.calories > 0
     ? ((ps.protein_g / ps.calories) * 100).toFixed(1)
     : null;
-  const timeDisplay = r.time_min ? `${r.time_min} min` : null;
+  const timeDisplay = r.total_time_min ? `${r.total_time_min} min` : null;
   const tags = (r.tags || []).slice(0, 3);
 
   return (
