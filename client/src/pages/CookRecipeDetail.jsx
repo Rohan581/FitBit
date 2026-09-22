@@ -962,7 +962,7 @@ function DetailView({ recipe, navigate, onRecipeChange }) {
         {/* Action buttons */}
         <div className="space-y-2 pt-2">
           <button
-            onClick={() => navigate(`/cook/recipes/${recipe.id}/cook`)}
+            onClick={() => navigate(`/cook/recipes/${recipe.id}/cook${scaleFactor !== 1 ? `?scale=${scaleFactor}` : ''}`)}
             className="w-full py-3 rounded-xl font-semibold text-sm press-scale"
             style={{ background: 'var(--cook)', color: 'var(--on-accent)' }}
           >
