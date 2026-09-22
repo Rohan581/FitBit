@@ -32,6 +32,10 @@
   --danger: oklch(0.58 0.22 25);
   --star: oklch(0.82 0.17 90);
 
+  --cook: oklch(0.54 0.125 108);
+  --cook-dim: oklch(0.96 0.03 108);
+  --on-accent: oklch(0.99 0 0);
+
   /* Tinted accent surface — state-carrying elements only:
      hero card, rest timer, catch-up header, rest-day chip/note,
      measurement reminder. Standard cards use --card. */
@@ -78,6 +82,10 @@
   --warning: oklch(0.82 0.15 75);
   --danger: oklch(0.68 0.22 28);
   --star: oklch(0.88 0.16 95);
+
+  --cook: oklch(0.84 0.145 108);
+  --cook-dim: oklch(0.15 0.02 108);
+  --on-accent: oklch(0.16 0 0);
 
   --accent-surface: oklch(0.15 0.02 165);
 
@@ -137,6 +145,7 @@ strong, b {
   .tint-fiber { background: color-mix(in oklab, var(--fiber) 14%, transparent); }
   .tint-sugar { background: color-mix(in oklab, var(--sugar) 14%, transparent); }
   .tint-points { background: color-mix(in oklab, var(--points) 14%, transparent); }
+  .tint-cook { background: color-mix(in oklab, var(--cook) 14%, transparent); }
   .tint-breakfast { background: color-mix(in oklab, var(--breakfast) 14%, transparent); }
   .tint-lunch { background: color-mix(in oklab, var(--lunch) 14%, transparent); }
   .tint-snack { background: color-mix(in oklab, var(--snack) 14%, transparent); }
@@ -306,6 +315,20 @@ input[type="number"]::-webkit-outer-spin-button {
 }
 input[type="number"] {
   -moz-appearance: textfield;
+}
+
+/* ─── Sidebar slide ─── */
+@media (prefers-reduced-motion: no-preference) {
+  @keyframes sidebarSlideIn {
+    from { transform: translateX(-100%); }
+    to { transform: translateX(0); }
+  }
+  .sidebar-enter {
+    animation: sidebarSlideIn 280ms var(--ease-out-quint);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .sidebar-enter { animation: none; }
 }
 
 /* ─── Hide scrollbar ─── */

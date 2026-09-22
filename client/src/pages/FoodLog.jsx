@@ -427,6 +427,7 @@ function FoodSearchSheet({ open, onClose, mealType, onLogged, targetDate }) {
   const [qty, setQty] = useState('1');
   const [selectedUnit, setSelectedUnit] = useState(null);
   const [saving, setSaving] = useState(false);
+  const [recipeResults, setRecipeResults] = useState({ recipes: [], batches: [] });
   const inputRef = useRef(null);
 
   // When Drinks meal slot is active, only show alcohol + beverage categories
@@ -444,11 +445,15 @@ function FoodSearchSheet({ open, onClose, mealType, onLogged, targetDate }) {
         setFavorites(favs);
         setRecents(rec);
       });
+      if (mealType !== 'drinks') {
+        api.searchRecipesForFoodLog('').then(setRecipeResults).catch(() => {});
+      }
     } else {
       setQuery('');
       setSelected(null);
       setQty('1');
       setSelectedUnit(null);
+      setRecipeResults({ recipes: [], batches: [] });
     }
   }, [open]);
 
@@ -459,6 +464,9 @@ function FoodSearchSheet({ open, onClose, mealType, onLogged, targetDate }) {
       const r = await api.searchFoods(query, drinkCategories);
       setResults(r);
       setSearching(false);
+      if (mealType !== 'drinks') {
+        api.searchRecipesForFoodLog(query).then(setRecipeResults).catch(() => {});
+      }
     }, 200);
     return () => clearTimeout(timer);
   }, [query, open]);
@@ -467,13 +475,23 @@ function FoodSearchSheet({ open, onClose, mealType, onLogged, targetDate }) {
     if (!selected) return;
     setSaving(true);
     try {
-      await api.logFood({
-        food_id: selected.id,
-        quantity: parseFloat(qty) || 1,
-        meal_type: mealType,
-        unit_used: selectedUnit,
-        ...(targetDate && { date: targetDate }),
-      });
+      if (selected._recipeType) {
+        await api.logPortion({
+          recipe_id: selected._recipeType === 'batch' ? selected.recipe_id : selected.id,
+          batch_id: selected._recipeType === 'batch' ? selected.id : undefined,
+          servings: parseFloat(qty) || 1,
+          meal_type: mealType,
+          ...(targetDate && { date: targetDate }),
+        });
+      } else {
+        await api.logFood({
+          food_id: selected.id,
+          quantity: parseFloat(qty) || 1,
+          meal_type: mealType,
+          unit_used: selectedUnit,
+          ...(targetDate && { date: targetDate }),
+        });
+      }
       onLogged?.();
       onClose();
     } finally {
@@ -492,22 +510,43 @@ function FoodSearchSheet({ open, onClose, mealType, onLogged, targetDate }) {
   function selectFood(food) {
     setSelected(food);
     setQty('1');
-    const units = food.units ? JSON.parse(food.units) : null;
-    setSelectedUnit(food.default_unit || (units ? units[0]?.unit : null));
+    if (food._recipeType) {
+      setSelectedUnit(null);
+    } else {
+      const units = food.units ? JSON.parse(food.units) : null;
+      setSelectedUnit(food.default_unit || (units ? units[0]?.unit : null));
+    }
   }
 
   const mealColor = MEAL_COLORS[mealType] || 'var(--cal)';
-  const units = selected?.units ? JSON.parse(selected.units) : null;
+  const units = selected?.units && !selected._recipeType ? JSON.parse(selected.units) : null;
   const unitMultiplier = selectedUnit && units
     ? (units.find(u => u.unit === selectedUnit)?.multiplier || 1)
     : 1;
   const effectiveQty = (parseFloat(qty) || 1) * unitMultiplier;
 
-  const multiplied = selected ? {
-    cal: Math.round(selected.calories * effectiveQty),
-    pro: Math.round(selected.protein_g * effectiveQty * 10) / 10,
-    fiber: Math.round((selected.fiber_g || 0) * effectiveQty * 10) / 10,
-  } : null;
+  const multiplied = selected ? (() => {
+    if (selected._recipeType === 'batch') {
+      const ps = selected.per_serving || {};
+      const scale = selected.scale_factor || 1;
+      const recipeSrv = selected.recipe_servings || 1;
+      const portions = selected.portions || 1;
+      const ppCal = (ps.calories || 0) * recipeSrv * scale / portions;
+      const ppPro = (ps.protein_g || 0) * recipeSrv * scale / portions;
+      const q = parseFloat(qty) || 1;
+      return { cal: Math.round(ppCal * q), pro: Math.round(ppPro * q * 10) / 10 };
+    }
+    if (selected._recipeType === 'recipe') {
+      const ps = selected.per_serving || {};
+      const q = parseFloat(qty) || 1;
+      return { cal: Math.round((ps.calories || 0) * q), pro: Math.round((ps.protein_g || 0) * q * 10) / 10 };
+    }
+    return {
+      cal: Math.round(selected.calories * effectiveQty),
+      pro: Math.round(selected.protein_g * effectiveQty * 10) / 10,
+      fiber: Math.round((selected.fiber_g || 0) * effectiveQty * 10) / 10,
+    };
+  })() : null;
 
   const showFavsRecents = !query && (favorites.length > 0 || recents.length > 0);
 
@@ -540,13 +579,22 @@ function FoodSearchSheet({ open, onClose, mealType, onLogged, targetDate }) {
           >
             <div className="flex items-start justify-between">
               <div>
-                <p className="text-sm font-medium text-tx">{selected.name}</p>
-                <p className="text-xs text-tx-3">{selected.serving_unit}</p>
+                <p className="text-sm font-medium text-tx">
+                  {selected._recipeType && <span className="mr-1">{selected.icon || '🍳'}</span>}
+                  {selected._recipeType ? selected.title : selected.name}
+                </p>
+                <p className="text-xs text-tx-3">
+                  {selected._recipeType === 'batch'
+                    ? `batch · ${new Date(selected.cooked_on).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} · ${selected.portions_left ?? selected.portions} portions left`
+                    : selected._recipeType === 'recipe'
+                    ? `${selected.servings || 1} serving${(selected.servings || 1) > 1 ? 's' : ''} per recipe`
+                    : selected.serving_unit}
+                </p>
               </div>
               <button onClick={() => setSelected(null)} className="text-tx-3 text-lg press-scale">×</button>
             </div>
 
-            {units && units.length > 1 && (
+            {!selected._recipeType && units && units.length > 1 && (
               <div className="flex gap-1.5 mt-2 overflow-x-auto scrollbar-none">
                 {units.map(u => (
                   <button
@@ -619,8 +667,38 @@ function FoodSearchSheet({ open, onClose, mealType, onLogged, targetDate }) {
 
           {showFavsRecents && <div className="border-t border-hair my-3" />}
 
+          {/* Recipe & batch results */}
+          {mealType !== 'drinks' && (recipeResults.batches.length > 0 || recipeResults.recipes.length > 0) && (
+            <div className="mb-3">
+              <p className="text-[11px] text-tx-3 mb-1.5 px-1 flex items-center gap-1">
+                <span>🧑‍🍳</span> Recipes
+              </p>
+              <div className="space-y-1">
+                {recipeResults.batches.map(b => (
+                  <RecipeResultRow
+                    key={`batch-${b.id}`}
+                    item={{ ...b, _recipeType: 'batch' }}
+                    selected={selected}
+                    onSelect={selectFood}
+                    mealColor={mealColor}
+                  />
+                ))}
+                {recipeResults.recipes.map(r => (
+                  <RecipeResultRow
+                    key={`recipe-${r.id}`}
+                    item={{ ...r, _recipeType: 'recipe' }}
+                    selected={selected}
+                    onSelect={selectFood}
+                    mealColor={mealColor}
+                  />
+                ))}
+              </div>
+              <div className="border-t border-hair my-3" />
+            </div>
+          )}
+
           {searching && <p className="text-sm text-tx-3 text-center py-4">Searching...</p>}
-          {!searching && results.length === 0 && (
+          {!searching && results.length === 0 && (recipeResults.recipes.length === 0 && recipeResults.batches.length === 0) && (
             <p className="text-sm text-tx-3 text-center py-4">No foods found. Try a different search.</p>
           )}
           <div className="space-y-1">
@@ -665,6 +743,51 @@ function FoodRow({ food, selected, onSelect, onToggleFavorite, mealColor }) {
           <p className="text-sm font-num text-tx">{Math.round(food.calories)}</p>
           <p className="text-xs text-tx-3">kcal</p>
         </div>
+      </div>
+    </button>
+  );
+}
+
+function RecipeResultRow({ item, selected, onSelect, mealColor }) {
+  const isSelected = selected?._recipeType === item._recipeType &&
+    ((item._recipeType === 'batch' && selected?.id === item.id) ||
+     (item._recipeType === 'recipe' && selected?.id === item.id));
+  const ps = item.per_serving || {};
+  const isBatch = item._recipeType === 'batch';
+
+  let subtitle = '';
+  if (isBatch) {
+    const d = new Date(item.cooked_on);
+    subtitle = `batch ${d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`;
+  } else {
+    subtitle = `${Math.round(ps.calories || 0)} kcal · ${Math.round(ps.protein_g || 0)}g pro per serving`;
+  }
+
+  const displayCal = isBatch
+    ? Math.round((ps.calories || 0) * (item.recipe_servings || 1) * (item.scale_factor || 1) / (item.portions || 1))
+    : Math.round(ps.calories || 0);
+
+  return (
+    <button
+      onClick={() => onSelect(item)}
+      className={`w-full flex items-center justify-between px-4 py-3 rounded-card text-left transition-colors press-scale ${
+        isSelected ? 'border' : 'bg-card border border-transparent'
+      }`}
+      style={isSelected ? {
+        background: `color-mix(in oklab, ${mealColor} 10%, transparent)`,
+        borderColor: `color-mix(in oklab, ${mealColor} 25%, transparent)`,
+      } : undefined}
+    >
+      <div className="min-w-0 flex-1 flex items-center gap-2">
+        <span className="text-base flex-shrink-0">{item.icon || '🍳'}</span>
+        <div className="min-w-0">
+          <p className="text-sm text-tx truncate">{item.title}</p>
+          <p className="text-xs text-tx-3">{subtitle}</p>
+        </div>
+      </div>
+      <div className="text-right ml-3 flex-shrink-0">
+        <p className="text-sm font-num text-tx">{displayCal}</p>
+        <p className="text-xs text-tx-3">kcal</p>
       </div>
     </button>
   );

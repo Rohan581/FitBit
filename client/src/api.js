@@ -141,4 +141,23 @@ export const api = {
   checkPush: () => req('POST', '/push/check'),
   testPush: (endpoint) => req('POST', '/push/test', { endpoint }),
   getSchedulerStatus: () => req('GET', '/push/scheduler-status'),
+
+  // Recipes (Cook module)
+  getRecipes: (params) => req('GET', `/recipes?${new URLSearchParams(params || {})}`),
+  getRecipe: (id) => req('GET', `/recipes/${id}`),
+  createRecipe: (data) => req('POST', '/recipes', data),
+  updateRecipe: (id, data) => req('PUT', `/recipes/${id}`, data),
+  deleteRecipe: (id) => req('DELETE', `/recipes/${id}`),
+  toggleRecipeFavourite: (id) => req('POST', `/recipes/${id}/favourite`),
+  hideRecipe: (id) => req('POST', `/recipes/${id}/hide`),
+  duplicateRecipe: (id) => req('POST', `/recipes/${id}/duplicate`),
+
+  // Recipe batches
+  getBatches: () => req('GET', '/recipes/batches/all'),
+  createBatch: (data) => req('POST', '/recipes/batches', data),
+  updateBatch: (id, data) => req('PUT', `/recipes/batches/${id}`, data),
+
+  // Recipe portion logging
+  logPortion: (data) => req('POST', '/recipes/log-portion', data),
+  searchRecipesForFoodLog: (q) => req('GET', `/recipes/search/for-food-log?${new URLSearchParams({ ...(q && { q }) })}`),
 };

@@ -46,6 +46,7 @@ useRoute('/api/rest-days', './routes/restDays');
 useRoute('/api/push', './routes/push');
 useRoute('/api/bank', './routes/bank');
 useRoute('/api/export', './routes/export');
+useRoute('/api/recipes', './routes/recipes');
 
 // Serve React app in production
 if (process.env.NODE_ENV === 'production') {

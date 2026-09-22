@@ -1,0 +1,2628 @@
+{
+  "version": 1,
+  "recipes": [
+    {
+      "seed_key": "korean-chicken-popcorn",
+      "title": "Air Fryer Korean Chicken Popcorn",
+      "source": "yours",
+      "servings": 2,
+      "cooked_yield_g": 420,
+      "total_time_min": 50,
+      "tags": [
+        "high-protein",
+        "air-fryer",
+        "chicken",
+        "meal"
+      ],
+      "per_serving": {
+        "calories": 545,
+        "protein_g": 50,
+        "carbs_g": 26,
+        "fat_g": 27,
+        "fiber_g": 2,
+        "sugar_g": 1
+      },
+      "ingredients": [
+        {
+          "amount": 450,
+          "unit": "g",
+          "name": "chicken thighs, boneless skinless, cut into 5cm cubes",
+          "main_ingredient": true
+        },
+        {
+          "amount": 0.5,
+          "unit": "tsp",
+          "name": "white pepper"
+        },
+        {
+          "amount": 2,
+          "unit": "tbsp",
+          "name": "ginger-garlic paste"
+        },
+        {
+          "amount": 2,
+          "unit": "tbsp",
+          "name": "soy sauce"
+        },
+        {
+          "amount": 1,
+          "unit": "tbsp",
+          "name": "rice vinegar (optional)"
+        },
+        {
+          "amount": 1,
+          "unit": "count",
+          "name": "whole egg"
+        },
+        {
+          "amount": 70,
+          "unit": "g",
+          "name": "panko breadcrumbs"
+        },
+        {
+          "amount": 2,
+          "unit": "tbsp",
+          "name": "cornflour"
+        },
+        {
+          "amount": 1,
+          "unit": "tsp",
+          "name": "garlic powder"
+        },
+        {
+          "amount": 1,
+          "unit": "pinch",
+          "name": "salt (for the coating)"
+        },
+        {
+          "amount": 1,
+          "unit": "tbsp",
+          "name": "olive oil, for spraying"
+        },
+        {
+          "amount": 4,
+          "unit": "count",
+          "name": "green onion stalks, thinly sliced (optional topping)"
+        }
+      ],
+      "steps": [
+        {
+          "title": "Marinate",
+          "text": "Mix the chicken with white pepper, ginger-garlic paste, soy sauce and rice vinegar. Cover and refrigerate at least 30 minutes.",
+          "timer_seconds": 1800
+        },
+        {
+          "title": "Toast the panko",
+          "text": "Put the panko in a DRY pan over medium-low heat. Stir continuously for 4-5 minutes until pale sand colour, not golden. Tip onto a cold plate immediately. Alternative: air fry at 160°C for 3-4 minutes, shaking every minute.",
+          "timer_seconds": 300
+        },
+        {
+          "title": "Set up the coating",
+          "text": "Once cooled, mix the panko with cornflour, garlic powder and a pinch of salt. Beat the egg in a separate bowl."
+        },
+        {
+          "title": "Bread the chicken",
+          "text": "Dip each piece in egg, then press firmly into the panko mix. Press hard — panko needs pressure to stick."
+        },
+        {
+          "title": "Preheat",
+          "text": "Run the air fryer empty at 190°C for 3-4 minutes.",
+          "timer_seconds": 240
+        },
+        {
+          "title": "First cook",
+          "text": "Single layer with gaps — cook in batches if needed. Spray with half the oil. Cook at 190°C for 10 minutes.",
+          "timer_seconds": 600
+        },
+        {
+          "title": "Flip and finish",
+          "text": "Flip, spray with the rest of the oil, cook 5-7 more minutes until deep golden and 74°C inside.",
+          "timer_seconds": 360
+        },
+        {
+          "title": "Serve",
+          "text": "Top with green onions. Serve with garlic yogurt dip."
+        }
+      ],
+      "notes": "Macros exclude the optional wasabi-soy sauce (+~25 kcal per serving): ½ tbsp brown sugar, 2 tbsp soy sauce, 1 tbsp rice vinegar, 2 tbsp water, ½ tbsp lemon juice, and ½ tbsp wasabi or 1 tbsp gochujang. With chicken breast instead of thighs: ~470 kcal and ~57g protein per serving. Near-zero fibre — pair it with something green.",
+      "pairs_with": [
+        "kimchi",
+        "kachumber-salad",
+        "garlic-yogurt-dip",
+        "garlic-herb-wedges"
+      ]
+    },
+    {
+      "seed_key": "garlic-herb-wedges",
+      "title": "Garlic-Herb Air-Fried Potato Wedges",
+      "source": "yours",
+      "servings": 2,
+      "cooked_yield_g": 345,
+      "total_time_min": 60,
+      "tags": [
+        "air-fryer",
+        "side",
+        "vegetarian"
+      ],
+      "per_serving": {
+        "calories": 215,
+        "protein_g": 4.5,
+        "carbs_g": 38,
+        "fat_g": 5,
+        "fiber_g": 3,
+        "sugar_g": 1.5
+      },
+      "ingredients": [
+        {
+          "amount": 400,
+          "unit": "g",
+          "name": "potatoes, cut into wedges",
+          "main_ingredient": true
+        },
+        {
+          "amount": 2,
+          "unit": "tsp",
+          "name": "cornflour"
+        },
+        {
+          "amount": 2,
+          "unit": "tsp",
+          "name": "olive oil"
+        },
+        {
+          "amount": 1,
+          "unit": "tsp",
+          "name": "garlic powder"
+        },
+        {
+          "amount": 1,
+          "unit": "tsp",
+          "name": "dried oregano or mixed herbs (half before, half after)"
+        },
+        {
+          "amount": 0.5,
+          "unit": "tsp",
+          "name": "onion powder (optional)"
+        },
+        {
+          "amount": 0.5,
+          "unit": "tsp",
+          "name": "black pepper"
+        },
+        {
+          "amount": 0.75,
+          "unit": "tsp",
+          "name": "salt"
+        },
+        {
+          "amount": 0.5,
+          "unit": "tsp",
+          "name": "dried thyme or rosemary"
+        }
+      ],
+      "steps": [
+        {
+          "title": "Cut",
+          "text": "Cut into even wedges, about 2cm at the thickest point. Even size matters more than shape."
+        },
+        {
+          "title": "Soak",
+          "text": "Soak in cold water for 30 minutes to pull out surface starch. Drain and dry completely.",
+          "timer_seconds": 1800
+        },
+        {
+          "title": "Parboil",
+          "text": "Boil in salted water for 6 minutes until a knife meets slight resistance. Drain and steam-dry in the colander for 5 minutes.",
+          "timer_seconds": 360
+        },
+        {
+          "title": "Season",
+          "text": "Shake the colander to rough up the surfaces. Toss with cornflour, oil, garlic powder, onion powder, pepper, salt and half the oregano."
+        },
+        {
+          "title": "First cook",
+          "text": "Preheat the air fryer to 200°C for 3 minutes. Single layer with gaps. Cook 12 minutes.",
+          "timer_seconds": 720
+        },
+        {
+          "title": "Shake and finish",
+          "text": "Shake or flip, then cook 6-8 more minutes until deep golden.",
+          "timer_seconds": 420
+        },
+        {
+          "title": "Finish with herbs",
+          "text": "Toss straight away with the rest of the oregano, the thyme and a pinch of salt."
+        }
+      ],
+      "notes": "Already parboiled? Pat dry and start at 'Season'. No chilli by design — a pinch of smoked paprika adds colour without heat. Macros are for 200g raw potato per serving; 100g of finished wedges is ~135 kcal.",
+      "pairs_with": [
+        "korean-chicken-popcorn",
+        "spiced-panko-chicken",
+        "garlic-yogurt-dip"
+      ]
+    },
+    {
+      "seed_key": "spiced-panko-chicken",
+      "title": "Air-Fried Spiced Panko Chicken",
+      "source": "yours",
+      "servings": 2,
+      "cooked_yield_g": 290,
+      "total_time_min": 55,
+      "tags": [
+        "high-protein",
+        "air-fryer",
+        "chicken",
+        "meal"
+      ],
+      "per_serving": {
+        "calories": 375,
+        "protein_g": 46,
+        "carbs_g": 19,
+        "fat_g": 12,
+        "fiber_g": 1,
+        "sugar_g": 1
+      },
+      "ingredients": [
+        {
+          "amount": 300,
+          "unit": "g",
+          "name": "chicken breast, strips or cubes",
+          "main_ingredient": true
+        },
+        {
+          "amount": 2,
+          "unit": "tbsp",
+          "name": "thick curd or Greek yogurt"
+        },
+        {
+          "amount": 1,
+          "unit": "tbsp",
+          "name": "lemon juice"
+        },
+        {
+          "amount": 1,
+          "unit": "tsp",
+          "name": "red chilli powder"
+        },
+        {
+          "amount": 1,
+          "unit": "tsp",
+          "name": "garam masala"
+        },
+        {
+          "amount": 1,
+          "unit": "tsp",
+          "name": "garlic powder"
+        },
+        {
+          "amount": 1,
+          "unit": "tsp",
+          "name": "black pepper"
+        },
+        {
+          "amount": 1,
+          "unit": "tsp",
+          "name": "salt"
+        },
+        {
+          "amount": 1,
+          "unit": "count",
+          "name": "whole egg"
+        },
+        {
+          "amount": 2,
+          "unit": "count",
+          "name": "egg whites"
+        },
+        {
+          "amount": 60,
+          "unit": "g",
+          "name": "panko breadcrumbs"
+        },
+        {
+          "amount": 2,
+          "unit": "tbsp",
+          "name": "cornflour"
+        },
+        {
+          "amount": 1,
+          "unit": "tbsp",
+          "name": "olive oil, for spraying"
+        }
+      ],
+      "steps": [
+        {
+          "title": "Marinate",
+          "text": "Mix curd, lemon, chilli powder, garam masala, garlic powder, pepper and salt. Coat the chicken and refrigerate at least 30 minutes.",
+          "timer_seconds": 1800
+        },
+        {
+          "title": "Toast the panko",
+          "text": "Dry pan, medium-low heat, stir continuously 4-5 minutes to pale sand colour. Tip onto a cold plate.",
+          "timer_seconds": 300
+        },
+        {
+          "title": "Set up the coating",
+          "text": "Mix cooled panko with cornflour and a pinch of salt. Beat the egg and whites together."
+        },
+        {
+          "title": "Bread",
+          "text": "Egg first, then press firmly into the panko."
+        },
+        {
+          "title": "Preheat",
+          "text": "Air fryer at 190°C for 3-4 minutes.",
+          "timer_seconds": 240
+        },
+        {
+          "title": "First cook",
+          "text": "Single layer, spray with half the oil, 10 minutes at 190°C.",
+          "timer_seconds": 600
+        },
+        {
+          "title": "Flip and finish",
+          "text": "Flip, spray, 5-7 more minutes until golden and 74°C inside.",
+          "timer_seconds": 360
+        },
+        {
+          "title": "Rest",
+          "text": "Rest 2-3 minutes so the crust firms up.",
+          "timer_seconds": 180
+        }
+      ],
+      "notes": "With thighs: ~440 kcal per serving and more forgiving if you overshoot the timing. Full plate with 200g garlic-herb wedges: ~590 kcal, 50g protein.",
+      "pairs_with": [
+        "garlic-herb-wedges",
+        "kachumber-salad",
+        "garlic-yogurt-dip"
+      ]
+    },
+    {
+      "seed_key": "bihari-village-chicken",
+      "title": "Bihari Village Chicken",
+      "source": "yours",
+      "servings": 6,
+      "cooked_yield_g": 1400,
+      "total_time_min": 100,
+      "tags": [
+        "high-protein",
+        "chicken",
+        "curry",
+        "meal-prep",
+        "meal"
+      ],
+      "per_serving": {
+        "calories": 390,
+        "protein_g": 38,
+        "carbs_g": 9,
+        "fat_g": 23,
+        "fiber_g": 2,
+        "sugar_g": 4
+      },
+      "ingredients": [
+        {
+          "amount": 1000,
+          "unit": "g",
+          "name": "chicken, curry cut with bone",
+          "main_ingredient": true
+        },
+        {
+          "amount": 4,
+          "unit": "tbsp",
+          "name": "mustard oil"
+        },
+        {
+          "amount": 4,
+          "unit": "count",
+          "name": "onions, thinly sliced"
+        },
+        {
+          "amount": 2,
+          "unit": "count",
+          "name": "tomatoes, chopped"
+        },
+        {
+          "amount": 2,
+          "unit": "tbsp",
+          "name": "ginger-garlic paste"
+        },
+        {
+          "amount": 4,
+          "unit": "count",
+          "name": "green chillies, slit"
+        },
+        {
+          "amount": 3,
+          "unit": "tbsp",
+          "name": "curd (for the marinade)"
+        },
+        {
+          "amount": 1,
+          "unit": "tsp",
+          "name": "turmeric"
+        },
+        {
+          "amount": 1,
+          "unit": "tsp",
+          "name": "red chilli powder"
+        },
+        {
+          "amount": 2,
+          "unit": "tsp",
+          "name": "coriander powder"
+        },
+        {
+          "amount": 1,
+          "unit": "tsp",
+          "name": "cumin powder"
+        },
+        {
+          "amount": 1,
+          "unit": "tsp",
+          "name": "garam masala"
+        },
+        {
+          "amount": 1,
+          "unit": "count",
+          "name": "bay leaf"
+        },
+        {
+          "amount": 4,
+          "unit": "count",
+          "name": "green cardamom pods"
+        },
+        {
+          "amount": 4,
+          "unit": "count",
+          "name": "cloves"
+        },
+        {
+          "amount": 1,
+          "unit": "count",
+          "name": "cinnamon stick (2 inch)"
+        },
+        {
+          "amount": 1,
+          "unit": "tsp",
+          "name": "cumin seeds"
+        },
+        {
+          "amount": 2,
+          "unit": "count",
+          "name": "dried red chillies"
+        },
+        {
+          "amount": 1.5,
+          "unit": "tsp",
+          "name": "salt"
+        },
+        {
+          "amount": 2,
+          "unit": "cup",
+          "name": "hot water"
+        },
+        {
+          "amount": 3,
+          "unit": "tbsp",
+          "name": "coriander leaves, chopped"
+        }
+      ],
+      "steps": [
+        {
+          "title": "Marinate",
+          "text": "Mix the chicken with curd, half the turmeric, half the chilli powder, ginger-garlic paste and 1 tsp salt. Rest 30 minutes.",
+          "timer_seconds": 1800
+        },
+        {
+          "title": "Smoke the mustard oil",
+          "text": "Heat the oil until it just starts to smoke, lower the heat and let it settle for 30 seconds. Skipping this makes the curry bitter.",
+          "timer_seconds": 120
+        },
+        {
+          "title": "Bloom whole spices",
+          "text": "Add bay leaf, cardamom, cloves, cinnamon, cumin seeds and dried chillies. Fry 30-40 seconds.",
+          "timer_seconds": 40
+        },
+        {
+          "title": "Brown the onions",
+          "text": "Cook the onions on medium, stirring often, 12-15 minutes (15-18 in a handi) until deep golden brown. Add green chillies for the last 2 minutes. This stage makes the dish.",
+          "timer_seconds": 840
+        },
+        {
+          "title": "Cook the masala",
+          "text": "Add tomatoes and the remaining turmeric, chilli, coriander and cumin powder. Cook 6-8 minutes until oil separates at the edges.",
+          "timer_seconds": 420
+        },
+        {
+          "title": "Bhuno the chicken",
+          "text": "Add the chicken and remaining salt. Fry on high 8-10 minutes, scraping the pan sides back in, until the masala clings.",
+          "timer_seconds": 540
+        },
+        {
+          "title": "Simmer",
+          "text": "Add the hot water, boil, then cover and simmer on low 20-25 minutes. Country chicken needs 40-45.",
+          "timer_seconds": 1440
+        },
+        {
+          "title": "Finish",
+          "text": "Sprinkle garam masala, reduce uncovered 2-3 minutes. Rest 10 minutes, then add coriander.",
+          "timer_seconds": 180
+        }
+      ],
+      "notes": "Chilli powder is set to 1 tsp — your first batch with 2 tsp came out too hot. If it's still too spicy, whisk 3-4 tbsp curd in off the heat. Per 100g finished: ~167 kcal, 16g protein. Cook it in a kadhai or big handi, not a pressure cooker.",
+      "pairs_with": [
+        "palak-moong-dal",
+        "kachumber-salad"
+      ]
+    },
+    {
+      "seed_key": "iffa-chicken",
+      "title": "Iffa Chicken (High-Protein Creamy Chicken)",
+      "source": "yours",
+      "servings": 3,
+      "cooked_yield_g": 650,
+      "total_time_min": 80,
+      "tags": [
+        "high-protein",
+        "chicken",
+        "curry",
+        "meal"
+      ],
+      "per_serving": {
+        "calories": 335,
+        "protein_g": 40,
+        "carbs_g": 2,
+        "fat_g": 18,
+        "fiber_g": 0.5,
+        "sugar_g": 1.5
+      },
+      "ingredients": [
+        {
+          "amount": 550,
+          "unit": "g",
+          "name": "boneless chicken thighs (or breast)",
+          "main_ingredient": true
+        },
+        {
+          "amount": 7,
+          "unit": "tbsp",
+          "name": "low-fat curd, whisked"
+        },
+        {
+          "amount": 1,
+          "unit": "tbsp",
+          "name": "ginger-garlic paste"
+        },
+        {
+          "amount": 1,
+          "unit": "tsp",
+          "name": "Kashmiri chilli powder"
+        },
+        {
+          "amount": 0.25,
+          "unit": "tsp",
+          "name": "turmeric"
+        },
+        {
+          "amount": 1,
+          "unit": "tsp",
+          "name": "coriander powder"
+        },
+        {
+          "amount": 0.5,
+          "unit": "tsp",
+          "name": "pepper powder"
+        },
+        {
+          "amount": 0.5,
+          "unit": "tsp",
+          "name": "garam masala"
+        },
+        {
+          "amount": 1,
+          "unit": "tsp",
+          "name": "vinegar (marinade)"
+        },
+        {
+          "amount": 1,
+          "unit": "tsp",
+          "name": "salt"
+        },
+        {
+          "amount": 2,
+          "unit": "count",
+          "name": "boiled egg whites"
+        },
+        {
+          "amount": 1.25,
+          "unit": "count",
+          "name": "low-fat cheese slices"
+        },
+        {
+          "amount": 4,
+          "unit": "tbsp",
+          "name": "skim milk"
+        },
+        {
+          "amount": 1,
+          "unit": "tsp",
+          "name": "vinegar (sauce)"
+        },
+        {
+          "amount": 2,
+          "unit": "count",
+          "name": "garlic cloves"
+        },
+        {
+          "amount": 0.5,
+          "unit": "tsp",
+          "name": "sugar (optional)"
+        },
+        {
+          "amount": 1,
+          "unit": "tsp",
+          "name": "oil, for spraying"
+        },
+        {
+          "amount": 3,
+          "unit": "tbsp",
+          "name": "coriander leaves, chopped"
+        }
+      ],
+      "steps": [
+        {
+          "title": "Marinate",
+          "text": "Mix curd, ginger-garlic paste, chilli powder, turmeric, coriander, pepper, garam masala, vinegar and salt. Coat the chicken. At least 1 hour, overnight is better.",
+          "timer_seconds": 3600
+        },
+        {
+          "title": "Make the white sauce",
+          "text": "Blend egg whites, cheese, skim milk, vinegar, garlic, a pinch of salt and the sugar until smooth and slightly tangy."
+        },
+        {
+          "title": "Sear",
+          "text": "Spray a nonstick pan with oil. Cook the chicken on medium-high 4-5 minutes per side until golden.",
+          "timer_seconds": 540
+        },
+        {
+          "title": "Cook through",
+          "text": "Lower the heat, cover, and cook 4-5 minutes until the masala thickens.",
+          "timer_seconds": 300
+        },
+        {
+          "title": "Add the sauce",
+          "text": "Pour the white sauce over, cover and cook on low 2-3 minutes.",
+          "timer_seconds": 180
+        },
+        {
+          "title": "Finish",
+          "text": "Garnish with coriander."
+        }
+      ],
+      "notes": "The best protein-per-calorie ratio of your curries — the blended egg-white-and-cheese sauce replaces cream. With breast: ~275 kcal, 45g protein per serving; the sauce keeps breast moist here. No fibre — serve with vegetables.",
+      "pairs_with": [
+        "kachumber-salad",
+        "palak-moong-dal"
+      ]
+    },
+    {
+      "seed_key": "lighter-chicken-sukka",
+      "title": "Chicken Sukka (Lighter Version)",
+      "source": "yours",
+      "servings": 4,
+      "cooked_yield_g": 850,
+      "total_time_min": 70,
+      "tags": [
+        "chicken",
+        "curry",
+        "meal"
+      ],
+      "per_serving": {
+        "calories": 395,
+        "protein_g": 34,
+        "carbs_g": 14,
+        "fat_g": 22,
+        "fiber_g": 4,
+        "sugar_g": 3
+      },
+      "ingredients": [
+        {
+          "amount": 700,
+          "unit": "g",
+          "name": "chicken thighs, curry cut",
+          "main_ingredient": true
+        },
+        {
+          "amount": 0.5,
+          "unit": "tsp",
+          "name": "turmeric (marinade)"
+        },
+        {
+          "amount": 1,
+          "unit": "tsp",
+          "name": "oil (marinade)"
+        },
+        {
+          "amount": 1,
+          "unit": "tsp",
+          "name": "salt (marinade)"
+        },
+        {
+          "amount": 2,
+          "unit": "tbsp",
+          "name": "coriander seeds"
+        },
+        {
+          "amount": 1,
+          "unit": "tbsp",
+          "name": "cumin seeds"
+        },
+        {
+          "amount": 0.5,
+          "unit": "tsp",
+          "name": "fenugreek seeds"
+        },
+        {
+          "amount": 1,
+          "unit": "tbsp",
+          "name": "black peppercorns"
+        },
+        {
+          "amount": 1,
+          "unit": "count",
+          "name": "cinnamon stick (1½ inch)"
+        },
+        {
+          "amount": 6,
+          "unit": "count",
+          "name": "cloves"
+        },
+        {
+          "amount": 6,
+          "unit": "count",
+          "name": "Kashmiri dry red chillies"
+        },
+        {
+          "amount": 3,
+          "unit": "count",
+          "name": "regular dry red chillies"
+        },
+        {
+          "amount": 5,
+          "unit": "count",
+          "name": "garlic cloves"
+        },
+        {
+          "amount": 2,
+          "unit": "count",
+          "name": "inch ginger, chopped"
+        },
+        {
+          "amount": 10,
+          "unit": "count",
+          "name": "curry leaves (for the masala)"
+        },
+        {
+          "amount": 0.5,
+          "unit": "cup",
+          "name": "desiccated coconut"
+        },
+        {
+          "amount": 1,
+          "unit": "tbsp",
+          "name": "ghee"
+        },
+        {
+          "amount": 2,
+          "unit": "count",
+          "name": "onions, sliced"
+        },
+        {
+          "amount": 2,
+          "unit": "count",
+          "name": "sprigs curry leaves"
+        },
+        {
+          "amount": 0.5,
+          "unit": "tbsp",
+          "name": "salt"
+        },
+        {
+          "amount": 3,
+          "unit": "tbsp",
+          "name": "tamarind pulp"
+        },
+        {
+          "amount": 0.5,
+          "unit": "cup",
+          "name": "water"
+        }
+      ],
+      "steps": [
+        {
+          "title": "Marinate",
+          "text": "Mix the chicken with turmeric, oil and salt. Rest 15-20 minutes.",
+          "timer_seconds": 1200
+        },
+        {
+          "title": "Make the masala",
+          "text": "Lightly roast coriander, cumin, fenugreek, pepper, cinnamon, cloves, chillies, garlic, ginger and curry leaves with a few drops of oil. Grind smooth with a splash of water."
+        },
+        {
+          "title": "Roast the coconut",
+          "text": "In the same pan, dry-roast the coconut on high until lightly golden. Stir constantly — it burns fast."
+        },
+        {
+          "title": "Onions",
+          "text": "Heat ghee, sauté onions 3 minutes, add curry leaves for 2 more, then the salt, and cook until golden brown."
+        },
+        {
+          "title": "Sear the chicken",
+          "text": "Add the chicken and cook on high 5-7 minutes.",
+          "timer_seconds": 420
+        },
+        {
+          "title": "Add masala and coconut",
+          "text": "Stir in the masala paste, cook 5 minutes, then mix in the roasted coconut.",
+          "timer_seconds": 300
+        },
+        {
+          "title": "Simmer",
+          "text": "Add the water, cover and cook on medium 15 minutes until tender.",
+          "timer_seconds": 900
+        },
+        {
+          "title": "Finish",
+          "text": "Stir in tamarind pulp and a few fresh curry leaves."
+        }
+      ],
+      "notes": "Lightened from the Instagram original (1 cup coconut, 2 tbsp ghee ≈ 495 kcal per serving). Coconut and ghee are where the calories hide in this dish — resist adding them back.",
+      "pairs_with": [
+        "kachumber-salad",
+        "palak-moong-dal"
+      ]
+    },
+    {
+      "seed_key": "kimchi",
+      "title": "Homemade Kimchi",
+      "source": "yours",
+      "servings": 10,
+      "cooked_yield_g": 800,
+      "total_time_min": 240,
+      "tags": [
+        "side",
+        "high-fibre",
+        "vegetarian",
+        "meal-prep"
+      ],
+      "per_serving": {
+        "calories": 20,
+        "protein_g": 1,
+        "carbs_g": 4,
+        "fat_g": 0,
+        "fiber_g": 2,
+        "sugar_g": 2
+      },
+      "ingredients": [
+        {
+          "amount": 1,
+          "unit": "count",
+          "name": "large napa cabbage (about 1kg)",
+          "main_ingredient": true
+        },
+        {
+          "amount": 0.5,
+          "unit": "cup",
+          "name": "coarse sea salt or rock salt (not iodised)"
+        },
+        {
+          "amount": 1,
+          "unit": "cup",
+          "name": "radish, julienned"
+        },
+        {
+          "amount": 4,
+          "unit": "count",
+          "name": "spring onion stalks, 4cm pieces"
+        },
+        {
+          "amount": 2,
+          "unit": "tbsp",
+          "name": "ginger-garlic paste"
+        },
+        {
+          "amount": 4,
+          "unit": "tbsp",
+          "name": "gochugaru (Korean chilli flakes)"
+        },
+        {
+          "amount": 1,
+          "unit": "tbsp",
+          "name": "sugar"
+        },
+        {
+          "amount": 2,
+          "unit": "tbsp",
+          "name": "fish sauce (or soy sauce)"
+        },
+        {
+          "amount": 2,
+          "unit": "tbsp",
+          "name": "rice flour or plain flour"
+        },
+        {
+          "amount": 1,
+          "unit": "cup",
+          "name": "water (for the paste)"
+        }
+      ],
+      "steps": [
+        {
+          "title": "Salt the cabbage",
+          "text": "Quarter lengthwise, chop into 4-5cm pieces, rinse, then layer with the salt in a big bowl."
+        },
+        {
+          "title": "Wilt",
+          "text": "Leave 2 hours, turning every 30 minutes, until a leaf bends without snapping.",
+          "timer_seconds": 7200
+        },
+        {
+          "title": "Rinse and drain",
+          "text": "Rinse 3 times in cold water, then drain 20 minutes. Squeeze gently.",
+          "timer_seconds": 1200
+        },
+        {
+          "title": "Flour paste",
+          "text": "Whisk flour into the water, cook on medium 3-4 minutes to a thin porridge. Cool completely.",
+          "timer_seconds": 240
+        },
+        {
+          "title": "Seasoning",
+          "text": "Mix the cooled paste with ginger-garlic paste, gochugaru, sugar and fish sauce."
+        },
+        {
+          "title": "Combine",
+          "text": "Wearing gloves, massage the seasoning into the cabbage, radish and spring onions."
+        },
+        {
+          "title": "Pack",
+          "text": "Press tightly into a clean glass jar so the brine rises above the vegetables. Leave 3-4cm headspace."
+        },
+        {
+          "title": "Ferment",
+          "text": "Room temperature for about 1 day in Bengaluru, pressing down daily. Bubbling and sour smell means it's ready.",
+          "timer_seconds": 86400
+        },
+        {
+          "title": "Refrigerate",
+          "text": "Keeps 2-3 months. Best after a week."
+        }
+      ],
+      "notes": "Gochugaru can't be swapped for Indian chilli powder — it turns harsh and bitter. Always serve with a clean spoon. Discard if it smells rotten rather than sour, or grows fuzzy mould. One serving is about 80g.",
+      "pairs_with": [
+        "korean-chicken-popcorn"
+      ]
+    },
+    {
+      "seed_key": "standard-breakfast-oats",
+      "title": "Standard Breakfast (Overnight Oats)",
+      "source": "yours",
+      "servings": 1,
+      "cooked_yield_g": 440,
+      "total_time_min": 5,
+      "tags": [
+        "breakfast",
+        "high-fibre",
+        "vegetarian",
+        "meal-prep"
+      ],
+      "per_serving": {
+        "calories": 480,
+        "protein_g": 34,
+        "carbs_g": 66,
+        "fat_g": 11,
+        "fiber_g": 11,
+        "sugar_g": 28
+      },
+      "ingredients": [
+        {
+          "amount": 40,
+          "unit": "g",
+          "name": "rolled oats",
+          "main_ingredient": true
+        },
+        {
+          "amount": 1,
+          "unit": "tbsp",
+          "name": "honey"
+        },
+        {
+          "amount": 1,
+          "unit": "tbsp",
+          "name": "chia seeds"
+        },
+        {
+          "amount": 2,
+          "unit": "tbsp",
+          "name": "Greek yogurt"
+        },
+        {
+          "amount": 24,
+          "unit": "g",
+          "name": "whey protein (1 scoop)"
+        },
+        {
+          "amount": 1,
+          "unit": "cup",
+          "name": "unsweetened almond milk"
+        },
+        {
+          "amount": 0.5,
+          "unit": "cup",
+          "name": "blueberries"
+        }
+      ],
+      "steps": [
+        {
+          "title": "Mix",
+          "text": "Stir oats, chia and whey into the almond milk until there are no lumps."
+        },
+        {
+          "title": "Add the rest",
+          "text": "Stir in yogurt and honey. Top with blueberries."
+        },
+        {
+          "title": "Chill",
+          "text": "Refrigerate overnight, at least 6 hours."
+        }
+      ],
+      "notes": "Macros exclude what you usually have alongside: 2 boiled eggs + 100g egg whites (~208 kcal, 24g protein) and the pre-workout banana (~105 kcal). Honey is most of the sugar — halving it saves ~8g sugar.",
+      "pairs_with": []
+    },
+    {
+      "seed_key": "garlic-yogurt-dip",
+      "title": "Garlic Greek Yogurt Dip",
+      "source": "yours",
+      "servings": 2,
+      "cooked_yield_g": 65,
+      "total_time_min": 12,
+      "tags": [
+        "dip",
+        "vegetarian",
+        "high-protein"
+      ],
+      "per_serving": {
+        "calories": 35,
+        "protein_g": 5,
+        "carbs_g": 2.5,
+        "fat_g": 0.2,
+        "fiber_g": 0,
+        "sugar_g": 2
+      },
+      "ingredients": [
+        {
+          "amount": 4,
+          "unit": "tbsp",
+          "name": "Greek yogurt",
+          "main_ingredient": true
+        },
+        {
+          "amount": 0.5,
+          "unit": "tsp",
+          "name": "garlic powder (or 1 small grated clove)"
+        },
+        {
+          "amount": 1,
+          "unit": "pinch",
+          "name": "salt"
+        },
+        {
+          "amount": 1,
+          "unit": "tsp",
+          "name": "lemon juice"
+        },
+        {
+          "amount": 0.25,
+          "unit": "tsp",
+          "name": "black pepper"
+        },
+        {
+          "amount": 1,
+          "unit": "tbsp",
+          "name": "coriander or mint, chopped (optional)"
+        }
+      ],
+      "steps": [
+        {
+          "title": "Whisk",
+          "text": "Whisk everything together until smooth."
+        },
+        {
+          "title": "Rest",
+          "text": "Rest 10 minutes so the garlic flavour develops.",
+          "timer_seconds": 600
+        }
+      ],
+      "notes": "Spicy version: add 1 tsp gochujang or sriracha (+10 kcal). A fraction of mayo's calories, with protein instead of fat.",
+      "pairs_with": [
+        "korean-chicken-popcorn",
+        "garlic-herb-wedges"
+      ]
+    },
+    {
+      "seed_key": "mint-curd-chutney",
+      "title": "Mint Curd Chutney",
+      "source": "yours",
+      "servings": 2,
+      "cooked_yield_g": 90,
+      "total_time_min": 5,
+      "tags": [
+        "dip",
+        "vegetarian"
+      ],
+      "per_serving": {
+        "calories": 30,
+        "protein_g": 2,
+        "carbs_g": 2.5,
+        "fat_g": 1.5,
+        "fiber_g": 0.5,
+        "sugar_g": 2
+      },
+      "ingredients": [
+        {
+          "amount": 4,
+          "unit": "tbsp",
+          "name": "curd",
+          "main_ingredient": true
+        },
+        {
+          "amount": 0.5,
+          "unit": "cup",
+          "name": "mint leaves"
+        },
+        {
+          "amount": 0.25,
+          "unit": "cup",
+          "name": "coriander leaves"
+        },
+        {
+          "amount": 1,
+          "unit": "count",
+          "name": "small green chilli (optional)"
+        },
+        {
+          "amount": 1,
+          "unit": "tsp",
+          "name": "lemon juice"
+        },
+        {
+          "amount": 0.25,
+          "unit": "tsp",
+          "name": "roasted cumin powder"
+        },
+        {
+          "amount": 1,
+          "unit": "pinch",
+          "name": "salt"
+        }
+      ],
+      "steps": [
+        {
+          "title": "Blitz",
+          "text": "Blend mint, coriander, chilli and lemon with 1 tbsp water to a paste."
+        },
+        {
+          "title": "Mix",
+          "text": "Whisk the paste into the curd with cumin and salt."
+        }
+      ],
+      "notes": "Goes with anything tandoori.",
+      "pairs_with": [
+        "air-fryer-tandoori-tikka",
+        "air-fryer-fish-tikka",
+        "air-fryer-paneer-tikka"
+      ]
+    },
+    {
+      "seed_key": "air-fryer-tandoori-tikka",
+      "title": "Air Fryer Tandoori Chicken Tikka",
+      "source": "new",
+      "servings": 3,
+      "cooked_yield_g": 520,
+      "total_time_min": 140,
+      "tags": [
+        "high-protein",
+        "air-fryer",
+        "chicken",
+        "meal",
+        "meal-prep"
+      ],
+      "per_serving": {
+        "calories": 295,
+        "protein_g": 41,
+        "carbs_g": 7,
+        "fat_g": 10,
+        "fiber_g": 1.5,
+        "sugar_g": 3
+      },
+      "ingredients": [
+        {
+          "amount": 500,
+          "unit": "g",
+          "name": "chicken breast, 4cm cubes",
+          "main_ingredient": true
+        },
+        {
+          "amount": 6,
+          "unit": "tbsp",
+          "name": "hung curd or Greek yogurt"
+        },
+        {
+          "amount": 1,
+          "unit": "tbsp",
+          "name": "ginger-garlic paste"
+        },
+        {
+          "amount": 1.5,
+          "unit": "tsp",
+          "name": "Kashmiri chilli powder"
+        },
+        {
+          "amount": 1,
+          "unit": "tsp",
+          "name": "garam masala"
+        },
+        {
+          "amount": 1,
+          "unit": "tsp",
+          "name": "cumin powder"
+        },
+        {
+          "amount": 1,
+          "unit": "tsp",
+          "name": "coriander powder"
+        },
+        {
+          "amount": 0.5,
+          "unit": "tsp",
+          "name": "turmeric"
+        },
+        {
+          "amount": 1,
+          "unit": "tsp",
+          "name": "kasuri methi, crushed"
+        },
+        {
+          "amount": 1,
+          "unit": "tbsp",
+          "name": "lemon juice"
+        },
+        {
+          "amount": 1,
+          "unit": "tbsp",
+          "name": "mustard oil"
+        },
+        {
+          "amount": 1,
+          "unit": "tsp",
+          "name": "salt"
+        },
+        {
+          "amount": 1,
+          "unit": "count",
+          "name": "onion, cut into petals"
+        },
+        {
+          "amount": 1,
+          "unit": "count",
+          "name": "capsicum, cut into chunks"
+        }
+      ],
+      "steps": [
+        {
+          "title": "Marinate",
+          "text": "Mix everything except the onion and capsicum, coat the chicken, and marinate at least 2 hours — overnight is better.",
+          "timer_seconds": 7200
+        },
+        {
+          "title": "Add the vegetables",
+          "text": "Toss the onion and capsicum into the marinade for the last 10 minutes.",
+          "timer_seconds": 600
+        },
+        {
+          "title": "Preheat",
+          "text": "Air fryer at 200°C for 3 minutes.",
+          "timer_seconds": 180
+        },
+        {
+          "title": "First cook",
+          "text": "Chicken and vegetables in a single layer, 10 minutes.",
+          "timer_seconds": 600
+        },
+        {
+          "title": "Finish",
+          "text": "Flip and cook 6-8 minutes until the edges char and the inside hits 74°C.",
+          "timer_seconds": 420
+        },
+        {
+          "title": "Serve",
+          "text": "Sprinkle chaat masala and squeeze lemon over."
+        }
+      ],
+      "notes": "One of the best protein-per-calorie options here. Hung curd matters: strain regular curd in a muslin cloth for 2 hours — thin curd makes the tikka soggy. Makes a great wrap filling.",
+      "pairs_with": [
+        "mint-curd-chutney",
+        "kachumber-salad",
+        "chicken-tikka-wrap"
+      ]
+    },
+    {
+      "seed_key": "garlic-pepper-prawns",
+      "title": "Garlic Pepper Prawns",
+      "source": "new",
+      "servings": 2,
+      "cooked_yield_g": 320,
+      "total_time_min": 20,
+      "tags": [
+        "high-protein",
+        "seafood",
+        "quick",
+        "meal"
+      ],
+      "per_serving": {
+        "calories": 250,
+        "protein_g": 41,
+        "carbs_g": 4,
+        "fat_g": 8,
+        "fiber_g": 0.5,
+        "sugar_g": 1
+      },
+      "ingredients": [
+        {
+          "amount": 400,
+          "unit": "g",
+          "name": "prawns, cleaned and deveined",
+          "main_ingredient": true
+        },
+        {
+          "amount": 8,
+          "unit": "count",
+          "name": "garlic cloves, finely chopped"
+        },
+        {
+          "amount": 1,
+          "unit": "tsp",
+          "name": "black pepper, coarsely crushed"
+        },
+        {
+          "amount": 0.5,
+          "unit": "tsp",
+          "name": "red chilli flakes (optional)"
+        },
+        {
+          "amount": 0.25,
+          "unit": "tsp",
+          "name": "turmeric"
+        },
+        {
+          "amount": 0.75,
+          "unit": "tsp",
+          "name": "salt"
+        },
+        {
+          "amount": 2,
+          "unit": "tsp",
+          "name": "olive oil"
+        },
+        {
+          "amount": 1,
+          "unit": "tsp",
+          "name": "butter"
+        },
+        {
+          "amount": 10,
+          "unit": "count",
+          "name": "curry leaves"
+        },
+        {
+          "amount": 1,
+          "unit": "tbsp",
+          "name": "lemon juice"
+        },
+        {
+          "amount": 2,
+          "unit": "tbsp",
+          "name": "coriander leaves, chopped"
+        }
+      ],
+      "steps": [
+        {
+          "title": "Season",
+          "text": "Toss the prawns with turmeric, half the pepper and the salt. Rest 10 minutes.",
+          "timer_seconds": 600
+        },
+        {
+          "title": "Garlic",
+          "text": "Heat oil and butter on medium. Fry garlic and curry leaves about 1 minute until pale gold — not brown.",
+          "timer_seconds": 60
+        },
+        {
+          "title": "Sear",
+          "text": "Turn heat to high, add prawns in a single layer, 2 minutes per side. They're done when they curl into a C; an O means overcooked.",
+          "timer_seconds": 240
+        },
+        {
+          "title": "Finish",
+          "text": "Add the rest of the pepper, chilli flakes, lemon and coriander. Serve immediately."
+        }
+      ],
+      "notes": "Air fryer version: 200°C for 6-7 minutes, then toss in the garlic butter. Prawns overcook fast — take them off a touch early.",
+      "pairs_with": [
+        "kachumber-salad",
+        "palak-moong-dal"
+      ]
+    },
+    {
+      "seed_key": "air-fryer-fish-tikka",
+      "title": "Air Fryer Fish Tikka",
+      "source": "new",
+      "servings": 3,
+      "cooked_yield_g": 430,
+      "total_time_min": 55,
+      "tags": [
+        "high-protein",
+        "air-fryer",
+        "seafood",
+        "meal"
+      ],
+      "per_serving": {
+        "calories": 210,
+        "protein_g": 27,
+        "carbs_g": 4,
+        "fat_g": 8,
+        "fiber_g": 1,
+        "sugar_g": 1
+      },
+      "ingredients": [
+        {
+          "amount": 500,
+          "unit": "g",
+          "name": "basa or rohu fillets, 5cm pieces",
+          "main_ingredient": true
+        },
+        {
+          "amount": 4,
+          "unit": "tbsp",
+          "name": "thick curd"
+        },
+        {
+          "amount": 1,
+          "unit": "tbsp",
+          "name": "besan (gram flour)"
+        },
+        {
+          "amount": 1,
+          "unit": "tbsp",
+          "name": "ginger-garlic paste"
+        },
+        {
+          "amount": 1,
+          "unit": "tsp",
+          "name": "Kashmiri chilli powder"
+        },
+        {
+          "amount": 0.5,
+          "unit": "tsp",
+          "name": "turmeric"
+        },
+        {
+          "amount": 0.5,
+          "unit": "tsp",
+          "name": "ajwain (carom seeds)"
+        },
+        {
+          "amount": 0.5,
+          "unit": "tsp",
+          "name": "garam masala"
+        },
+        {
+          "amount": 1,
+          "unit": "tbsp",
+          "name": "lemon juice"
+        },
+        {
+          "amount": 2,
+          "unit": "tsp",
+          "name": "mustard oil"
+        },
+        {
+          "amount": 0.75,
+          "unit": "tsp",
+          "name": "salt"
+        }
+      ],
+      "steps": [
+        {
+          "title": "Prep the fish",
+          "text": "Pat the fish dry, rub with lemon and salt, rest 10 minutes.",
+          "timer_seconds": 600
+        },
+        {
+          "title": "Roast the besan",
+          "text": "Dry-roast the besan 1 minute until nutty.",
+          "timer_seconds": 60
+        },
+        {
+          "title": "Marinate",
+          "text": "Mix besan with the curd, spices and oil. Coat the fish gently and rest 30 minutes.",
+          "timer_seconds": 1800
+        },
+        {
+          "title": "Preheat",
+          "text": "Air fryer at 200°C. Line the basket with lightly oiled foil or parchment — fish sticks.",
+          "timer_seconds": 180
+        },
+        {
+          "title": "Cook",
+          "text": "8 minutes, turn gently once, then 4-5 more until it flakes.",
+          "timer_seconds": 780
+        },
+        {
+          "title": "Serve",
+          "text": "Chaat masala and a squeeze of lemon."
+        }
+      ],
+      "notes": "Flip only once — fish is delicate. Basa is the leanest protein you regularly eat.",
+      "pairs_with": [
+        "mint-curd-chutney",
+        "kachumber-salad"
+      ]
+    },
+    {
+      "seed_key": "chicken-keema-matar",
+      "title": "Chicken Keema Matar",
+      "source": "new",
+      "servings": 4,
+      "cooked_yield_g": 900,
+      "total_time_min": 40,
+      "tags": [
+        "high-protein",
+        "chicken",
+        "high-fibre",
+        "meal-prep",
+        "meal"
+      ],
+      "per_serving": {
+        "calories": 255,
+        "protein_g": 30,
+        "carbs_g": 14,
+        "fat_g": 7,
+        "fiber_g": 4,
+        "sugar_g": 4
+      },
+      "ingredients": [
+        {
+          "amount": 500,
+          "unit": "g",
+          "name": "chicken breast mince",
+          "main_ingredient": true
+        },
+        {
+          "amount": 1,
+          "unit": "cup",
+          "name": "green peas (frozen is fine)"
+        },
+        {
+          "amount": 2,
+          "unit": "count",
+          "name": "onions, finely chopped"
+        },
+        {
+          "amount": 2,
+          "unit": "count",
+          "name": "tomatoes, finely chopped"
+        },
+        {
+          "amount": 1,
+          "unit": "tbsp",
+          "name": "ginger-garlic paste"
+        },
+        {
+          "amount": 2,
+          "unit": "count",
+          "name": "green chillies, chopped"
+        },
+        {
+          "amount": 1,
+          "unit": "tbsp",
+          "name": "oil"
+        },
+        {
+          "amount": 1,
+          "unit": "tsp",
+          "name": "cumin seeds"
+        },
+        {
+          "amount": 1,
+          "unit": "count",
+          "name": "bay leaf"
+        },
+        {
+          "amount": 1,
+          "unit": "tsp",
+          "name": "red chilli powder"
+        },
+        {
+          "amount": 1.5,
+          "unit": "tsp",
+          "name": "coriander powder"
+        },
+        {
+          "amount": 0.5,
+          "unit": "tsp",
+          "name": "turmeric"
+        },
+        {
+          "amount": 1,
+          "unit": "tsp",
+          "name": "garam masala"
+        },
+        {
+          "amount": 1,
+          "unit": "tsp",
+          "name": "salt"
+        },
+        {
+          "amount": 0.5,
+          "unit": "cup",
+          "name": "water"
+        },
+        {
+          "amount": 3,
+          "unit": "tbsp",
+          "name": "coriander leaves, chopped"
+        }
+      ],
+      "steps": [
+        {
+          "title": "Temper",
+          "text": "Heat oil, add cumin seeds and bay leaf."
+        },
+        {
+          "title": "Onions",
+          "text": "Cook onions 8-10 minutes until golden.",
+          "timer_seconds": 540
+        },
+        {
+          "title": "Aromatics",
+          "text": "Add ginger-garlic paste and green chillies, 1 minute."
+        },
+        {
+          "title": "Masala",
+          "text": "Add tomatoes and all powders except garam masala. Cook 5-6 minutes until oil separates.",
+          "timer_seconds": 330
+        },
+        {
+          "title": "Keema",
+          "text": "Add the mince on high heat, breaking up lumps, 5-6 minutes until no pink remains.",
+          "timer_seconds": 330
+        },
+        {
+          "title": "Peas",
+          "text": "Add peas and water. Cover and simmer 10 minutes.",
+          "timer_seconds": 600
+        },
+        {
+          "title": "Finish",
+          "text": "Uncover, add garam masala, reduce until thick. Top with coriander."
+        }
+      ],
+      "notes": "Ask the butcher to mince breast only — mixed mince is much fattier. 4g fibre per serving from the peas and vegetables. Freezes well for 3 months.",
+      "pairs_with": [
+        "kachumber-salad"
+      ]
+    },
+    {
+      "seed_key": "palak-moong-dal",
+      "title": "Palak Moong Dal",
+      "source": "new",
+      "servings": 4,
+      "cooked_yield_g": 1200,
+      "total_time_min": 35,
+      "tags": [
+        "high-fibre",
+        "vegetarian",
+        "side",
+        "meal-prep"
+      ],
+      "per_serving": {
+        "calories": 240,
+        "protein_g": 14,
+        "carbs_g": 37,
+        "fat_g": 4,
+        "fiber_g": 6,
+        "sugar_g": 3
+      },
+      "ingredients": [
+        {
+          "amount": 1,
+          "unit": "cup",
+          "name": "yellow moong dal",
+          "main_ingredient": true
+        },
+        {
+          "amount": 3,
+          "unit": "cup",
+          "name": "water (for cooking)"
+        },
+        {
+          "amount": 1,
+          "unit": "count",
+          "name": "bunch spinach, chopped (about 4 cups)"
+        },
+        {
+          "amount": 1,
+          "unit": "count",
+          "name": "onion, chopped"
+        },
+        {
+          "amount": 1,
+          "unit": "count",
+          "name": "tomato, chopped"
+        },
+        {
+          "amount": 1,
+          "unit": "tbsp",
+          "name": "ghee"
+        },
+        {
+          "amount": 1,
+          "unit": "tsp",
+          "name": "cumin seeds"
+        },
+        {
+          "amount": 4,
+          "unit": "count",
+          "name": "garlic cloves, sliced"
+        },
+        {
+          "amount": 2,
+          "unit": "count",
+          "name": "dried red chillies"
+        },
+        {
+          "amount": 0.5,
+          "unit": "tsp",
+          "name": "turmeric"
+        },
+        {
+          "amount": 1,
+          "unit": "tsp",
+          "name": "red chilli powder"
+        },
+        {
+          "amount": 0.25,
+          "unit": "tsp",
+          "name": "hing (asafoetida)"
+        },
+        {
+          "amount": 1,
+          "unit": "tsp",
+          "name": "salt"
+        },
+        {
+          "amount": 1,
+          "unit": "tbsp",
+          "name": "lemon juice"
+        }
+      ],
+      "steps": [
+        {
+          "title": "Pressure cook",
+          "text": "Rinse the dal until the water runs clear. Pressure cook with the water, turmeric and half the salt for 2-3 whistles until soft."
+        },
+        {
+          "title": "Tadka",
+          "text": "Heat ghee, add cumin and garlic until golden, then dried chillies and hing."
+        },
+        {
+          "title": "Onions and tomato",
+          "text": "Add onion for 4-5 minutes, then tomato and chilli powder for 3 minutes.",
+          "timer_seconds": 480
+        },
+        {
+          "title": "Spinach",
+          "text": "Add spinach and let it wilt, about 2 minutes.",
+          "timer_seconds": 120
+        },
+        {
+          "title": "Combine",
+          "text": "Tip in the dal and remaining salt, simmer 5 minutes, adjust water.",
+          "timer_seconds": 300
+        },
+        {
+          "title": "Finish",
+          "text": "Stir in lemon juice."
+        }
+      ],
+      "notes": "6g fibre per serving — pair it with any of the low-fibre chicken dishes to fix the gap in one go.",
+      "pairs_with": [
+        "bihari-village-chicken",
+        "iffa-chicken",
+        "garlic-pepper-prawns"
+      ]
+    },
+    {
+      "seed_key": "egg-white-veggie-bhurji",
+      "title": "Egg White Veggie Bhurji",
+      "source": "new",
+      "servings": 1,
+      "cooked_yield_g": 250,
+      "total_time_min": 15,
+      "tags": [
+        "high-protein",
+        "breakfast",
+        "quick",
+        "vegetarian"
+      ],
+      "per_serving": {
+        "calories": 310,
+        "protein_g": 28,
+        "carbs_g": 13,
+        "fat_g": 15,
+        "fiber_g": 3,
+        "sugar_g": 5
+      },
+      "ingredients": [
+        {
+          "amount": 2,
+          "unit": "count",
+          "name": "whole eggs"
+        },
+        {
+          "amount": 4,
+          "unit": "count",
+          "name": "egg whites"
+        },
+        {
+          "amount": 1,
+          "unit": "count",
+          "name": "small onion, finely chopped"
+        },
+        {
+          "amount": 1,
+          "unit": "count",
+          "name": "small tomato, chopped"
+        },
+        {
+          "amount": 0.25,
+          "unit": "cup",
+          "name": "capsicum, chopped"
+        },
+        {
+          "amount": 0.5,
+          "unit": "cup",
+          "name": "spinach, chopped"
+        },
+        {
+          "amount": 1,
+          "unit": "count",
+          "name": "green chilli, chopped"
+        },
+        {
+          "amount": 0.25,
+          "unit": "tsp",
+          "name": "turmeric"
+        },
+        {
+          "amount": 0.5,
+          "unit": "tsp",
+          "name": "red chilli powder"
+        },
+        {
+          "amount": 0.25,
+          "unit": "tsp",
+          "name": "garam masala"
+        },
+        {
+          "amount": 0.5,
+          "unit": "tsp",
+          "name": "salt"
+        },
+        {
+          "amount": 1,
+          "unit": "tsp",
+          "name": "oil"
+        },
+        {
+          "amount": 1,
+          "unit": "tbsp",
+          "name": "coriander leaves"
+        }
+      ],
+      "steps": [
+        {
+          "title": "Whisk",
+          "text": "Whisk eggs and whites with turmeric and salt."
+        },
+        {
+          "title": "Vegetables",
+          "text": "Heat oil, cook onion 3 minutes, then chilli and capsicum 2 minutes.",
+          "timer_seconds": 300
+        },
+        {
+          "title": "Tomato",
+          "text": "Add tomato and chilli powder, cook 2 minutes until soft. Wilt the spinach in for 30 seconds.",
+          "timer_seconds": 150
+        },
+        {
+          "title": "Eggs",
+          "text": "Lower the heat, pour in the eggs and stir gently until just set in soft curds. Don't let them dry out."
+        },
+        {
+          "title": "Finish",
+          "text": "Garam masala and coriander."
+        }
+      ],
+      "notes": "Regular bhurji runs ~175 kcal per 100g; this is ~125 with roughly twice the protein density.",
+      "pairs_with": []
+    },
+    {
+      "seed_key": "sprouts-chana-chaat",
+      "title": "Sprouts & Chana Chaat",
+      "source": "new",
+      "servings": 1,
+      "cooked_yield_g": 300,
+      "total_time_min": 8,
+      "tags": [
+        "high-fibre",
+        "snack",
+        "vegetarian",
+        "quick"
+      ],
+      "per_serving": {
+        "calories": 230,
+        "protein_g": 15,
+        "carbs_g": 41,
+        "fat_g": 3,
+        "fiber_g": 10,
+        "sugar_g": 7
+      },
+      "ingredients": [
+        {
+          "amount": 1,
+          "unit": "cup",
+          "name": "moong sprouts",
+          "main_ingredient": true
+        },
+        {
+          "amount": 0.5,
+          "unit": "cup",
+          "name": "boiled kala chana"
+        },
+        {
+          "amount": 0.5,
+          "unit": "cup",
+          "name": "cucumber, diced"
+        },
+        {
+          "amount": 1,
+          "unit": "count",
+          "name": "small tomato, diced"
+        },
+        {
+          "amount": 0.25,
+          "unit": "cup",
+          "name": "onion, finely chopped"
+        },
+        {
+          "amount": 1,
+          "unit": "count",
+          "name": "green chilli, chopped (optional)"
+        },
+        {
+          "amount": 1,
+          "unit": "tbsp",
+          "name": "lemon juice"
+        },
+        {
+          "amount": 0.5,
+          "unit": "tsp",
+          "name": "chaat masala"
+        },
+        {
+          "amount": 0.25,
+          "unit": "tsp",
+          "name": "roasted cumin powder"
+        },
+        {
+          "amount": 1,
+          "unit": "pinch",
+          "name": "salt"
+        },
+        {
+          "amount": 2,
+          "unit": "tbsp",
+          "name": "coriander leaves"
+        },
+        {
+          "amount": 1,
+          "unit": "tbsp",
+          "name": "pomegranate seeds (optional)"
+        }
+      ],
+      "steps": [
+        {
+          "title": "Steam",
+          "text": "Steam the sprouts 3-4 minutes, or use raw if very fresh.",
+          "timer_seconds": 210
+        },
+        {
+          "title": "Combine",
+          "text": "Mix the sprouts, chana and vegetables."
+        },
+        {
+          "title": "Dress",
+          "text": "Add lemon, spices and salt right before eating — salt draws water out of the cucumber."
+        }
+      ],
+      "notes": "10g fibre in one bowl — the single easiest fix for your fibre gap, and a far better answer to evening hunger than cashews. Keep boiled chana in the fridge (3-4 days) and this takes 3 minutes.",
+      "pairs_with": []
+    },
+    {
+      "seed_key": "kachumber-salad",
+      "title": "Kachumber Salad",
+      "source": "new",
+      "servings": 2,
+      "cooked_yield_g": 400,
+      "total_time_min": 8,
+      "tags": [
+        "side",
+        "high-fibre",
+        "vegetarian",
+        "quick"
+      ],
+      "per_serving": {
+        "calories": 45,
+        "protein_g": 2,
+        "carbs_g": 9,
+        "fat_g": 0.3,
+        "fiber_g": 2.5,
+        "sugar_g": 5
+      },
+      "ingredients": [
+        {
+          "amount": 1,
+          "unit": "count",
+          "name": "cucumber, diced",
+          "main_ingredient": true
+        },
+        {
+          "amount": 2,
+          "unit": "count",
+          "name": "tomatoes, diced"
+        },
+        {
+          "amount": 1,
+          "unit": "count",
+          "name": "onion, finely chopped"
+        },
+        {
+          "amount": 1,
+          "unit": "count",
+          "name": "green chilli, chopped (optional)"
+        },
+        {
+          "amount": 2,
+          "unit": "tbsp",
+          "name": "coriander leaves"
+        },
+        {
+          "amount": 1,
+          "unit": "tbsp",
+          "name": "lemon juice"
+        },
+        {
+          "amount": 0.5,
+          "unit": "tsp",
+          "name": "chaat masala"
+        },
+        {
+          "amount": 0.25,
+          "unit": "tsp",
+          "name": "salt"
+        },
+        {
+          "amount": 0.25,
+          "unit": "tsp",
+          "name": "black pepper"
+        }
+      ],
+      "steps": [
+        {
+          "title": "Dice",
+          "text": "Dice everything evenly small, about 1cm."
+        },
+        {
+          "title": "Dress",
+          "text": "Combine and dress just before serving."
+        }
+      ],
+      "notes": "The default side for any chicken dish in this collection. ~45 kcal for a proper bowl.",
+      "pairs_with": []
+    },
+    {
+      "seed_key": "chicken-tikka-wrap",
+      "title": "Chicken Tikka Wrap",
+      "source": "new",
+      "servings": 1,
+      "cooked_yield_g": 300,
+      "total_time_min": 5,
+      "tags": [
+        "high-protein",
+        "chicken",
+        "quick",
+        "meal"
+      ],
+      "per_serving": {
+        "calories": 480,
+        "protein_g": 50,
+        "carbs_g": 35,
+        "fat_g": 14,
+        "fiber_g": 4,
+        "sugar_g": 6
+      },
+      "ingredients": [
+        {
+          "amount": 1,
+          "unit": "count",
+          "name": "flour tortilla (medium)",
+          "main_ingredient": true
+        },
+        {
+          "amount": 1,
+          "unit": "serving",
+          "name": "Air Fryer Tandoori Chicken Tikka (about 170g cooked)"
+        },
+        {
+          "amount": 0.5,
+          "unit": "cup",
+          "name": "shredded cabbage or lettuce"
+        },
+        {
+          "amount": 0.25,
+          "unit": "cup",
+          "name": "sliced onion"
+        },
+        {
+          "amount": 2,
+          "unit": "tbsp",
+          "name": "garlic yogurt dip or mint curd chutney"
+        },
+        {
+          "amount": 0.25,
+          "unit": "tsp",
+          "name": "chaat masala"
+        },
+        {
+          "amount": 1,
+          "unit": "tsp",
+          "name": "lemon juice"
+        }
+      ],
+      "steps": [
+        {
+          "title": "Warm",
+          "text": "Warm the tortilla on a dry tawa, 20-30 seconds per side."
+        },
+        {
+          "title": "Build",
+          "text": "Spread the dip, add cabbage and onion, then the tikka. Sprinkle chaat masala and lemon."
+        },
+        {
+          "title": "Roll and seal",
+          "text": "Roll tight, fold the bottom, and toast seam-side down 1 minute.",
+          "timer_seconds": 60
+        }
+      ],
+      "notes": "Uses one serving of the tandoori tikka recipe — make a batch and this becomes a 5-minute lunch. Uses the tortillas you already buy.",
+      "pairs_with": []
+    },
+    {
+      "seed_key": "soya-chunk-masala",
+      "title": "Soya Chunk Masala",
+      "source": "new",
+      "servings": 3,
+      "cooked_yield_g": 750,
+      "total_time_min": 35,
+      "tags": [
+        "high-protein",
+        "high-fibre",
+        "vegetarian",
+        "meal-prep",
+        "meal"
+      ],
+      "per_serving": {
+        "calories": 215,
+        "protein_g": 19,
+        "carbs_g": 23,
+        "fat_g": 5,
+        "fiber_g": 7,
+        "sugar_g": 5
+      },
+      "ingredients": [
+        {
+          "amount": 100,
+          "unit": "g",
+          "name": "soya chunks (dry)",
+          "main_ingredient": true
+        },
+        {
+          "amount": 2,
+          "unit": "count",
+          "name": "onions, chopped"
+        },
+        {
+          "amount": 2,
+          "unit": "count",
+          "name": "tomatoes, pureed"
+        },
+        {
+          "amount": 1,
+          "unit": "tbsp",
+          "name": "ginger-garlic paste"
+        },
+        {
+          "amount": 1,
+          "unit": "tbsp",
+          "name": "oil"
+        },
+        {
+          "amount": 1,
+          "unit": "tsp",
+          "name": "cumin seeds"
+        },
+        {
+          "amount": 1,
+          "unit": "tsp",
+          "name": "red chilli powder"
+        },
+        {
+          "amount": 1.5,
+          "unit": "tsp",
+          "name": "coriander powder"
+        },
+        {
+          "amount": 0.5,
+          "unit": "tsp",
+          "name": "turmeric"
+        },
+        {
+          "amount": 1,
+          "unit": "tsp",
+          "name": "garam masala"
+        },
+        {
+          "amount": 1,
+          "unit": "tsp",
+          "name": "kasuri methi"
+        },
+        {
+          "amount": 1,
+          "unit": "tsp",
+          "name": "salt"
+        },
+        {
+          "amount": 1,
+          "unit": "cup",
+          "name": "water"
+        },
+        {
+          "amount": 2,
+          "unit": "tbsp",
+          "name": "coriander leaves"
+        }
+      ],
+      "steps": [
+        {
+          "title": "Boil the soya",
+          "text": "Boil the chunks in salted water 8-10 minutes.",
+          "timer_seconds": 540
+        },
+        {
+          "title": "Squeeze",
+          "text": "Drain, rinse in cold water, and squeeze out ALL the water. This is what stops it tasting of soya."
+        },
+        {
+          "title": "Onions",
+          "text": "Heat oil, add cumin, then onions for 8 minutes until golden.",
+          "timer_seconds": 480
+        },
+        {
+          "title": "Masala",
+          "text": "Add ginger-garlic paste for 1 minute, then tomato puree and powders for 6-7 minutes until oil separates.",
+          "timer_seconds": 420
+        },
+        {
+          "title": "Fry the soya",
+          "text": "Add the soya and fry 3-4 minutes so it absorbs the masala.",
+          "timer_seconds": 210
+        },
+        {
+          "title": "Simmer",
+          "text": "Add water, cover and simmer 8 minutes.",
+          "timer_seconds": 480
+        },
+        {
+          "title": "Finish",
+          "text": "Garam masala, crushed kasuri methi, coriander."
+        }
+      ],
+      "notes": "The cheapest protein per rupee you can cook, with 7g fibre per serving.",
+      "pairs_with": [
+        "kachumber-salad"
+      ]
+    },
+    {
+      "seed_key": "air-fryer-paneer-tikka",
+      "title": "Air Fryer Paneer Tikka",
+      "source": "new",
+      "servings": 2,
+      "cooked_yield_g": 300,
+      "total_time_min": 50,
+      "tags": [
+        "air-fryer",
+        "vegetarian",
+        "meal"
+      ],
+      "per_serving": {
+        "calories": 250,
+        "protein_g": 23,
+        "carbs_g": 12,
+        "fat_g": 11,
+        "fiber_g": 2,
+        "sugar_g": 5
+      },
+      "ingredients": [
+        {
+          "amount": 200,
+          "unit": "g",
+          "name": "low-fat paneer, 3cm cubes",
+          "main_ingredient": true
+        },
+        {
+          "amount": 3,
+          "unit": "tbsp",
+          "name": "thick curd"
+        },
+        {
+          "amount": 1,
+          "unit": "tbsp",
+          "name": "besan, dry-roasted"
+        },
+        {
+          "amount": 1,
+          "unit": "tsp",
+          "name": "ginger-garlic paste"
+        },
+        {
+          "amount": 1,
+          "unit": "tsp",
+          "name": "Kashmiri chilli powder"
+        },
+        {
+          "amount": 0.5,
+          "unit": "tsp",
+          "name": "garam masala"
+        },
+        {
+          "amount": 0.25,
+          "unit": "tsp",
+          "name": "turmeric"
+        },
+        {
+          "amount": 0.5,
+          "unit": "tsp",
+          "name": "kasuri methi"
+        },
+        {
+          "amount": 0.5,
+          "unit": "tsp",
+          "name": "salt"
+        },
+        {
+          "amount": 1,
+          "unit": "tsp",
+          "name": "lemon juice"
+        },
+        {
+          "amount": 1,
+          "unit": "tsp",
+          "name": "oil"
+        },
+        {
+          "amount": 1,
+          "unit": "count",
+          "name": "capsicum, chunks"
+        },
+        {
+          "amount": 1,
+          "unit": "count",
+          "name": "onion, petals"
+        }
+      ],
+      "steps": [
+        {
+          "title": "Marinate",
+          "text": "Mix everything except the paneer and vegetables. Coat paneer and veg gently, rest 30 minutes.",
+          "timer_seconds": 1800
+        },
+        {
+          "title": "Preheat",
+          "text": "Air fryer at 200°C.",
+          "timer_seconds": 180
+        },
+        {
+          "title": "Cook",
+          "text": "8 minutes, turn, then 4-5 more until charred at the edges.",
+          "timer_seconds": 780
+        },
+        {
+          "title": "Serve",
+          "text": "Chaat masala over the top."
+        }
+      ],
+      "notes": "Regular paneer adds ~80 kcal and 11g fat per serving. Handle gently — paneer breaks if you stir hard.",
+      "pairs_with": [
+        "mint-curd-chutney",
+        "kachumber-salad"
+      ]
+    },
+    {
+      "seed_key": "light-kerala-fish-curry",
+      "title": "Light Kerala Fish Curry",
+      "source": "new",
+      "servings": 3,
+      "cooked_yield_g": 900,
+      "total_time_min": 40,
+      "tags": [
+        "high-protein",
+        "seafood",
+        "curry",
+        "meal"
+      ],
+      "per_serving": {
+        "calories": 250,
+        "protein_g": 26,
+        "carbs_g": 7,
+        "fat_g": 12,
+        "fiber_g": 1.5,
+        "sugar_g": 3
+      },
+      "ingredients": [
+        {
+          "amount": 500,
+          "unit": "g",
+          "name": "fish (seer, rohu or basa), steaks or chunks",
+          "main_ingredient": true
+        },
+        {
+          "amount": 0.5,
+          "unit": "cup",
+          "name": "light coconut milk"
+        },
+        {
+          "amount": 1,
+          "unit": "tbsp",
+          "name": "coconut oil"
+        },
+        {
+          "amount": 0.5,
+          "unit": "tsp",
+          "name": "mustard seeds"
+        },
+        {
+          "amount": 12,
+          "unit": "count",
+          "name": "curry leaves"
+        },
+        {
+          "amount": 8,
+          "unit": "count",
+          "name": "shallots, sliced (or 1 onion)"
+        },
+        {
+          "amount": 1,
+          "unit": "tbsp",
+          "name": "ginger-garlic paste"
+        },
+        {
+          "amount": 2,
+          "unit": "count",
+          "name": "green chillies, slit"
+        },
+        {
+          "amount": 1,
+          "unit": "count",
+          "name": "tomato, chopped"
+        },
+        {
+          "amount": 1.5,
+          "unit": "tsp",
+          "name": "Kashmiri chilli powder"
+        },
+        {
+          "amount": 1,
+          "unit": "tsp",
+          "name": "coriander powder"
+        },
+        {
+          "amount": 0.5,
+          "unit": "tsp",
+          "name": "turmeric"
+        },
+        {
+          "amount": 2,
+          "unit": "count",
+          "name": "pieces kokum (or 1 tbsp tamarind pulp)"
+        },
+        {
+          "amount": 1,
+          "unit": "cup",
+          "name": "water"
+        },
+        {
+          "amount": 1,
+          "unit": "tsp",
+          "name": "salt"
+        }
+      ],
+      "steps": [
+        {
+          "title": "Prep the fish",
+          "text": "Rub with a pinch of turmeric and salt, rest 10 minutes.",
+          "timer_seconds": 600
+        },
+        {
+          "title": "Temper",
+          "text": "Heat coconut oil, crackle the mustard seeds, add curry leaves."
+        },
+        {
+          "title": "Shallots",
+          "text": "Cook shallots 5 minutes until soft, then ginger-garlic paste and chillies for 1 minute.",
+          "timer_seconds": 360
+        },
+        {
+          "title": "Spices",
+          "text": "Lower the heat, add the powders for 30 seconds with a splash of water so they don't burn, then the tomato for 3 minutes.",
+          "timer_seconds": 210
+        },
+        {
+          "title": "Gravy",
+          "text": "Add water and kokum, boil 5 minutes.",
+          "timer_seconds": 300
+        },
+        {
+          "title": "Fish",
+          "text": "Slide the fish in and simmer gently, uncovered, 8-10 minutes. Swirl the pan instead of stirring.",
+          "timer_seconds": 540
+        },
+        {
+          "title": "Coconut milk",
+          "text": "Lower the heat, add coconut milk and warm 2 minutes. Don't boil it — it splits.",
+          "timer_seconds": 120
+        },
+        {
+          "title": "Rest",
+          "text": "Rest 15 minutes before serving. Even better the next day.",
+          "timer_seconds": 900
+        }
+      ],
+      "notes": "Light coconut milk keeps this at ~250 kcal; full-fat adds about 60 per serving.",
+      "pairs_with": [
+        "kachumber-salad",
+        "palak-moong-dal"
+      ]
+    }
+  ]
+}

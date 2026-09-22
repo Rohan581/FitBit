@@ -2,6 +2,7 @@ const Database = require('better-sqlite3');
 const path = require('path');
 const { seedFoods, seedInitialData, toSeedKey } = require('./seed');
 const { seedExercises } = require('./exerciseSeed');
+const { seedRecipes } = require('./recipeSeed');
 
 const DB_PATH = process.env.DATABASE_PATH || path.join(__dirname, '..', 'data', 'earned.db');
 
@@ -364,6 +365,44 @@ function initDB() {
     );
   `);
 
+  // ── Cook module ───────────────────────────────────────────────
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS recipes (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      seed_key TEXT UNIQUE,
+      title TEXT NOT NULL,
+      source TEXT NOT NULL DEFAULT 'user',
+      icon TEXT DEFAULT '🍽️',
+      servings INTEGER NOT NULL DEFAULT 1,
+      cooked_yield_g REAL,
+      total_time_min INTEGER,
+      tags TEXT NOT NULL DEFAULT '[]',
+      per_serving TEXT NOT NULL DEFAULT '{}',
+      ingredients TEXT NOT NULL DEFAULT '[]',
+      steps TEXT NOT NULL DEFAULT '[]',
+      notes TEXT,
+      my_notes TEXT,
+      pairs_with TEXT DEFAULT '[]',
+      pairs_with_keys TEXT DEFAULT '[]',
+      is_favourite INTEGER DEFAULT 0,
+      is_hidden INTEGER DEFAULT 0,
+      user_edited INTEGER DEFAULT 0,
+      created_at TEXT DEFAULT (datetime('now')),
+      updated_at TEXT DEFAULT (datetime('now'))
+    );
+
+    CREATE TABLE IF NOT EXISTS recipe_batches (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      recipe_id INTEGER NOT NULL,
+      cooked_on TEXT NOT NULL,
+      scale_factor REAL NOT NULL DEFAULT 1,
+      portions INTEGER NOT NULL DEFAULT 1,
+      measured_weight_g REAL,
+      finished INTEGER DEFAULT 0,
+      FOREIGN KEY (recipe_id) REFERENCES recipes(id)
+    );
+  `);
+
   // Run migrations for existing databases
   runMigrations(db);
 
@@ -637,8 +676,18 @@ function runMigrations(db) {
     db.exec(`UPDATE goal SET template_start_date = '${today}' WHERE template_start_date IS NULL`);
   }
 
+  // food_logs: recipe_id / batch_id columns for Cook module
+  const logColsFinal = db.prepare("PRAGMA table_info(food_logs)").all().map(c => c.name);
+  if (!logColsFinal.includes('recipe_id')) {
+    db.exec(`ALTER TABLE food_logs ADD COLUMN recipe_id INTEGER`);
+    db.exec(`ALTER TABLE food_logs ADD COLUMN batch_id INTEGER`);
+  }
+
   // Seed exercises
   seedExercises(db);
+
+  // Seed recipes
+  seedRecipes(db);
 }
 
 function backfillFiberSugar(db) {

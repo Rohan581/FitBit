@@ -26,6 +26,9 @@ export default {
         warning: 'var(--warning)',
         danger: 'var(--danger)',
         star: 'var(--star)',
+        cook: 'var(--cook)',
+        'cook-dim': 'var(--cook-dim)',
+        'on-accent': 'var(--on-accent)',
       },
       fontFamily: {
         sans: ['Hanken Grotesk', 'system-ui', 'sans-serif'],

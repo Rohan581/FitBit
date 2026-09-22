@@ -6,6 +6,7 @@ import SleepSheet from '../components/SleepSheet';
 import WeightSheet from '../components/WeightSheet';
 import MeasurementSheet from '../components/MeasurementSheet';
 import { Link, useNavigate } from 'react-router-dom';
+import { SidebarTrigger } from '../components/Sidebar';
 
 function getGreeting() {
   const h = new Date().getHours();
@@ -26,7 +27,7 @@ function getWeekStart() {
   return ist.toISOString().split('T')[0];
 }
 
-export default function Dashboard() {
+export default function Dashboard({ onOpenSidebar }) {
   const [data, setData] = useState(null);
   const [weekData, setWeekData] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -119,6 +120,7 @@ export default function Dashboard() {
       <div className="flex items-start justify-between pt-5 pb-5 stagger-enter">
         <div>
           <div className="flex items-center gap-2">
+            {onOpenSidebar && <SidebarTrigger onClick={onOpenSidebar} />}
             <p className="text-xs text-tx-3">{formatTodayDate()}</p>
             <button
               onClick={async () => {
