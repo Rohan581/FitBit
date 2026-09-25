@@ -1,5 +1,5 @@
 {
-  "version": 1,
+  "version": 3,
   "recipes": [
     {
       "seed_key": "korean-chicken-popcorn",
@@ -2623,6 +2623,922 @@
         "kachumber-salad",
         "palak-moong-dal"
       ]
+    },
+    {
+      "seed_key": "nashville-hot-chicken",
+      "title": "Air Fryer Nashville Hot Chicken",
+      "source": "new",
+      "servings": 2,
+      "cooked_yield_g": 420,
+      "total_time_min": 150,
+      "tags": [
+        "high-protein",
+        "air-fryer",
+        "chicken",
+        "meal"
+      ],
+      "per_serving": {
+        "calories": 515,
+        "protein_g": 46,
+        "carbs_g": 28,
+        "fat_g": 22,
+        "fiber_g": 2,
+        "sugar_g": 3
+      },
+      "ingredients": [
+        {
+          "amount": 400,
+          "unit": "g",
+          "name": "chicken thighs, boneless skinless (or breast)",
+          "main_ingredient": true
+        },
+        {
+          "amount": 6,
+          "unit": "tbsp",
+          "name": "curd"
+        },
+        {
+          "amount": 3,
+          "unit": "tbsp",
+          "name": "milk"
+        },
+        {
+          "amount": 1,
+          "unit": "tbsp",
+          "name": "hot sauce (optional, for the marinade)"
+        },
+        {
+          "amount": 1,
+          "unit": "tsp",
+          "name": "salt (for the marinade)"
+        },
+        {
+          "amount": 70,
+          "unit": "g",
+          "name": "panko breadcrumbs"
+        },
+        {
+          "amount": 2,
+          "unit": "tbsp",
+          "name": "cornflour"
+        },
+        {
+          "amount": 1,
+          "unit": "tsp",
+          "name": "garlic powder (for the coating)"
+        },
+        {
+          "amount": 1,
+          "unit": "tsp",
+          "name": "paprika (for the coating)"
+        },
+        {
+          "amount": 0.5,
+          "unit": "tsp",
+          "name": "black pepper"
+        },
+        {
+          "amount": 1,
+          "unit": "tbsp",
+          "name": "olive oil, for spraying"
+        },
+        {
+          "amount": 1.5,
+          "unit": "tbsp",
+          "name": "olive oil (for the hot paste)"
+        },
+        {
+          "amount": 1.5,
+          "unit": "tbsp",
+          "name": "cayenne or red chilli powder"
+        },
+        {
+          "amount": 1,
+          "unit": "tsp",
+          "name": "Kashmiri chilli powder (for colour)"
+        },
+        {
+          "amount": 0.5,
+          "unit": "tbsp",
+          "name": "brown sugar"
+        },
+        {
+          "amount": 0.5,
+          "unit": "tsp",
+          "name": "garlic powder (for the paste)"
+        },
+        {
+          "amount": 0.25,
+          "unit": "tsp",
+          "name": "salt (for the paste)"
+        }
+      ],
+      "steps": [
+        {
+          "title": "Buttermilk marinade",
+          "text": "Whisk the curd, milk, hot sauce and salt. Coat the chicken and refrigerate at least 2 hours, overnight is better. The acid tenderises and helps the crust grip.",
+          "timer_seconds": 7200
+        },
+        {
+          "title": "Toast the panko",
+          "text": "Dry pan, medium-LOW heat, stir continuously 4-5 minutes to pale sand colour. Tip onto a cold plate immediately.",
+          "timer_seconds": 300
+        },
+        {
+          "title": "Season the coating",
+          "text": "Mix the cooled panko with cornflour, garlic powder, paprika and black pepper."
+        },
+        {
+          "title": "Dredge",
+          "text": "Let the excess marinade drip off each piece, then press firmly into the panko. Press hard."
+        },
+        {
+          "title": "First cook",
+          "text": "Preheat to 190°C for 3-4 minutes. Single layer with gaps, spray with oil, cook 10 minutes.",
+          "timer_seconds": 600
+        },
+        {
+          "title": "Flip and finish",
+          "text": "Flip, spray again, 6-8 more minutes until deep golden and 74°C inside.",
+          "timer_seconds": 420
+        },
+        {
+          "title": "Make the hot paste",
+          "text": "Warm the 1½ tbsp oil on low. Off the heat, stir in cayenne, Kashmiri chilli, brown sugar, garlic powder and salt. It should sizzle briefly and go deep red. Don't cook it further — cayenne turns bitter.",
+          "timer_seconds": 60
+        },
+        {
+          "title": "Brush and serve",
+          "text": "Brush the paste over the chicken the moment it comes out, while the crust is hot and porous. Serve with pickles."
+        }
+      ],
+      "notes": "A restaurant Nashville hot chicken sandwich runs 900-1,100 kcal — the deep-frying and lard paste do most of that. With breast: ~450 kcal, 53g protein. Don't cut the paste oil below 1½ tbsp for the batch: cayenne is fat-soluble, and without enough oil the heat tastes dusty rather than deep. 1½ tbsp cayenne is medium-hot; Nashville 'hot' is roughly double. Traditionally served on white bread — skip it and have pickles and slaw instead.",
+      "pairs_with": [
+        "kachumber-salad",
+        "garlic-herb-wedges",
+        "garlic-yogurt-dip"
+      ]
+    },
+    {
+      "seed_key": "masala-omelette",
+      "title": "Protein Masala Omelette",
+      "source": "new",
+      "servings": 1,
+      "cooked_yield_g": 230,
+      "total_time_min": 10,
+      "tags": [
+        "high-protein",
+        "breakfast",
+        "quick",
+        "vegetarian"
+      ],
+      "per_serving": {
+        "calories": 280,
+        "protein_g": 24,
+        "carbs_g": 8,
+        "fat_g": 16,
+        "fiber_g": 1.5,
+        "sugar_g": 3
+      },
+      "ingredients": [
+        {
+          "amount": 2,
+          "unit": "count",
+          "name": "whole eggs",
+          "main_ingredient": true
+        },
+        {
+          "amount": 3,
+          "unit": "count",
+          "name": "egg whites"
+        },
+        {
+          "amount": 1,
+          "unit": "count",
+          "name": "small onion, finely chopped"
+        },
+        {
+          "amount": 1,
+          "unit": "count",
+          "name": "small tomato, chopped"
+        },
+        {
+          "amount": 1,
+          "unit": "count",
+          "name": "green chilli, chopped"
+        },
+        {
+          "amount": 2,
+          "unit": "tbsp",
+          "name": "coriander leaves, chopped"
+        },
+        {
+          "amount": 0.25,
+          "unit": "tsp",
+          "name": "turmeric"
+        },
+        {
+          "amount": 0.25,
+          "unit": "tsp",
+          "name": "red chilli powder"
+        },
+        {
+          "amount": 0.5,
+          "unit": "tsp",
+          "name": "salt"
+        },
+        {
+          "amount": 0.25,
+          "unit": "tsp",
+          "name": "black pepper"
+        },
+        {
+          "amount": 1,
+          "unit": "tsp",
+          "name": "oil"
+        }
+      ],
+      "steps": [
+        {
+          "title": "Whisk",
+          "text": "Beat the eggs and whites hard for 30 seconds — air is what makes it fluffy. Whisk in turmeric, chilli powder, salt and pepper."
+        },
+        {
+          "title": "Mix in the vegetables",
+          "text": "Stir the onion, tomato, chilli and coriander into the egg rather than frying them first. They stay crunchier that way."
+        },
+        {
+          "title": "Cook",
+          "text": "Heat oil in a nonstick pan on medium. Pour in the mix, spread evenly, and leave it alone for 2-3 minutes until the base sets.",
+          "timer_seconds": 180
+        },
+        {
+          "title": "Fold",
+          "text": "Fold in half and cook 1 more minute. The centre should be just set, not dry.",
+          "timer_seconds": 60
+        }
+      ],
+      "notes": "Three egg whites add 11g protein for 52 calories — the cheapest protein upgrade in any egg dish. Leaving the vegetables raw in the mix keeps texture and takes a step out.",
+      "pairs_with": []
+    },
+    {
+      "seed_key": "dhaba-egg-curry",
+      "title": "Dhaba-Style Egg Curry",
+      "source": "new",
+      "servings": 3,
+      "cooked_yield_g": 900,
+      "total_time_min": 40,
+      "tags": [
+        "vegetarian",
+        "curry",
+        "meal"
+      ],
+      "per_serving": {
+        "calories": 260,
+        "protein_g": 15,
+        "carbs_g": 12,
+        "fat_g": 16,
+        "fiber_g": 2.5,
+        "sugar_g": 4
+      },
+      "ingredients": [
+        {
+          "amount": 6,
+          "unit": "count",
+          "name": "eggs",
+          "main_ingredient": true
+        },
+        {
+          "amount": 2,
+          "unit": "count",
+          "name": "onions, finely chopped"
+        },
+        {
+          "amount": 2,
+          "unit": "count",
+          "name": "tomatoes, pureed"
+        },
+        {
+          "amount": 1,
+          "unit": "tbsp",
+          "name": "ginger-garlic paste"
+        },
+        {
+          "amount": 2,
+          "unit": "tbsp",
+          "name": "curd, whisked"
+        },
+        {
+          "amount": 1,
+          "unit": "tbsp",
+          "name": "oil"
+        },
+        {
+          "amount": 1,
+          "unit": "tsp",
+          "name": "cumin seeds"
+        },
+        {
+          "amount": 1,
+          "unit": "count",
+          "name": "bay leaf"
+        },
+        {
+          "amount": 1,
+          "unit": "tsp",
+          "name": "red chilli powder"
+        },
+        {
+          "amount": 1.5,
+          "unit": "tsp",
+          "name": "coriander powder"
+        },
+        {
+          "amount": 0.5,
+          "unit": "tsp",
+          "name": "turmeric"
+        },
+        {
+          "amount": 1,
+          "unit": "tsp",
+          "name": "garam masala"
+        },
+        {
+          "amount": 1,
+          "unit": "tsp",
+          "name": "kasuri methi"
+        },
+        {
+          "amount": 1,
+          "unit": "tsp",
+          "name": "salt"
+        },
+        {
+          "amount": 1,
+          "unit": "cup",
+          "name": "water"
+        },
+        {
+          "amount": 3,
+          "unit": "tbsp",
+          "name": "coriander leaves"
+        }
+      ],
+      "steps": [
+        {
+          "title": "Boil the eggs",
+          "text": "Boil 9 minutes, cool in cold water, peel.",
+          "timer_seconds": 540
+        },
+        {
+          "title": "Fry the eggs",
+          "text": "Halve 2 of them and leave the rest whole. Prick the whole ones with a fork, then fry in a little oil with a pinch of turmeric and chilli powder until golden and blistered. This is what makes it taste like a dhaba.",
+          "timer_seconds": 180
+        },
+        {
+          "title": "Onions",
+          "text": "Same pan: oil, cumin and bay leaf, then onions for 8-10 minutes until deep golden.",
+          "timer_seconds": 540
+        },
+        {
+          "title": "Masala",
+          "text": "Add ginger-garlic paste 1 minute, then tomato puree and the powders. Cook 6-7 minutes until oil separates.",
+          "timer_seconds": 420
+        },
+        {
+          "title": "Curd",
+          "text": "Lower the heat and stir in the whisked curd a spoon at a time so it doesn't split. Cook 2 minutes.",
+          "timer_seconds": 120
+        },
+        {
+          "title": "Simmer",
+          "text": "Add water and salt, simmer 8 minutes. Slide the eggs in and simmer 5 more.",
+          "timer_seconds": 780
+        },
+        {
+          "title": "Finish",
+          "text": "Garam masala, crushed kasuri methi, coriander."
+        }
+      ],
+      "notes": "Frying the boiled eggs before they go into the gravy is the step most home versions skip, and it's the whole difference. Protein per calorie is modest for a chicken-heavy diet — add 3-4 boiled egg whites to the pan at the end for +33g protein at 156 kcal across the batch.",
+      "pairs_with": [
+        "kachumber-salad",
+        "palak-moong-dal"
+      ]
+    },
+    {
+      "seed_key": "shakshuka",
+      "title": "Shakshuka",
+      "source": "new",
+      "servings": 2,
+      "cooked_yield_g": 700,
+      "total_time_min": 30,
+      "tags": [
+        "high-fibre",
+        "breakfast",
+        "vegetarian",
+        "meal"
+      ],
+      "per_serving": {
+        "calories": 310,
+        "protein_g": 16,
+        "carbs_g": 20,
+        "fat_g": 18,
+        "fiber_g": 5,
+        "sugar_g": 10
+      },
+      "ingredients": [
+        {
+          "amount": 4,
+          "unit": "count",
+          "name": "eggs",
+          "main_ingredient": true
+        },
+        {
+          "amount": 4,
+          "unit": "count",
+          "name": "tomatoes, chopped"
+        },
+        {
+          "amount": 1,
+          "unit": "count",
+          "name": "onion, sliced"
+        },
+        {
+          "amount": 1,
+          "unit": "count",
+          "name": "capsicum, sliced"
+        },
+        {
+          "amount": 4,
+          "unit": "count",
+          "name": "garlic cloves, sliced"
+        },
+        {
+          "amount": 1,
+          "unit": "tbsp",
+          "name": "olive oil"
+        },
+        {
+          "amount": 1,
+          "unit": "tsp",
+          "name": "cumin powder"
+        },
+        {
+          "amount": 1,
+          "unit": "tsp",
+          "name": "paprika"
+        },
+        {
+          "amount": 0.5,
+          "unit": "tsp",
+          "name": "red chilli flakes"
+        },
+        {
+          "amount": 1,
+          "unit": "tsp",
+          "name": "salt"
+        },
+        {
+          "amount": 0.25,
+          "unit": "tsp",
+          "name": "black pepper"
+        },
+        {
+          "amount": 3,
+          "unit": "tbsp",
+          "name": "coriander or parsley, chopped"
+        }
+      ],
+      "steps": [
+        {
+          "title": "Soften",
+          "text": "Heat oil, cook onion and capsicum 6-7 minutes until soft, then garlic for 1 minute.",
+          "timer_seconds": 420
+        },
+        {
+          "title": "Spices",
+          "text": "Add cumin, paprika and chilli flakes, 30 seconds until fragrant."
+        },
+        {
+          "title": "Sauce",
+          "text": "Add tomatoes, salt and pepper. Simmer 10-12 minutes until thick enough that a spoon leaves a trail.",
+          "timer_seconds": 720
+        },
+        {
+          "title": "Add the eggs",
+          "text": "Make 4 wells in the sauce and crack an egg into each. Season the yolks lightly."
+        },
+        {
+          "title": "Cover and cook",
+          "text": "Cover and cook on low 6-8 minutes until the whites are set but the yolks are still runny.",
+          "timer_seconds": 420
+        },
+        {
+          "title": "Serve",
+          "text": "Scatter the herbs over. Eat straight from the pan."
+        }
+      ],
+      "notes": "5g fibre per serving — one of the few egg dishes that helps your fibre target. The sauce must be genuinely thick before the eggs go in, or they poach into watery tomato. Make the sauce in advance and it becomes a 10-minute breakfast.",
+      "pairs_with": []
+    },
+    {
+      "seed_key": "gyeran-mari",
+      "title": "Gyeran Mari (Korean Rolled Omelette)",
+      "source": "new",
+      "servings": 2,
+      "cooked_yield_g": 280,
+      "total_time_min": 15,
+      "tags": [
+        "high-protein",
+        "breakfast",
+        "quick",
+        "vegetarian"
+      ],
+      "per_serving": {
+        "calories": 210,
+        "protein_g": 17,
+        "carbs_g": 5,
+        "fat_g": 13,
+        "fiber_g": 1,
+        "sugar_g": 2
+      },
+      "ingredients": [
+        {
+          "amount": 4,
+          "unit": "count",
+          "name": "eggs",
+          "main_ingredient": true
+        },
+        {
+          "amount": 2,
+          "unit": "count",
+          "name": "egg whites"
+        },
+        {
+          "amount": 0.25,
+          "unit": "cup",
+          "name": "carrot, very finely chopped"
+        },
+        {
+          "amount": 2,
+          "unit": "count",
+          "name": "spring onion stalks, finely sliced"
+        },
+        {
+          "amount": 0.25,
+          "unit": "cup",
+          "name": "capsicum, very finely chopped"
+        },
+        {
+          "amount": 1,
+          "unit": "tsp",
+          "name": "soy sauce"
+        },
+        {
+          "amount": 0.5,
+          "unit": "tsp",
+          "name": "salt"
+        },
+        {
+          "amount": 1,
+          "unit": "tsp",
+          "name": "oil"
+        }
+      ],
+      "steps": [
+        {
+          "title": "Mix",
+          "text": "Beat the eggs and whites with soy sauce and salt, then strain through a sieve for a smooth finish. Stir in the vegetables — chop them small or the roll tears."
+        },
+        {
+          "title": "First layer",
+          "text": "Lightly oil a nonstick pan on low-medium. Pour in a third of the mix, tilt to spread thin, and cook until just barely set on top.",
+          "timer_seconds": 90
+        },
+        {
+          "title": "Roll",
+          "text": "Roll it up from one side to the other with a spatula, and push the roll to the far edge of the pan."
+        },
+        {
+          "title": "Build",
+          "text": "Pour in another third, lifting the roll so the raw egg runs underneath it. When just set, roll again onto the existing roll. Repeat with the last third.",
+          "timer_seconds": 180
+        },
+        {
+          "title": "Rest and slice",
+          "text": "Rest 2 minutes, then slice into 2cm rounds.",
+          "timer_seconds": 120
+        }
+      ],
+      "notes": "Low heat is everything — high heat browns the outside before the layers set and the roll cracks. Straining the egg mix takes 20 seconds and makes it look properly made. Good cold, so it works as a packed lunch.",
+      "pairs_with": [
+        "kimchi"
+      ]
+    },
+    {
+      "seed_key": "mayak-eggs",
+      "title": "Mayak Eggs (Korean Marinated Eggs)",
+      "source": "new",
+      "servings": 6,
+      "cooked_yield_g": 300,
+      "total_time_min": 30,
+      "tags": [
+        "high-protein",
+        "snack",
+        "meal-prep",
+        "quick",
+        "vegetarian"
+      ],
+      "per_serving": {
+        "calories": 95,
+        "protein_g": 7,
+        "carbs_g": 2.5,
+        "fat_g": 6,
+        "fiber_g": 0,
+        "sugar_g": 1.5
+      },
+      "ingredients": [
+        {
+          "amount": 6,
+          "unit": "count",
+          "name": "eggs",
+          "main_ingredient": true
+        },
+        {
+          "amount": 6,
+          "unit": "tbsp",
+          "name": "soy sauce"
+        },
+        {
+          "amount": 6,
+          "unit": "tbsp",
+          "name": "water"
+        },
+        {
+          "amount": 1,
+          "unit": "tbsp",
+          "name": "sugar"
+        },
+        {
+          "amount": 1,
+          "unit": "tsp",
+          "name": "sesame oil"
+        },
+        {
+          "amount": 4,
+          "unit": "count",
+          "name": "garlic cloves, finely chopped"
+        },
+        {
+          "amount": 2,
+          "unit": "count",
+          "name": "spring onion stalks, sliced"
+        },
+        {
+          "amount": 1,
+          "unit": "count",
+          "name": "green chilli, sliced (optional)"
+        },
+        {
+          "amount": 1,
+          "unit": "tsp",
+          "name": "sesame seeds"
+        }
+      ],
+      "steps": [
+        {
+          "title": "Soft-boil",
+          "text": "Boil the eggs exactly 6½ minutes for a jammy yolk, then straight into ice water for 5 minutes.",
+          "timer_seconds": 390
+        },
+        {
+          "title": "Peel",
+          "text": "Peel carefully — soft-boiled eggs tear. Rolling them gently on the counter first helps."
+        },
+        {
+          "title": "Marinade",
+          "text": "Stir soy sauce, water, sugar and sesame oil until the sugar dissolves. Add garlic, spring onion, chilli and sesame seeds."
+        },
+        {
+          "title": "Marinate",
+          "text": "Submerge the eggs in a container. If they float, lay a piece of kitchen paper on top to keep them covered. Refrigerate at least 6 hours, ideally overnight.",
+          "timer_seconds": 21600
+        },
+        {
+          "title": "Serve",
+          "text": "Eat as a snack, or halved over rice with a spoon of the marinade."
+        }
+      ],
+      "notes": "The name means 'narcotic eggs' — they're addictive. 95 kcal for 7g protein makes this a far better evening snack than cashews, and a batch takes 15 minutes of actual work. Keeps 4 days refrigerated; the flavour deepens and the whites gradually darken.",
+      "pairs_with": [
+        "kimchi"
+      ]
+    },
+    {
+      "seed_key": "air-fryer-egg-muffins",
+      "title": "Air Fryer Egg Muffins",
+      "source": "new",
+      "servings": 3,
+      "cooked_yield_g": 420,
+      "total_time_min": 25,
+      "tags": [
+        "high-protein",
+        "air-fryer",
+        "breakfast",
+        "meal-prep",
+        "vegetarian"
+      ],
+      "per_serving": {
+        "calories": 162,
+        "protein_g": 15,
+        "carbs_g": 4,
+        "fat_g": 9,
+        "fiber_g": 1,
+        "sugar_g": 2
+      },
+      "ingredients": [
+        {
+          "amount": 4,
+          "unit": "count",
+          "name": "whole eggs",
+          "main_ingredient": true
+        },
+        {
+          "amount": 4,
+          "unit": "count",
+          "name": "egg whites"
+        },
+        {
+          "amount": 1,
+          "unit": "cup",
+          "name": "spinach, finely chopped"
+        },
+        {
+          "amount": 0.5,
+          "unit": "cup",
+          "name": "capsicum, finely chopped"
+        },
+        {
+          "amount": 0.25,
+          "unit": "cup",
+          "name": "onion, finely chopped"
+        },
+        {
+          "amount": 25,
+          "unit": "g",
+          "name": "low-fat cheese, grated"
+        },
+        {
+          "amount": 0.5,
+          "unit": "tsp",
+          "name": "salt"
+        },
+        {
+          "amount": 0.25,
+          "unit": "tsp",
+          "name": "black pepper"
+        },
+        {
+          "amount": 0.25,
+          "unit": "tsp",
+          "name": "red chilli flakes"
+        },
+        {
+          "amount": 1,
+          "unit": "tsp",
+          "name": "oil, for greasing"
+        }
+      ],
+      "steps": [
+        {
+          "title": "Mix",
+          "text": "Beat the eggs and whites with salt, pepper and chilli flakes. Stir in the vegetables and cheese."
+        },
+        {
+          "title": "Fill",
+          "text": "Grease 6 silicone muffin cups and fill each about three-quarters full — they rise and then settle."
+        },
+        {
+          "title": "Cook",
+          "text": "Air fry at 160°C for 12-14 minutes until set and just springy on top. Lower temperature than usual: high heat makes them puff up and collapse.",
+          "timer_seconds": 780
+        },
+        {
+          "title": "Cool",
+          "text": "Cool 5 minutes before lifting out — they firm up as they cool.",
+          "timer_seconds": 300
+        }
+      ],
+      "notes": "Makes 6 muffins; a serving is 2. Keeps 4 days in the fridge and reheats in the air fryer in 2 minutes at 160°C, or eat cold. A good answer to mornings when the overnight oats run out.",
+      "pairs_with": []
+    },
+    {
+      "seed_key": "protein-pancakes",
+      "title": "Blender Protein Pancakes",
+      "source": "new",
+      "servings": 1,
+      "cooked_yield_g": 340,
+      "total_time_min": 15,
+      "tags": [
+        "high-protein",
+        "breakfast",
+        "quick",
+        "vegetarian",
+        "high-fibre"
+      ],
+      "per_serving": {
+        "calories": 545,
+        "protein_g": 40,
+        "carbs_g": 58,
+        "fat_g": 19,
+        "fiber_g": 6,
+        "sugar_g": 16
+      },
+      "ingredients": [
+        {
+          "amount": 2,
+          "unit": "count",
+          "name": "eggs",
+          "main_ingredient": true
+        },
+        {
+          "amount": 24,
+          "unit": "g",
+          "name": "whey protein (1 scoop)"
+        },
+        {
+          "amount": 1,
+          "unit": "count",
+          "name": "ripe banana"
+        },
+        {
+          "amount": 30,
+          "unit": "g",
+          "name": "rolled oats"
+        },
+        {
+          "amount": 4,
+          "unit": "tbsp",
+          "name": "milk (skim or almond)"
+        },
+        {
+          "amount": 0.5,
+          "unit": "tsp",
+          "name": "baking powder"
+        },
+        {
+          "amount": 0.5,
+          "unit": "tsp",
+          "name": "cinnamon"
+        },
+        {
+          "amount": 1,
+          "unit": "pinch",
+          "name": "salt"
+        },
+        {
+          "amount": 1,
+          "unit": "tsp",
+          "name": "oil or butter, for the pan"
+        },
+        {
+          "amount": 2,
+          "unit": "tbsp",
+          "name": "Hershey's zero sugar chocolate syrup"
+        }
+      ],
+      "steps": [
+        {
+          "title": "Blend",
+          "text": "Blend the oats alone first for 10 seconds to make a rough flour, then add eggs, whey, banana, milk, baking powder, cinnamon and salt. Blend just until smooth — 20-30 seconds. Over-blending knocks the air out and makes them rubbery."
+        },
+        {
+          "title": "Rest the batter",
+          "text": "Rest 5 minutes so the oats hydrate and the batter thickens. It should pour slowly, like thick cream. Too thick, add a splash of milk; too thin, a spoon of oats.",
+          "timer_seconds": 300
+        },
+        {
+          "title": "Heat the pan properly",
+          "text": "Nonstick pan on LOW-medium, lightly oiled. This is the step people get wrong — whey browns much faster than flour, so a normal pancake heat burns the outside while the middle stays raw."
+        },
+        {
+          "title": "Cook",
+          "text": "Pour small pancakes, about 8cm across. Cook 2-3 minutes until bubbles form on top and the edges look set.",
+          "timer_seconds": 180
+        },
+        {
+          "title": "Flip once",
+          "text": "Flip and cook 1-2 more minutes. Only flip once — these are more delicate than flour pancakes.",
+          "timer_seconds": 120
+        },
+        {
+          "title": "Serve",
+          "text": "Stack and drizzle with the zero sugar syrup."
+        }
+      ],
+      "notes": "Makes about 3 pancakes. 40g protein and 6g fibre for 545 kcal.\n\nThe oats aren't optional in practice — eggs, banana and whey alone make a thin, rubbery pancake that tears when flipped. The oats give it structure and add 3g fibre.\n\nWhey concentrate works better than isolate here; isolate dries the batter out.\n\nHershey's zero sugar syrup is ~15 kcal for 2 tbsp versus ~100 for maple — one of the better swaps available. Use a riper banana and you won't want extra sweetener.\n\nGood as a post-workout breakfast on lifting days.",
+      "pairs_with": []
     }
   ]
 }
