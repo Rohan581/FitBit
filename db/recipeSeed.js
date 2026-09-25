@@ -24,6 +24,14 @@ const ICON_MAP = {
   'soya-chunk-masala': '🥬',
   'air-fryer-paneer-tikka': '🧀',
   'light-kerala-fish-curry': '🐟',
+  'nashville-hot-chicken': '🍗',
+  'masala-omelette': '🥚',
+  'dhaba-egg-curry': '🥚',
+  'shakshuka': '🥚',
+  'gyeran-mari': '🥚',
+  'mayak-eggs': '🥚',
+  'air-fryer-egg-muffins': '🥚',
+  'protein-pancakes': '🥞',
 };
 
 function seedRecipes(db) {
