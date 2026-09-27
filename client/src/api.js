@@ -89,11 +89,15 @@ export const api = {
   getHistoryDay: (date) => req('GET', `/trends/history/${date}`),
 
   // Training
-  getTraining: () => req('GET', '/training'),
+  getTraining: (pendingExerciseIds) => {
+    const params = pendingExerciseIds?.length ? `?pending_exercises=${pendingExerciseIds.join(',')}` : '';
+    return req('GET', `/training${params}`);
+  },
   startSession: () => req('POST', '/training/sessions'),
   getSession: (id) => req('GET', `/training/sessions/${id}`),
   logSet: (sessionId, data) => req('POST', `/training/sessions/${sessionId}/sets`, data),
   deleteSet: (sessionId, setId) => req('DELETE', `/training/sessions/${sessionId}/sets/${setId}`),
+  backfillSet: (sessionId, data) => req('POST', `/training/sessions/${sessionId}/backfill`, data),
   completeSession: (sessionId, duration_min) => req('POST', `/training/sessions/${sessionId}/complete`, { duration_min }),
   getExercises: () => req('GET', '/training/exercises'),
   getExercise: (id) => req('GET', `/training/exercises/${id}`),

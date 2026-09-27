@@ -683,6 +683,21 @@ function runMigrations(db) {
     db.exec(`ALTER TABLE food_logs ADD COLUMN batch_id INTEGER`);
   }
 
+  // workout_sets: client_uuid, created_at, backfilled for local-first sync
+  const setCols = db.prepare("PRAGMA table_info(workout_sets)").all().map(c => c.name);
+  if (!setCols.includes('client_uuid')) {
+    db.exec(`ALTER TABLE workout_sets ADD COLUMN client_uuid TEXT`);
+    db.exec(`CREATE UNIQUE INDEX IF NOT EXISTS idx_sets_client_uuid ON workout_sets(client_uuid)`);
+  }
+  if (!setCols.includes('created_at')) {
+    db.exec(`ALTER TABLE workout_sets ADD COLUMN created_at TEXT`);
+    // Backfill created_at from parent session's logged_at
+    db.exec(`UPDATE workout_sets SET created_at = (SELECT logged_at FROM workout_sessions WHERE id = workout_sets.session_id) WHERE created_at IS NULL`);
+  }
+  if (!setCols.includes('backfilled')) {
+    db.exec(`ALTER TABLE workout_sets ADD COLUMN backfilled INTEGER DEFAULT 0`);
+  }
+
   // Seed exercises
   seedExercises(db);
 

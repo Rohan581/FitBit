@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { api } from '../api';
 import { Link } from 'react-router-dom';
 import { getThemeSetting, setThemeSetting } from '../theme';
+import { getDiagnostics, flushSync, pendingCount } from '../localSetStore';
 
 export default function Settings() {
   const [goal, setGoal] = useState(null);
@@ -12,6 +13,8 @@ export default function Settings() {
   const [saved, setSaved] = useState(false);
   const [theme, setTheme] = useState(getThemeSetting);
   const [exporting, setExporting] = useState(null);
+  const [syncDiag, setSyncDiag] = useState(null);
+  const [flushing, setFlushing] = useState(false);
 
   useEffect(() => {
     const hash = window.location.hash.slice(1);
@@ -304,6 +307,60 @@ export default function Settings() {
             >
               {exporting === 'json' ? 'Preparing...' : 'JSON'}
             </button>
+          </div>
+        </Section>
+
+        <Section title="Sync diagnostics">
+          <div className="space-y-3">
+            <button
+              onClick={async () => { setSyncDiag(await getDiagnostics()); }}
+              className="w-full py-2.5 rounded-card text-sm border border-hair bg-card text-tx press-scale"
+            >
+              Check sync status
+            </button>
+            {syncDiag && (
+              <div className="space-y-2 text-sm text-tx-2">
+                <div className="flex justify-between">
+                  <span>Local sets</span>
+                  <span className="font-num">{syncDiag.totalLocal}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Pending sync</span>
+                  <span className={`font-num ${syncDiag.pendingSync > 0 ? 'text-red-400' : 'text-points'}`}>
+                    {syncDiag.pendingSync}
+                  </span>
+                </div>
+                {syncDiag.pendingSync > 0 && (
+                  <>
+                    <div className="flex justify-between">
+                      <span>Max retries</span>
+                      <span className="font-num">{syncDiag.maxRetries}</span>
+                    </div>
+                    <button
+                      onClick={async () => {
+                        setFlushing(true);
+                        try {
+                          await flushSync();
+                          setSyncDiag(await getDiagnostics());
+                        } finally { setFlushing(false); }
+                      }}
+                      disabled={flushing}
+                      className="w-full py-2.5 rounded-card text-sm bg-points text-white press-scale disabled:opacity-40"
+                    >
+                      {flushing ? 'Syncing...' : 'Force sync now'}
+                    </button>
+                    <div className="text-xs text-tx-3 space-y-1">
+                      {syncDiag.pendingSets.map(s => (
+                        <div key={s.client_uuid} className="flex justify-between font-num">
+                          <span>Ex {s.exercise_id} / Set {s.set_number}</span>
+                          <span>{s.retries} retries</span>
+                        </div>
+                      ))}
+                    </div>
+                  </>
+                )}
+              </div>
+            )}
           </div>
         </Section>
 

@@ -207,7 +207,7 @@ function workoutRegion(workoutType) {
 // skip muscles already covered by the upcoming template;
 // equipment-aware (only pick servable exercises);
 // least-sets-this-week priority, muscle-size as tie-break.
-function computeCatchUp(db, weekDays, templateExercises, weekSessionOrdinal, nextWorkoutType, availableEquipment) {
+function computeCatchUp(db, weekDays, templateExercises, weekSessionOrdinal, nextWorkoutType, availableEquipment, pendingExerciseIds) {
   if (weekSessionOrdinal < 3) return { substitutions: [], notes: {}, debug: [] };
 
   const sessionRegion = workoutRegion(nextWorkoutType);
@@ -249,7 +249,9 @@ function computeCatchUp(db, weekDays, templateExercises, weekSessionOrdinal, nex
         'SELECT COUNT(*) as cnt FROM workout_sets WHERE session_id = ? AND exercise_id = ?'
       ).get(session.id, dbEx.id)?.cnt || 0;
 
-      if (loggedSets === 0) {
+      // Skip exercises that have pending (unsynced) sets on the client
+      const hasPending = pendingExerciseIds && pendingExerciseIds.has(dbEx.id);
+      if (loggedSets === 0 && !hasPending) {
         for (const m of JSON.parse(dbEx.primary_muscles)) {
           if (!missedMuscles.has(m)) {
             missedMuscles.set(m, {
@@ -456,8 +458,13 @@ router.get('/', (req, res) => {
   // Session ordinal = completed this week + 1 (the next session)
   const weekSessionOrdinal = weekGymSessions + 1;
 
-  // Catch-up (equipment-aware, template-coverage-aware)
-  const catchUp = computeCatchUp(db, weekDays, exercises, weekSessionOrdinal, nextWorkout.type, availableEquipment);
+  // Parse pending exercise IDs from client (unsynced sets in IndexedDB)
+  const pendingExerciseIds = req.query.pending_exercises
+    ? new Set(req.query.pending_exercises.split(',').map(Number).filter(Boolean))
+    : null;
+
+  // Catch-up (equipment-aware, template-coverage-aware, pending-aware)
+  const catchUp = computeCatchUp(db, weekDays, exercises, weekSessionOrdinal, nextWorkout.type, availableEquipment, pendingExerciseIds);
 
   // Apply substitutions to template (within the 5-slot cap)
   let finalExercises = applySubstitutions(exercises, catchUp.substitutions);
@@ -635,12 +642,27 @@ router.post('/sessions', (req, res) => {
   res.json({ session_id: result.lastInsertRowid, workout_type: workout.type, date: today });
 });
 
-// POST /api/training/sessions/:id/sets — log a set
+// POST /api/training/sessions/:id/sets — log a set (idempotent via client_uuid)
 router.post('/sessions/:id/sets', (req, res) => {
   const db = getDB();
   const sessionId = req.params.id;
-  const { exercise_id, set_number, weight_kg, reps } = req.body;
+  const { exercise_id, set_number, weight_kg, reps, client_uuid, created_at } = req.body;
 
+  // Primary path: upsert on client_uuid (local-first clients)
+  if (client_uuid) {
+    const existing = db.prepare('SELECT id FROM workout_sets WHERE client_uuid = ?').get(client_uuid);
+    if (existing) {
+      db.prepare('UPDATE workout_sets SET weight_kg = ?, reps = ?, set_number = ? WHERE id = ?')
+        .run(weight_kg, reps, set_number, existing.id);
+      return res.json({ id: existing.id, updated: true });
+    }
+    const result = db.prepare(
+      'INSERT INTO workout_sets (session_id, exercise_id, set_number, weight_kg, reps, client_uuid, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)'
+    ).run(sessionId, exercise_id, set_number, weight_kg, reps, client_uuid, created_at || new Date().toISOString());
+    return res.json({ id: result.lastInsertRowid, updated: false });
+  }
+
+  // Fallback: legacy upsert on (session_id, exercise_id, set_number)
   const existing = db.prepare(
     'SELECT id FROM workout_sets WHERE session_id = ? AND exercise_id = ? AND set_number = ?'
   ).get(sessionId, exercise_id, set_number);
@@ -651,10 +673,24 @@ router.post('/sessions/:id/sets', (req, res) => {
     res.json({ id: existing.id, updated: true });
   } else {
     const result = db.prepare(
-      'INSERT INTO workout_sets (session_id, exercise_id, set_number, weight_kg, reps) VALUES (?, ?, ?, ?, ?)'
-    ).run(sessionId, exercise_id, set_number, weight_kg, reps);
+      'INSERT INTO workout_sets (session_id, exercise_id, set_number, weight_kg, reps, created_at) VALUES (?, ?, ?, ?, ?, ?)'
+    ).run(sessionId, exercise_id, set_number, weight_kg, reps, new Date().toISOString());
     res.json({ id: result.lastInsertRowid, updated: false });
   }
+});
+
+// POST /api/training/sessions/:id/backfill — add a missed set after session completion
+router.post('/sessions/:id/backfill', (req, res) => {
+  const db = getDB();
+  const sessionId = req.params.id;
+  const session = db.prepare('SELECT * FROM workout_sessions WHERE id = ?').get(sessionId);
+  if (!session) return res.status(404).json({ error: 'Session not found' });
+
+  const { exercise_id, set_number, weight_kg, reps } = req.body;
+  const result = db.prepare(
+    'INSERT INTO workout_sets (session_id, exercise_id, set_number, weight_kg, reps, created_at, backfilled) VALUES (?, ?, ?, ?, ?, ?, 1)'
+  ).run(sessionId, exercise_id, set_number, weight_kg, reps, new Date().toISOString());
+  res.json({ id: result.lastInsertRowid, backfilled: true });
 });
 
 // DELETE /api/training/sessions/:id/sets/:setId

@@ -6,6 +6,15 @@ import {
 } from 'recharts';
 import MuscleHighlight from '../components/MuscleHighlight';
 import Sheet from '../components/Sheet';
+import {
+  saveSet as idbSaveSet,
+  updateSet as idbUpdateSet,
+  triggerSync,
+  flushSync,
+  pendingCount,
+  clearSyncedForSession,
+  stopSync,
+} from '../localSetStore';
 
 // ─── Offline exercise library ────────────────────────────────
 import EXERCISE_LIB from '../data/exerciseLibrary';
@@ -124,7 +133,14 @@ export default function Training() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const [t, v] = await Promise.all([api.getTraining(), api.getVolumeSummary()]);
+      // Gather pending exercise IDs from IndexedDB to protect catch-up engine
+      let pendingExIds = [];
+      try {
+        const { getPendingSets } = await import('../localSetStore');
+        const pending = await getPendingSets();
+        pendingExIds = [...new Set(pending.map(s => s.exercise_id))];
+      } catch {}
+      const [t, v] = await Promise.all([api.getTraining(pendingExIds), api.getVolumeSummary()]);
       setData(t);
       setVolume(v);
     } finally {
@@ -232,23 +248,44 @@ export default function Training() {
     const weight = parseFloat(set.weight_kg) || 0;
     const reps = parseInt(set.reps) || 0;
 
-    // Save to server
+    // Local-first: write to IndexedDB, then trigger async server sync
+    let clientUuid = set.client_uuid;
     try {
-      await api.logSet(session.session_id, {
-        exercise_id: exId,
-        set_number: setNum,
-        weight_kg: weight,
-        reps: reps,
-      });
-    } catch { /* will retry on sync */ }
+      if (clientUuid) {
+        // Re-logging same set (weight/reps changed) — update existing record
+        await idbUpdateSet(clientUuid, { weight_kg: weight, reps, set_number: setNum });
+      } else {
+        // New set — save locally
+        const record = await idbSaveSet(session.session_id, {
+          exercise_id: exId,
+          set_number: setNum,
+          weight_kg: weight,
+          reps,
+        });
+        clientUuid = record.client_uuid;
+      }
+    } catch (e) {
+      console.error('IndexedDB save failed:', e);
+    }
 
-    // Mark done
+    // Mark done in UI state (with client_uuid for tracking)
     setSessionSets(prev => {
       const exSets = (prev[exId] || []).map(s =>
-        s.set_number === setNum ? { ...s, done: true } : s
+        s.set_number === setNum ? { ...s, done: true, synced: false, client_uuid: clientUuid } : s
       );
       return { ...prev, [exId]: exSets };
     });
+
+    // Fire-and-forget server sync (retries automatically on failure)
+    triggerSync().then(() => {
+      // Mark synced in UI state
+      setSessionSets(prev => {
+        const exSets = (prev[exId] || []).map(s =>
+          s.client_uuid === clientUuid ? { ...s, synced: true } : s
+        );
+        return { ...prev, [exId]: exSets };
+      });
+    }).catch(() => {});
 
     // Start rest timer — compounds 2–3 min, accessories 60–90 s
     const exerciseData = next_workout.exercises.find(e => e.exercise_id === exId);
@@ -393,6 +430,17 @@ export default function Training() {
       }
     }
 
+    // Flush all pending sets to server before completing the session
+    try {
+      await flushSync();
+    } catch {}
+
+    // Check for remaining unsynced sets — warn but don't block
+    const remaining = await pendingCount();
+    if (remaining > 0) {
+      console.warn(`Finishing workout with ${remaining} unsynced sets — sync will continue in background`);
+    }
+
     try {
       const result = await api.completeSession(session.session_id, duration);
       setCompletionData({
@@ -416,6 +464,12 @@ export default function Training() {
       });
     }
 
+    // Clean up synced sets from IndexedDB (keep any still pending for retry)
+    try {
+      await clearSyncedForSession(session.session_id);
+    } catch {}
+
+    stopSync();
     clearSession();
     setSession(null);
     setSessionSets({});
@@ -1058,14 +1112,16 @@ function ExerciseCard({ ex, sets, last, onSetChange, onCompleteSet, onAddSet, on
               />
               <button
                 onClick={() => onCompleteSet(exId, set.set_number, ex.name)}
-                className="h-[52px] rounded-[13px] text-[18px] press-scale flex items-center justify-center"
+                className={`h-[52px] rounded-[13px] text-[18px] press-scale flex items-center justify-center${set.done && !set.synced ? ' animate-pulse' : ''}`}
                 style={{
-                  background: set.done ? 'var(--points)' : 'transparent',
+                  background: set.done
+                    ? (set.synced ? 'var(--points)' : 'color-mix(in oklab, var(--points) 60%, var(--card-2))')
+                    : 'transparent',
                   border: set.done ? '1px solid var(--points)' : '1px solid var(--hair)',
                   color: set.done ? 'var(--accent-surface)' : 'var(--text-3)',
                 }}
               >
-                ✓
+                {set.done && !set.synced ? '↻' : '✓'}
               </button>
               <button
                 onClick={() => onDeleteSet(exId, set.set_number)}
