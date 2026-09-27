@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import { api } from '../api';
 import Sheet from '../components/Sheet';
 
@@ -111,15 +111,15 @@ function Stepper({ value, onChange, min = 0, step = 1, label }) {
 export default function CookMode() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
 
   // Recipe data
   const [recipe, setRecipe] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  // Scale
-  const scaleFactor = parseFloat(searchParams.get('scale')) || 1;
+  // Scale (computed from localStorage after recipe loads)
+  const [scaleFactor, setScaleFactor] = useState(1);
+  const [people, setPeople] = useState(1);
 
   // Step navigation
   const [currentStep, setCurrentStep] = useState(0);
@@ -155,16 +155,27 @@ export default function CookMode() {
     try {
       const data = await api.getRecipe(id);
       setRecipe(data);
-      const defaultPortions = Math.round((data.servings || 4) * scaleFactor);
-      setPortions(defaultPortions);
-      const defaultWeight = Math.round((data.cooked_yield_g || 500) * scaleFactor);
-      setMeasuredWeight(String(defaultWeight));
+
+      // Compute scale from localStorage
+      const saved = JSON.parse(localStorage.getItem(`cook_scale_${id}`) || 'null');
+      const mainIng = data.ingredients?.find(i => i.main_ingredient);
+      const origAmt = mainIng?.amount || 0;
+      let sf = 1;
+      let ppl = 1;
+      if (saved) {
+        sf = origAmt > 0 && saved.mainIngAmt ? saved.mainIngAmt / origAmt : 1;
+        ppl = saved.people || 1;
+      }
+      setScaleFactor(sf);
+      setPeople(ppl);
+      setPortions(Math.max(1, Math.round(ppl)));
+      setMeasuredWeight(String(Math.round((data.cooked_yield_g || 500) * sf)));
     } catch (e) {
       setError(e.message || 'Failed to load recipe');
     } finally {
       setLoading(false);
     }
-  }, [id, scaleFactor]);
+  }, [id]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -290,6 +301,7 @@ export default function CookMode() {
         portions,
         measured_weight_g: measuredWeight ? Number(measuredWeight) : null,
       });
+      localStorage.removeItem(`cook_scale_${id}`);
       navigate('/cook/cooked');
     } catch {
       // Stay on sheet so user can retry
@@ -445,6 +457,30 @@ export default function CookMode() {
           )}
           <p className="text-[17px] leading-[1.45] text-tx-2">{step.text}</p>
 
+          {/* Ingredients strip */}
+          {recipe?.ingredients?.length > 0 && (
+            <div className="mt-3 -mx-1 overflow-x-auto scrollbar-none">
+              <div className="flex gap-1.5 px-1 pb-1">
+                {recipe.ingredients.map((ing, idx) => {
+                  const scaledAmt = (ing.amount || 0) * scaleFactor;
+                  const display = formatQuantity(scaledAmt, ing.unit, ing.name);
+                  if (!display) return null;
+                  const shortName = ing.name.split(',')[0].trim();
+                  return (
+                    <div
+                      key={idx}
+                      className="flex-shrink-0 text-[11px] px-2 py-1 rounded-lg whitespace-nowrap"
+                      style={{ background: 'color-mix(in oklab, var(--cook) 10%, var(--card-2))' }}
+                    >
+                      <span className="font-num font-medium text-tx">{display}</span>
+                      <span className="text-tx-3 ml-1">{shortName}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
           {/* Timer button for this step */}
           {step.timer_seconds > 0 && !currentStepTimer && (
             <button
@@ -569,11 +605,6 @@ export default function CookMode() {
       {/* ── Ingredients Sheet ─────────────────────────────── */}
       <Sheet open={showIngredients} onClose={() => setShowIngredients(false)} title="Ingredients" height="tall">
         <div className="px-5 pb-4">
-          {scaleFactor !== 1 && (
-            <p className="text-[12px] text-tx-3 mb-3">
-              Scaled {scaleFactor > 1 ? 'up' : 'down'} {scaleFactor}x
-            </p>
-          )}
           <ul className="space-y-2.5">
             {(recipe?.ingredients || []).map((ing, idx) => {
               const scaledAmt = (ing.amount || 0) * scaleFactor;

@@ -98,6 +98,12 @@ function formatQuantity(amount, unit, ingredientName) {
   return `${toFraction(tsp)} tsp`;
 }
 
+/* ── rounding helpers ─────────────────────────────────── */
+
+function roundCal(v) { return Math.round(v / 5) * 5; }
+function roundMacro(v) { return Math.round(v); }
+function roundGrams5(v) { return Math.round(v / 5) * 5; }
+
 /* ── time helpers ──────────────────────────────────────── */
 
 function getMealTypeByTime() {
@@ -163,7 +169,7 @@ function MacroGrid({ macros }) {
    LogPortionSheet
    ══════════════════════════════════════════════════════════ */
 
-function LogPortionSheet({ open, onClose, recipe, scaleFactor, portions }) {
+function LogPortionSheet({ open, onClose, recipe, scaleFactor, people, perPersonGrams }) {
   const [mode, setMode] = useState('servings'); // 'servings' | 'grams'
   const [servingsVal, setServingsVal] = useState(1);
   const [gramsVal, setGramsVal] = useState(100);
@@ -175,11 +181,11 @@ function LogPortionSheet({ open, onClose, recipe, scaleFactor, portions }) {
   useEffect(() => {
     if (open) {
       setServingsVal(1);
-      setGramsVal(100);
+      setGramsVal(perPersonGrams || 100);
       setMealType(getMealTypeByTime());
       setToast(null);
     }
-  }, [open]);
+  }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
 
   if (!recipe) return null;
 
@@ -189,10 +195,17 @@ function LogPortionSheet({ open, onClose, recipe, scaleFactor, portions }) {
 
   const portionMacros = {};
   if (mode === 'servings') {
-    MACROS.forEach(m => { portionMacros[m.key] = (totalBatch[m.key] / portions) * servingsVal; });
+    // 1 serving = 1 person's share = totalBatch / people
+    MACROS.forEach(m => {
+      const v = people > 0 ? (totalBatch[m.key] / people) * servingsVal : 0;
+      portionMacros[m.key] = m.key === 'calories' ? roundCal(v) : roundMacro(v);
+    });
   } else {
     const yieldG = (recipe.cooked_yield_g || 500) * scaleFactor;
-    MACROS.forEach(m => { portionMacros[m.key] = yieldG > 0 ? (totalBatch[m.key] / yieldG) * gramsVal : 0; });
+    MACROS.forEach(m => {
+      const v = yieldG > 0 ? (totalBatch[m.key] / yieldG) * gramsVal : 0;
+      portionMacros[m.key] = m.key === 'calories' ? roundCal(v) : roundMacro(v);
+    });
   }
 
   async function handleLog() {
@@ -230,7 +243,7 @@ function LogPortionSheet({ open, onClose, recipe, scaleFactor, portions }) {
         </div>
 
         {mode === 'servings' ? (
-          <Stepper value={servingsVal} onChange={setServingsVal} min={0.5} step={0.5} label="Servings" />
+          <Stepper value={servingsVal} onChange={setServingsVal} min={0.5} step={0.5} label="Portions" />
         ) : (
           <div className="flex items-center gap-2">
             <label className="text-sm text-tx-2">Grams</label>
@@ -294,19 +307,17 @@ function LogPortionSheet({ open, onClose, recipe, scaleFactor, portions }) {
    ICookedThisSheet
    ══════════════════════════════════════════════════════════ */
 
-function ICookedThisSheet({ open, onClose, recipe, scaleFactor }) {
-  const defaultPortions = Math.round((recipe?.servings || 4) * scaleFactor);
-  const defaultWeight = Math.round((recipe?.cooked_yield_g || 500) * scaleFactor);
-  const [portions, setPortions] = useState(defaultPortions);
-  const [weight, setWeight] = useState(defaultWeight);
+function ICookedThisSheet({ open, onClose, recipe, scaleFactor, people, onSaved }) {
+  const [portions, setPortions] = useState(Math.max(1, Math.round(people || 1)));
+  const [weight, setWeight] = useState(Math.round((recipe?.cooked_yield_g || 500) * scaleFactor));
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     if (open && recipe) {
-      setPortions(Math.round((recipe.servings || 4) * scaleFactor));
+      setPortions(Math.max(1, Math.round(people || 1)));
       setWeight(Math.round((recipe.cooked_yield_g || 500) * scaleFactor));
     }
-  }, [open, recipe, scaleFactor]);
+  }, [open, recipe, scaleFactor, people]);
 
   if (!recipe) return null;
 
@@ -314,7 +325,10 @@ function ICookedThisSheet({ open, onClose, recipe, scaleFactor }) {
   const totalBatch = {};
   MACROS.forEach(m => { totalBatch[m.key] = (ps[m.key] || 0) * (recipe.servings || 1) * scaleFactor; });
   const perPortion = {};
-  MACROS.forEach(m => { perPortion[m.key] = portions > 0 ? totalBatch[m.key] / portions : 0; });
+  MACROS.forEach(m => {
+    const v = portions > 0 ? totalBatch[m.key] / portions : 0;
+    perPortion[m.key] = m.key === 'calories' ? roundCal(v) : roundMacro(v);
+  });
 
   async function handleSave() {
     setSaving(true);
@@ -325,6 +339,7 @@ function ICookedThisSheet({ open, onClose, recipe, scaleFactor }) {
         portions,
         measured_weight_g: weight,
       });
+      onSaved?.();
       onClose();
     } finally {
       setSaving(false);
@@ -694,10 +709,9 @@ function RecipeForm({ recipe, isNew, navigate }) {
    ══════════════════════════════════════════════════════════ */
 
 function DetailView({ recipe, navigate, onRecipeChange }) {
-  const [macroMode, setMacroMode] = useState('serving'); // 'serving' | 'per100g'
+  const [macroMode, setMacroMode] = useState('person'); // 'person' | 'per100g'
   const [mainIngAmt, setMainIngAmt] = useState(null);
-  const [servingsScale, setServingsScale] = useState(recipe.servings || 4);
-  const [portions, setPortions] = useState(recipe.servings || 4);
+  const [people, setPeople] = useState(1);
   const [myNotes, setMyNotes] = useState(recipe.my_notes || '');
   const [showLog, setShowLog] = useState(false);
   const [showCooked, setShowCooked] = useState(false);
@@ -709,43 +723,52 @@ function DetailView({ recipe, navigate, onRecipeChange }) {
   const mainIng = recipe.ingredients?.find(i => i.main_ingredient);
   const origMainAmt = mainIng?.amount || 0;
 
-  // Initialise main ingredient amount on first render / recipe change
+  // Initialise from localStorage or recipe defaults
   useEffect(() => {
-    if (mainIng) setMainIngAmt(mainIng.amount);
-    setServingsScale(recipe.servings || 4);
-    setPortions(recipe.servings || 4);
+    const saved = JSON.parse(localStorage.getItem(`cook_scale_${recipe.id}`) || 'null');
+    if (saved) {
+      if (saved.mainIngAmt != null) setMainIngAmt(saved.mainIngAmt);
+      if (saved.people != null) setPeople(saved.people);
+    } else {
+      if (mainIng) setMainIngAmt(mainIng.amount);
+      setPeople(1);
+    }
     setMyNotes(recipe.my_notes || '');
     setIsFav(recipe.is_favourite);
   }, [recipe]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Scale factor: product of serving scale and main ingredient scale
-  const servingFactor = (recipe.servings || 1) > 0 ? servingsScale / (recipe.servings || 1) : 1;
-  const mainFactor = origMainAmt > 0 && mainIngAmt !== null ? mainIngAmt / origMainAmt : 1;
-  const scaleFactor = servingFactor * mainFactor;
+  // Persist to localStorage on change
+  useEffect(() => {
+    if (mainIngAmt !== null) {
+      localStorage.setItem(`cook_scale_${recipe.id}`, JSON.stringify({ mainIngAmt, people }));
+    }
+  }, [mainIngAmt, people, recipe.id]);
 
-  // Macro computation
+  // Scale factor from main ingredient only
+  const scaleFactor = origMainAmt > 0 && mainIngAmt !== null ? mainIngAmt / origMainAmt : 1;
+
+  // Per-person macro computation
   const ps = recipe.per_serving || {};
-  const computedMacros = {};
-  if (macroMode === 'serving') {
+  const batchMacros = {};
+  MACROS.forEach(m => { batchMacros[m.key] = (ps[m.key] || 0) * (recipe.servings || 1) * scaleFactor; });
+
+  const perPersonMacros = {};
+  MACROS.forEach(m => {
+    const v = people > 0 ? batchMacros[m.key] / people : 0;
+    perPersonMacros[m.key] = m.key === 'calories' ? roundCal(v) : roundMacro(v);
+  });
+
+  const batchYieldG = (recipe.cooked_yield_g || 0) * scaleFactor;
+  const perPersonGrams = people > 0 && batchYieldG > 0 ? roundGrams5(batchYieldG / people) : null;
+
+  // Per 100g computation
+  const per100gMacros = {};
+  if (batchYieldG > 0) {
     MACROS.forEach(m => {
-      const totalBatch = (ps[m.key] || 0) * (recipe.servings || 1) * scaleFactor;
-      computedMacros[m.key] = portions > 0 ? totalBatch / portions : 0;
-    });
-  } else {
-    const yieldG = (recipe.cooked_yield_g || 500) * scaleFactor;
-    MACROS.forEach(m => {
-      const totalBatch = (ps[m.key] || 0) * (recipe.servings || 1) * scaleFactor;
-      computedMacros[m.key] = yieldG > 0 ? (totalBatch / yieldG) * 100 : 0;
+      const v = (batchMacros[m.key] / batchYieldG) * 100;
+      per100gMacros[m.key] = m.key === 'calories' ? roundCal(v) : roundMacro(v);
     });
   }
-
-  // Per-portion note
-  const portionCal = portions > 0
-    ? ((ps.calories || 0) * (recipe.servings || 1) * scaleFactor) / portions
-    : 0;
-  const portionPro = portions > 0
-    ? ((ps.protein_g || 0) * (recipe.servings || 1) * scaleFactor) / portions
-    : 0;
 
   async function handleSaveNotes() {
     try {
@@ -817,30 +840,14 @@ function DetailView({ recipe, navigate, onRecipeChange }) {
           )}
         </div>
 
-        {/* Macro card */}
-        <div className="bg-card rounded-card p-4 space-y-3">
-          <div className="flex items-center gap-2">
-            {['serving', 'per100g'].map(mode => (
-              <button
-                key={mode}
-                onClick={() => setMacroMode(mode)}
-                className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${macroMode === mode ? 'bg-card-2 text-tx' : 'text-tx-3'}`}
-              >
-                {mode === 'serving' ? 'Per serving' : 'Per 100g cooked'}
-              </button>
-            ))}
-          </div>
-          <MacroGrid macros={computedMacros} />
-        </div>
-
-        {/* Scale & portion */}
+        {/* Scale & macros */}
         <div className="bg-card rounded-card p-4 space-y-4">
-          <h3 className="text-sm font-semibold text-tx">Scale & portion</h3>
-
-          {/* Main ingredient scaler */}
+          {/* Main ingredient input */}
           {mainIng && mainIngAmt !== null && (
             <div>
-              <p className="text-xs text-tx-3 mb-1">{mainIng.name} (main)</p>
+              <p className="text-sm text-tx-2 mb-1.5">
+                How much {mainIng.name.split(',')[0].trim().toLowerCase()} are you cooking?
+              </p>
               <div className="flex items-center gap-2">
                 <input
                   type="number"
@@ -848,23 +855,34 @@ function DetailView({ recipe, navigate, onRecipeChange }) {
                   onChange={e => setMainIngAmt(Math.max(0, +e.target.value))}
                   className="w-20 px-2 py-1.5 rounded-lg bg-card-2 text-tx font-num text-sm text-center border border-hair"
                 />
-                <span className="text-sm text-tx-3">g</span>
+                <span className="text-sm text-tx-3">{mainIng.unit}</span>
               </div>
             </div>
           )}
 
-          {/* Servings stepper */}
-          <div>
-            <Stepper value={servingsScale} onChange={v => setServingsScale(Math.max(1, v))} min={1} step={1} label="Servings" />
-            <p className="text-[11px] text-tx-3 mt-1">as written: {recipe.servings} serving{recipe.servings !== 1 ? 's' : ''}</p>
-          </div>
+          {/* People stepper */}
+          <Stepper value={people} onChange={v => setPeople(Math.max(0.5, v))} min={0.5} step={0.5} label="How many people?" />
 
-          {/* Portions re-divider */}
-          <div>
-            <Stepper value={portions} onChange={v => setPortions(Math.max(1, v))} min={1} step={1} label="Split the batch into" />
-            <p className="text-[11px] text-tx-3 mt-1">
-              That&apos;s {Math.round(portionCal)} kcal and {Math.round(portionPro)}g protein per portion
-            </p>
+          {/* Per-person result */}
+          <div className="pt-3 border-t border-hair">
+            {perPersonGrams && (
+              <p className="text-[15px] font-semibold text-tx mb-3">
+                Each person gets ~{perPersonGrams}g
+              </p>
+            )}
+
+            <div className="flex items-center gap-2 mb-3">
+              {['person', 'per100g'].map(mode => (
+                <button
+                  key={mode}
+                  onClick={() => setMacroMode(mode)}
+                  className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${macroMode === mode ? 'bg-card-2 text-tx' : 'text-tx-3'}`}
+                >
+                  {mode === 'person' ? 'Per person' : 'Per 100g cooked'}
+                </button>
+              ))}
+            </div>
+            <MacroGrid macros={macroMode === 'person' ? perPersonMacros : per100gMacros} />
           </div>
         </div>
 
@@ -962,7 +980,7 @@ function DetailView({ recipe, navigate, onRecipeChange }) {
         {/* Action buttons */}
         <div className="space-y-2 pt-2">
           <button
-            onClick={() => navigate(`/cook/recipes/${recipe.id}/cook${scaleFactor !== 1 ? `?scale=${scaleFactor}` : ''}`)}
+            onClick={() => navigate(`/cook/recipes/${recipe.id}/cook`)}
             className="w-full py-3 rounded-xl font-semibold text-sm press-scale"
             style={{ background: 'var(--cook)', color: 'var(--on-accent)' }}
           >
@@ -1007,13 +1025,16 @@ function DetailView({ recipe, navigate, onRecipeChange }) {
         onClose={() => setShowLog(false)}
         recipe={recipe}
         scaleFactor={scaleFactor}
-        portions={portions}
+        people={people}
+        perPersonGrams={perPersonGrams}
       />
       <ICookedThisSheet
         open={showCooked}
         onClose={() => setShowCooked(false)}
         recipe={recipe}
         scaleFactor={scaleFactor}
+        people={people}
+        onSaved={() => localStorage.removeItem(`cook_scale_${recipe.id}`)}
       />
     </>
   );
