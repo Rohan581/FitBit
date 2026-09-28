@@ -115,6 +115,15 @@ export default function Training() {
   // Cancel confirmation
   const [showCancelConfirm, setShowCancelConfirm] = useState(false);
 
+  // Slot system: which exercise is currently active (expanded for logging)
+  const [activeExId, setActiveExId] = useState(null);
+  // Skip confirm dialog state: { targetExId, currentExName }
+  const [skipConfirm, setSkipConfirm] = useState(null);
+  // Bench-occupied swap picker
+  const [showBenchSwap, setShowBenchSwap] = useState(false);
+  // Running-long warning dismissed
+  const [runningLongDismissed, setRunningLongDismissed] = useState(false);
+
   // "Train anyway" override (weekly cap)
   const [showTrainAnywayConfirm, setShowTrainAnywayConfirm] = useState(false);
 
@@ -178,6 +187,28 @@ export default function Training() {
     }
   }, [session, sessionSets, startedAt, completedExercises, sessionCardio, swappedExercises]);
 
+  // Auto-advance to next slot when all sets of current exercise are done
+  useEffect(() => {
+    if (!session || !data?.next_workout || !activeExId) return;
+    const exSets = sessionSets[activeExId] || [];
+    const allDone = exSets.length > 0 && exSets.every(s => s.done);
+    if (!allDone) return;
+
+    const exercises = data.next_workout.exercises.sort((a, b) => (a.slot || 0) - (b.slot || 0));
+    const currentIdx = exercises.findIndex(e => e.exercise_id === activeExId);
+    // Find next unfinished exercise
+    for (let i = currentIdx + 1; i < exercises.length; i++) {
+      const nextEx = exercises[i];
+      if (!nextEx.exercise_id) continue;
+      const nextSets = sessionSets[nextEx.exercise_id] || [];
+      const nextDone = nextSets.length > 0 && nextSets.every(s => s.done);
+      if (!nextDone) {
+        setActiveExId(nextEx.exercise_id);
+        return;
+      }
+    }
+  }, [session, sessionSets, activeExId, data]);
+
   const elapsedSecs = useTimestamp(startedAt);
   const restSecs = useTimestamp(restStartedAt);
   const restRemaining = restStartedAt ? Math.max(0, restDuration - restSecs) : 0;
@@ -206,16 +237,23 @@ export default function Training() {
     setSwappedExercises({});
 
     // Initialize all sets from prescription, pre-filling from last session
+    // Apply load suggestions (stalled-load detector) to pre-fill suggested weight
+    const suggestions = data.load_suggestions || {};
     const initial = {};
     for (const ex of next_workout.exercises) {
       if (!ex.exercise_id) continue;
       const last = last_numbers[ex.exercise_id] || [];
+      const suggestion = suggestions[ex.exercise_id];
       const sets = [];
       for (let s = 1; s <= ex.sets; s++) {
         const prev = last.find(l => l.set_number === s);
+        let prefillWeight = prev?.weight_kg != null ? String(prev.weight_kg) : '';
+        if (suggestion) prefillWeight = String(suggestion.suggestedWeight);
+        // Seed barbell bench press at 30 kg when no history exists
+        if (!prefillWeight && ex.name === 'Barbell Bench Press') prefillWeight = '30';
         sets.push({
           set_number: s,
-          weight_kg: prev?.weight_kg != null ? String(prev.weight_kg) : '',
+          weight_kg: prefillWeight,
           reps: prev?.reps != null ? String(prev.reps) : '',
           done: false,
         });
@@ -451,6 +489,9 @@ export default function Training() {
         nextType: result.next_type,
         gymThisWeek: (data.week_gym_sessions || 0) + 1,
         cardio: sessionCardio,
+        corePlanned: result.core_planned,
+        coreCompleted: result.core_completed,
+        missedExercises: result.missed_exercises || [],
       });
     } catch {
       setCompletionData({
@@ -461,6 +502,9 @@ export default function Training() {
         nextType: null,
         gymThisWeek: (data.week_gym_sessions || 0) + 1,
         cardio: sessionCardio,
+        corePlanned: null,
+        coreCompleted: null,
+        missedExercises: [],
       });
     }
 
@@ -549,19 +593,72 @@ export default function Training() {
       const swap = swappedExercises[ex.exercise_id];
       if (swap) return { ...ex, exercise_id: swap.exercise_id, name: swap.name, _originalId: ex.exercise_id };
       return ex;
-    });
+    }).sort((a, b) => (a.slot || 0) - (b.slot || 0));
 
-    const exCount = effectiveExercises.length;
-    const doneCount = effectiveExercises.filter(
+    // Separate core and bonus
+    const coreExercises = effectiveExercises.filter(e => !e.is_bonus);
+    const bonusExercises = effectiveExercises.filter(e => e.is_bonus);
+
+    const coreCount = coreExercises.length;
+    const coreDoneCount = coreExercises.filter(
       ex => ex.exercise_id && (sessionSets[ex.exercise_id] || []).every(s => s.done) && (sessionSets[ex.exercise_id] || []).length > 0
     ).length;
 
-    // Separate catch-up and template exercises
-    const catchUpExercises = effectiveExercises.filter(e => e.is_catchup);
-    const templateExercises = effectiveExercises.filter(e => !e.is_catchup);
+    // Determine which exercise should be active (first non-done core, else first non-done bonus)
+    const currentActive = activeExId || (() => {
+      const firstUnfinished = coreExercises.find(
+        ex => ex.exercise_id && !((sessionSets[ex.exercise_id] || []).length > 0 && (sessionSets[ex.exercise_id] || []).every(s => s.done))
+      );
+      return firstUnfinished?.exercise_id || bonusExercises[0]?.exercise_id || coreExercises[0]?.exercise_id;
+    })();
+
+    // Auto-advance: after completing all sets of the active exercise, move to next
+    const activeEx = effectiveExercises.find(e => e.exercise_id === currentActive);
+    const activeSets = sessionSets[currentActive] || [];
+    const activeAllDone = activeSets.length > 0 && activeSets.every(s => s.done);
+
+    // Time budget calculation
+    const liftsToGo = coreExercises.filter(
+      ex => ex.exercise_id && !((sessionSets[ex.exercise_id] || []).length > 0 && (sessionSets[ex.exercise_id] || []).every(s => s.done))
+    ).length;
+    const estimateRemaining = (() => {
+      let total = 0;
+      for (const ex of effectiveExercises) {
+        if (!ex.exercise_id) continue;
+        const exSets = sessionSets[ex.exercise_id] || [];
+        const allDone = exSets.length > 0 && exSets.every(s => s.done);
+        if (allDone) continue;
+        const undone = exSets.filter(s => !s.done).length || ex.sets || 3;
+        const rest = ex.rest_seconds || (COMPOUND_EXERCISES.has(ex.name) ? 150 : 75);
+        total += undone * (30 + rest) + 60; // 30s working time per set + rest + 60s setup
+      }
+      return Math.round(total / 60);
+    })();
+    const projectedFinish = startedAt ? Math.round((Date.now() - startedAt) / 60000) + estimateRemaining : estimateRemaining;
+    const showRunningLong = projectedFinish > 55 && !runningLongDismissed;
 
     const isLastTenSecs = restRemaining > 0 && restRemaining <= 10;
     const isRestComplete = restStartedAt && restRemaining <= 0;
+
+    // Handle clicking a collapsed slot
+    function handleSlotTap(targetExId) {
+      if (targetExId === currentActive) return;
+      const targetEx = effectiveExercises.find(e => e.exercise_id === targetExId);
+      // Bonus can always be tapped without confirm
+      if (targetEx?.is_bonus) {
+        setActiveExId(targetExId);
+        return;
+      }
+      // If the current active slot is ahead of the target, no confirm needed
+      const currentSlot = activeEx?.slot || 0;
+      const targetSlot = targetEx?.slot || 0;
+      if (targetSlot <= currentSlot) {
+        setActiveExId(targetExId);
+        return;
+      }
+      // Jumping ahead — show skip confirm
+      setSkipConfirm({ targetExId, currentExName: activeEx?.name || 'current exercise' });
+    }
 
     return (
       <div className="flex flex-col h-full">
@@ -572,15 +669,28 @@ export default function Training() {
           </button>
           <div className="text-center">
             <div className="text-[16px] font-bold font-num text-tx">{next_workout.label}</div>
-            <div className="text-[12px] font-semibold text-tx-3">{doneCount} of {exCount} exercises</div>
+            <div className="text-[12px] font-semibold text-tx-3">{coreDoneCount} of {coreCount} main lifts</div>
           </div>
           <span className="text-[14px] font-semibold font-num text-tx-2 w-[52px] text-right">{fmtTime(elapsedSecs)}</span>
         </div>
 
+        {/* Time budget */}
+        <div className="px-5 py-2 text-[12.5px] font-semibold text-tx-3 flex items-center justify-between border-b border-hair flex-shrink-0">
+          <span>~{estimateRemaining} min left · {liftsToGo} lift{liftsToGo !== 1 ? 's' : ''} to go</span>
+        </div>
+
+        {/* Running-long warning */}
+        {showRunningLong && (
+          <div className="mx-4 mt-2 px-4 py-2.5 rounded-[12px] text-[12.5px] text-tx-2 flex items-center justify-between" style={{ background: 'color-mix(in oklab, var(--cal) 12%, var(--bg))' }}>
+            <span>Running long — the bonus lift is the one to drop.</span>
+            <button onClick={() => setRunningLongDismissed(true)} className="text-tx-3 text-[14px] ml-2 press-scale">✕</button>
+          </div>
+        )}
+
         {/* Exercise cards */}
         <div className="flex-1 overflow-y-auto px-4 pt-3 pb-32" style={{ WebkitOverflowScrolling: 'touch' }}>
           <div className="flex flex-col gap-3">
-            {/* Equipment notes — dropped/substituted slots */}
+            {/* Equipment notes */}
             {data.equipment_notes?.length > 0 && (
               <div className="rounded-[14px] px-4 py-2.5" style={{ background: 'var(--card-2)' }}>
                 <div className="text-[11.5px] font-bold text-tx-3 uppercase tracking-wider mb-1">Equipment notes</div>
@@ -590,75 +700,110 @@ export default function Training() {
               </div>
             )}
 
-            {/* Template exercises — flat list, every exercise is a standalone slot */}
-            {templateExercises.map((ex, i) => (
-              <ExerciseCard
-                key={ex.exercise_id || i}
-                ex={ex}
-                sets={sessionSets[ex.exercise_id] || []}
-                last={last_numbers[ex.exercise_id] || []}
-                onSetChange={handleSetChange}
-                onCompleteSet={handleCompleteSet}
-                onAddSet={handleAddSet}
-                onDeleteSet={handleDeleteSet}
-                onDetail={setDetailExercise}
-                onProg={setProgExercise}
-                onSwap={setSwapExercise}
-              />
-            ))}
+            {/* Bench-occupied swap button (Upper A only, slot 1) */}
+            {next_workout.bench_swap_options && !swappedExercises[coreExercises[0]?.exercise_id] && (
+              <button
+                onClick={() => setShowBenchSwap(true)}
+                className="h-[40px] rounded-[12px] border border-dashed border-hair text-[13px] font-semibold text-tx-2 press-scale"
+              >
+                Station busy? Swap bench press →
+              </button>
+            )}
 
-            {/* Catch-up block */}
-            {catchUpExercises.length > 0 && (
-              <>
-                <div className="rounded-[14px] px-4 py-2.5 mt-1" style={{ background: 'var(--accent-surface)' }}>
-                  <div className="text-[12.5px] font-bold text-points">Catch-up</div>
-                  <div className="text-[11.5px] text-tx-2 mt-0.5">
-                    {catchUpExercises.map(e => e.catchup_reason).filter(Boolean).join(' · ')}
+            {/* Core exercises */}
+            {coreExercises.map((ex, i) => {
+              const isActive = ex.exercise_id === currentActive;
+              const exSets = sessionSets[ex.exercise_id] || [];
+              const allDone = exSets.length > 0 && exSets.every(s => s.done);
+              const isCatchUp = ex.is_catchup;
+
+              if (isCatchUp && i === 0) {
+                // Show catch-up header before first catch-up exercise
+                return (
+                  <div key={`catchup-header-${ex.exercise_id}`}>
+                    <div className="rounded-[14px] px-4 py-2.5 mb-3" style={{ background: 'var(--accent-surface)' }}>
+                      <div className="text-[12.5px] font-bold text-points">Catch-up</div>
+                      <div className="text-[11.5px] text-tx-2 mt-0.5">{ex.catchup_reason}</div>
+                    </div>
+                    {isActive ? (
+                      <ExerciseCard
+                        ex={ex} sets={exSets} last={last_numbers[ex.exercise_id] || []}
+                        onSetChange={handleSetChange} onCompleteSet={handleCompleteSet}
+                        onAddSet={handleAddSet} onDeleteSet={handleDeleteSet}
+                        onDetail={setDetailExercise} onProg={setProgExercise} onSwap={setSwapExercise}
+                        loadSuggestion={data.load_suggestions?.[ex.exercise_id]}
+                      />
+                    ) : (
+                      <CollapsedExercise ex={ex} allDone={allDone} onTap={() => handleSlotTap(ex.exercise_id)} />
+                    )}
                   </div>
+                );
+              }
+
+              return isActive ? (
+                <ExerciseCard
+                  key={ex.exercise_id || i}
+                  ex={ex} sets={exSets} last={last_numbers[ex.exercise_id] || []}
+                  onSetChange={handleSetChange} onCompleteSet={handleCompleteSet}
+                  onAddSet={handleAddSet} onDeleteSet={handleDeleteSet}
+                  onDetail={setDetailExercise} onProg={setProgExercise} onSwap={setSwapExercise}
+                />
+              ) : (
+                <CollapsedExercise key={ex.exercise_id || i} ex={ex} allDone={allDone} onTap={() => handleSlotTap(ex.exercise_id)} />
+              );
+            })}
+
+            {/* Bonus separator */}
+            {bonusExercises.length > 0 && (
+              <>
+                <div className="text-[12px] font-bold text-tx-3 uppercase tracking-wider mt-2 mb-0.5 px-1">
+                  Bonus — only if you have time
                 </div>
-                {catchUpExercises.map((ex, i) => (
-                  <ExerciseCard
-                    key={ex.exercise_id || `catch-${i}`}
-                    ex={ex}
-                    sets={sessionSets[ex.exercise_id] || []}
-                    last={last_numbers[ex.exercise_id] || []}
-                    onSetChange={handleSetChange}
-                    onCompleteSet={handleCompleteSet}
-                    onAddSet={handleAddSet}
-                    onDeleteSet={handleDeleteSet}
-                    onDetail={setDetailExercise}
-                    onProg={setProgExercise}
-                    onSwap={setSwapExercise}
-                  />
-                ))}
+                {bonusExercises.map((ex, i) => {
+                  const isActive = ex.exercise_id === currentActive;
+                  const exSets = sessionSets[ex.exercise_id] || [];
+                  const allDone = exSets.length > 0 && exSets.every(s => s.done);
+                  return isActive ? (
+                    <ExerciseCard
+                      key={ex.exercise_id || `bonus-${i}`}
+                      ex={ex} sets={exSets} last={last_numbers[ex.exercise_id] || []}
+                      onSetChange={handleSetChange} onCompleteSet={handleCompleteSet}
+                      onAddSet={handleAddSet} onDeleteSet={handleDeleteSet}
+                      onDetail={setDetailExercise} onProg={setProgExercise} onSwap={setSwapExercise}
+                    />
+                  ) : (
+                    <CollapsedExercise key={ex.exercise_id || `bonus-${i}`} ex={ex} allDone={allDone} onTap={() => setActiveExId(ex.exercise_id)} />
+                  );
+                })}
               </>
             )}
 
-            {/* In-session cardio */}
-            {sessionCardio.length > 0 && (
-              <div className="bg-card rounded-[20px] border border-hair p-4">
-                <div className="text-[13px] font-bold text-tx-3 mb-2">Cardio</div>
-                {sessionCardio.map(c => (
-                  <div key={c.id} className="flex items-center justify-between py-2">
-                    <span className="text-[14px] text-tx-2">{c.type} · {c.duration_min} min</span>
-                    <button onClick={() => handleRemoveCardio(c.id)} className="text-tx-3 text-[16px] press-scale">✕</button>
-                  </div>
-                ))}
-              </div>
-            )}
-
-            {/* Add cardio button */}
-            <button
-              onClick={() => setShowCardioAdd(true)}
-              className="h-[48px] rounded-[14px] border border-dashed border-hair text-[14px] font-semibold text-tx-2 press-scale"
-            >
-              + Add cardio · rower, treadmill…
-            </button>
+            {/* In-session cardio — always at the end */}
+            <div className="mt-2">
+              <div className="text-[12px] font-bold text-tx-3 uppercase tracking-wider mb-1.5 px-1">Cardio</div>
+              <div className="text-[12px] text-tx-3 mb-2 px-1">Lifting first, cardio last. If you're out of time, this is what to cut.</div>
+              {sessionCardio.length > 0 && (
+                <div className="bg-card rounded-[20px] border border-hair p-4 mb-2">
+                  {sessionCardio.map(c => (
+                    <div key={c.id} className="flex items-center justify-between py-2">
+                      <span className="text-[14px] text-tx-2">{c.type} · {c.duration_min} min</span>
+                      <button onClick={() => handleRemoveCardio(c.id)} className="text-tx-3 text-[16px] press-scale">✕</button>
+                    </div>
+                  ))}
+                </div>
+              )}
+              <button
+                onClick={() => setShowCardioAdd(true)}
+                className="h-[48px] w-full rounded-[14px] border border-dashed border-hair text-[14px] font-semibold text-tx-2 press-scale"
+              >
+                + Add cardio · 10 min default
+              </button>
+            </div>
 
             {/* Finish button */}
             <button
               onClick={handleFinishWorkout}
-              className="h-[56px] rounded-[16px] text-[16.5px] font-bold press-scale mt-1"
+              className="h-[56px] rounded-[16px] text-[16.5px] font-bold press-scale mt-3"
               style={{ background: 'var(--points)', color: 'var(--accent-surface)' }}
             >
               Finish workout
@@ -743,7 +888,62 @@ export default function Training() {
         )}
 
         {/* Cardio add sheet */}
-        {showCardioAdd && <CardioAddSheet onAdd={handleAddCardio} onClose={() => setShowCardioAdd(false)} />}
+        {showCardioAdd && <CardioAddSheet onAdd={handleAddCardio} onClose={() => setShowCardioAdd(false)} defaultMinutes={10} />}
+
+        {/* Skip confirm dialog */}
+        {skipConfirm && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ background: 'rgba(0,0,0,0.5)' }}>
+            <div className="bg-card rounded-[20px] p-6 mx-8 max-w-sm w-full">
+              <p className="text-[15px] text-tx">Skip {skipConfirm.currentExName}? It's the priority lift today.</p>
+              <div className="flex gap-3 mt-5">
+                <button
+                  onClick={() => setSkipConfirm(null)}
+                  className="flex-1 h-[48px] rounded-[13px] border border-hair text-[15px] font-bold text-tx-2 press-scale"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={() => { setActiveExId(skipConfirm.targetExId); setSkipConfirm(null); }}
+                  className="flex-1 h-[48px] rounded-[13px] text-[15px] font-bold press-scale"
+                  style={{ background: 'var(--points)', color: 'var(--accent-surface)' }}
+                >
+                  Skip
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Bench-occupied swap picker */}
+        {showBenchSwap && next_workout.bench_swap_options && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ background: 'rgba(0,0,0,0.5)' }}>
+            <div className="bg-card rounded-[20px] p-6 mx-8 max-w-sm w-full">
+              <h3 className="text-[17px] font-bold text-tx">Station busy</h3>
+              <p className="text-[14px] text-tx-2 mt-1">Choose a chest alternative:</p>
+              <div className="flex flex-col gap-2 mt-4">
+                {next_workout.bench_swap_options.map(name => (
+                  <button
+                    key={name}
+                    onClick={() => {
+                      const slot1Ex = coreExercises[0];
+                      if (slot1Ex) handleSwapExercise(slot1Ex, name);
+                      setShowBenchSwap(false);
+                    }}
+                    className="h-[48px] rounded-[13px] border border-hair text-[15px] font-semibold text-tx press-scale bg-card-2"
+                  >
+                    {name}
+                  </button>
+                ))}
+                <button
+                  onClick={() => setShowBenchSwap(false)}
+                  className="h-[40px] text-[14px] font-semibold text-tx-3 press-scale mt-1"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Sheets */}
         {detailExercise && <ExerciseDetailSheet exerciseId={detailExercise.id || detailExercise} exerciseName={detailExercise.name} onClose={() => setDetailExercise(null)} />}
@@ -1043,7 +1243,28 @@ export default function Training() {
 }
 
 // ─── Exercise Card (reusable for template + catch-up) ───────
-function ExerciseCard({ ex, sets, last, onSetChange, onCompleteSet, onAddSet, onDeleteSet, onDetail, onProg, onSwap }) {
+// ─── Collapsed exercise row (non-active slot) ──────────────
+function CollapsedExercise({ ex, allDone, onTap }) {
+  return (
+    <button
+      onClick={onTap}
+      className="bg-card rounded-[20px] border border-hair p-4 w-full text-left press-scale"
+      style={{ opacity: allDone ? 0.6 : 0.75 }}
+    >
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2 min-w-0">
+          {allDone && <span className="text-points text-[14px]">✓</span>}
+          <span className={`text-[15px] font-semibold truncate ${allDone ? 'text-tx-2 line-through' : 'text-tx'}`}>
+            {ex.name}
+          </span>
+        </div>
+        <span className="text-[13px] text-tx-3 flex-shrink-0 ml-2">{ex.sets}×{ex.reps}</span>
+      </div>
+    </button>
+  );
+}
+
+function ExerciseCard({ ex, sets, last, onSetChange, onCompleteSet, onAddSet, onDeleteSet, onDetail, onProg, onSwap, loadSuggestion }) {
   const exId = ex.exercise_id;
   const allDone = sets.length > 0 && sets.every(s => s.done);
   const lastTxt = last.length > 0
@@ -1070,6 +1291,13 @@ function ExerciseCard({ ex, sets, last, onSetChange, onCompleteSet, onAddSet, on
           ⇄
         </button>
       </div>
+
+      {/* Load suggestion */}
+      {loadSuggestion && (
+        <div className="mt-2 px-3 py-2 rounded-[10px] text-[12.5px] text-tx-2" style={{ background: loadSuggestion.type === 'increase' ? 'color-mix(in oklab, var(--points) 10%, var(--card-2))' : 'color-mix(in oklab, var(--cal) 10%, var(--card-2))' }}>
+          {loadSuggestion.message}
+        </div>
+      )}
 
       {/* Set header row */}
       <div className="grid gap-2 items-center mt-3.5 px-0.5" style={{ gridTemplateColumns: '22px 54px 1fr 1fr 42px 24px' }}>
@@ -1148,9 +1376,9 @@ function ExerciseCard({ ex, sets, last, onSetChange, onCompleteSet, onAddSet, on
 }
 
 // ─── Cardio Add Sheet ───────────────────────────────────────
-function CardioAddSheet({ onAdd, onClose }) {
+function CardioAddSheet({ onAdd, onClose, defaultMinutes }) {
   const [type, setType] = useState('');
-  const [duration, setDuration] = useState('');
+  const [duration, setDuration] = useState(defaultMinutes ? String(defaultMinutes) : '');
 
   return (
     <Sheet open={true} onClose={onClose} title="Add cardio">
@@ -1218,71 +1446,38 @@ function CardioAddSheet({ onAdd, onClose }) {
 function WeeklyVolumeCard({ volume, volumeNotes }) {
   if (!volume) return null;
 
-  const muscleOrder = ['Chest', 'Back', 'Shoulders', 'Quads', 'Hamstrings', 'Glutes', 'Biceps', 'Triceps', 'Abs', 'Calves'];
-  const muscleMap = {
-    chest: 'Chest', lats: 'Back', upper_back: 'Back', traps: 'Back',
-    front_delts: 'Shoulders', side_delts: 'Shoulders', rear_delts: 'Shoulders',
-    quads: 'Quads', hamstrings: 'Hamstrings', glutes: 'Glutes',
-    biceps: 'Biceps', triceps: 'Triceps', abs: 'Abs', calves: 'Calves',
-    lower_back: 'Back', obliques: 'Abs',
-  };
-
-  // Reverse map for notes
-  const muscleKeyMap = {};
-  for (const [key, display] of Object.entries(muscleMap)) {
-    if (!muscleKeyMap[display]) muscleKeyMap[display] = [];
-    muscleKeyMap[display].push(key);
-  }
-
-  const grouped = {};
-  for (const [muscle, sets] of Object.entries(volume.sets_per_muscle || {})) {
-    const display = muscleMap[muscle] || muscle;
-    grouped[display] = (grouped[display] || 0) + sets;
-  }
-
-  const maxSets = Math.max(1, ...Object.values(grouped));
-  const volumeRows = muscleOrder.filter(m => grouped[m]).map(m => {
-    // Check if any sub-muscle has a note
-    const keys = muscleKeyMap[m] || [];
-    const note = keys.map(k => volumeNotes?.[k]).filter(Boolean)[0] || null;
-    return {
-      name: m,
-      sets: grouped[m],
-      pct: `${Math.round((grouped[m] / maxSets) * 100)}%`,
-      sessions: Math.ceil(grouped[m] / 6),
-      note,
-    };
-  });
-
+  const muscleVolume = volume.muscle_volume || [];
   const conditioning = volume.conditioning || [];
+  const maxTarget = Math.max(1, ...muscleVolume.map(m => m.target[1] || 12));
+
+  const MUSCLE_LABELS = {
+    chest: 'Chest', back: 'Back', shoulders: 'Shoulders', triceps: 'Triceps',
+    biceps: 'Biceps', quads: 'Quads', hamstrings: 'Hamstrings', calves: 'Calves', abs: 'Abs',
+  };
 
   return (
     <div className="bg-card rounded-[20px] border border-hair p-[18px]">
       <div className="flex items-baseline justify-between">
-        <span className="text-[15px] font-bold text-tx">Weekly volume</span>
-        <span className="text-[12.5px] font-semibold text-tx-3">strength · sets · times hit</span>
+        <span className="text-[15px] font-bold text-tx">Sets this week</span>
+        <span className="text-[12.5px] font-semibold text-tx-3">rolling 7 days</span>
       </div>
-      {volumeRows.length > 0 ? (
-        <div className="flex flex-col gap-2.5 mt-3.5">
-          {volumeRows.map(v => (
-            <div key={v.name}>
-              <div className="grid items-center gap-2.5" style={{ gridTemplateColumns: '80px 1fr 30px 36px' }}>
-                <span className="text-[13.5px] font-semibold text-tx-2">{v.name}</span>
-                <div className="h-2 rounded-full overflow-hidden bg-card-2">
-                  <div className="h-full rounded-full bg-points progress-fill" style={{ width: v.pct }} />
+      {muscleVolume.length > 0 ? (
+        <div className="flex flex-col gap-2 mt-3.5">
+          {muscleVolume.map(m => {
+            const [lo, hi] = m.target;
+            const barColor = m.sets < lo ? 'var(--cal)' : m.sets <= hi ? 'var(--points)' : 'var(--text-3)';
+            const barWidth = `${Math.min(100, Math.round((m.sets / maxTarget) * 100))}%`;
+            return (
+              <div key={m.muscle} className="grid items-center gap-2" style={{ gridTemplateColumns: '72px 1fr 28px 38px' }}>
+                <span className="text-[13px] font-semibold text-tx-2 capitalize">{MUSCLE_LABELS[m.muscle] || m.muscle}</span>
+                <div className="h-[7px] rounded-full overflow-hidden bg-card-2 relative">
+                  <div className="h-full rounded-full" style={{ width: barWidth, background: barColor, transition: 'width .3s' }} />
                 </div>
-                <span className="text-[13.5px] font-semibold font-num text-right">{v.sets}</span>
-                <div className="flex gap-1 justify-end">
-                  {Array.from({ length: Math.min(v.sessions, 3) }, (_, i) => (
-                    <span key={i} className="w-[9px] h-[9px] rounded-full bg-points" />
-                  ))}
-                </div>
+                <span className="text-[13px] font-bold font-num text-right" style={{ color: barColor }}>{m.sets}</span>
+                <span className="text-[11px] font-num text-tx-3 text-right">avg {m.avg4w}</span>
               </div>
-              {v.note && (
-                <div className="text-[11px] text-tx-3 ml-[84px] mt-0.5">{v.note}</div>
-              )}
-            </div>
-          ))}
+            );
+          })}
         </div>
       ) : (
         <p className="text-[13px] text-tx-3 mt-3">Complete a gym session to see volume data</p>
@@ -1352,6 +1547,18 @@ function CompleteScreen({ data: cd, allData, onBack }) {
             </div>
           ))}
         </div>
+
+        {/* Honest completion note */}
+        {cd.corePlanned != null && cd.coreCompleted != null && cd.coreCompleted < cd.corePlanned && (
+          <div className="w-full mt-3 bg-card rounded-[16px] border border-hair p-3.5 text-left">
+            <div className="text-[14px] text-tx-2">
+              {cd.coreCompleted} of {cd.corePlanned} main lifts done.
+              {cd.missedExercises?.length > 0 && (
+                <span> {cd.missedExercises.join(', ')} didn't happen — {cd.missedExercises.length === 1 ? "it'll" : "they'll"} be first next {formatWorkoutType(cd.workout.type)}.</span>
+              )}
+            </div>
+          </div>
+        )}
 
         {/* Cardio summary */}
         {cd.cardio?.length > 0 && (

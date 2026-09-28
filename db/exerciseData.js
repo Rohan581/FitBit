@@ -62,10 +62,11 @@ const EXERCISE_DATA = [
       'Bouncing the bar off the chest instead of pausing briefly for a controlled touch.',
       'Lifting the hips off the bench during the press, reducing stability and risking lower back strain.'
     ],
-    substitutes: ['Incline Dumbbell Press', 'Dips', 'Dumbbell Bench Press'],
+    substitutes: ['Standing Cable Chest Press', 'Pec Fly Machine (Pec Deck)', 'Dips'],
     youtube_search_term: 'barbell bench press proper form',
     equipment_type: 'barbell',
     required_equipment: ['barbell', 'flat_bench'],
+    safety_note: 'Train this two reps short of failure, or set the rack\'s safety pins just below chest height, when lifting without a spotter.',
   },
 
   // ── 3. Lat Pulldown ───────────────────────────────────────────────
@@ -386,7 +387,7 @@ const EXERCISE_DATA = [
       'Cutting the range of motion short by not lowering the dumbbells to chest level, so the pecs never stretch or load.',
       'Pressing straight up in parallel lines instead of converging the dumbbells inward, which misses the chest\'s adduction function.'
     ],
-    substitutes: ['Pec Deck', 'Barbell Bench Press', 'Cable Chest Fly', 'Dips'],
+    substitutes: ['Pec Fly Machine (Pec Deck)', 'Barbell Bench Press', 'Cable Chest Fly', 'Dips'],
     youtube_search_term: 'incline dumbbell press proper form',
     equipment_type: 'dumbbell',
     required_equipment: ['dumbbells', 'adjustable_bench'],
@@ -570,7 +571,7 @@ const EXERCISE_DATA = [
       'Using too much weight, which forces you to shorten the range of motion and lose the chest stretch.',
       'Leaning too far forward, which shifts the emphasis off the chest and onto the front delts.'
     ],
-    substitutes: ['Incline Dumbbell Press', 'Smith Machine Bench Press', 'Pec Deck'],
+    substitutes: ['Incline Dumbbell Press', 'Smith Machine Bench Press', 'Pec Fly Machine (Pec Deck)'],
     youtube_search_term: 'cable chest fly proper form',
     equipment_type: 'cable',
     required_equipment: ['cable_crossover'],
@@ -1079,7 +1080,7 @@ const EXERCISE_DATA = [
       'Neglecting to set safety catches, losing the primary safety advantage the Smith machine offers over a free barbell.',
       'Flaring the elbows to 90 degrees — even on a Smith machine, keep elbows at 45-75 degrees to protect the shoulder joint.'
     ],
-    substitutes: ['Dumbbell Flat Press', 'Dips', 'Pec Deck'],
+    substitutes: ['Dumbbell Flat Press', 'Dips', 'Pec Fly Machine (Pec Deck)'],
     youtube_search_term: 'smith machine bench press proper form tutorial',
     equipment_type: 'machine',
     required_equipment: ['smith_machine', 'flat_bench'],
@@ -1131,16 +1132,16 @@ const EXERCISE_DATA = [
     required_equipment: ['t_bar_row'],
   },
 
-  // ── Pec Deck ─────────────────────────────────────────────────────
+  // ── Pec Fly Machine (Pec Deck) ────────────────────────────────────
   {
-    name: 'Pec Deck',
+    name: 'Pec Fly Machine (Pec Deck)',
+    aliases: ['Pec Deck'],
     primary_muscles: ['chest'],
     secondary_muscles: ['front_delts'],
     form_cues: [
-      'Adjust the seat height so the handles or arm pads align with the middle of your chest (roughly nipple height); sit with your back flat against the pad and feet on the floor.',
-      'If your machine has arm pads, place your forearms against them with elbows at a 90-degree bend; if it has handles, grip them with a slight elbow bend (10-20 degrees) and maintain that angle throughout.',
-      'Bring your arms together in a wide arc in front of your chest, focusing on squeezing your pecs as the pads or handles meet in the center — hold the contraction for one second.',
-      'Return your arms to the starting position slowly and under control, feeling a deep stretch across the chest; stop when your elbows are roughly in line with your torso to avoid overstretching the shoulder.',
+      'Back flat against the pad, elbows at pad height, drive with the elbows not the hands.',
+      'Squeeze for a beat where the pads meet, control the return until you feel a stretch across the chest.',
+      'If the machine is a combined fly/press unit, use the fly setting.',
       'Exhale as you squeeze the pads together, inhale as you open; keep your shoulder blades retracted against the back pad and do not let your shoulders roll forward.'
     ],
     common_mistakes: [
@@ -1148,7 +1149,7 @@ const EXERCISE_DATA = [
       'Letting the shoulders round forward off the pad at the end of the squeeze, which shifts stress to the front delts and shoulder joint.',
       'Using momentum to slam the pads together instead of a controlled squeeze — slow the movement down and pause at peak contraction.'
     ],
-    substitutes: ['Cable Chest Fly', 'Incline Dumbbell Press', 'Dips'],
+    substitutes: ['Cable Chest Fly', 'Standing Cable Chest Press', 'Dips'],
     youtube_search_term: 'pec deck fly machine proper form chest',
     equipment_type: 'machine',
     required_equipment: ['pec_deck'],
@@ -1290,6 +1291,75 @@ const EXERCISE_DATA = [
     youtube_search_term: 'ez bar curl bicep proper form technique',
     equipment_type: 'dumbbell',
     required_equipment: ['ez_curl_bar'],
+  },
+
+  // ── Standing Cable Chest Press ──────────────────────────────────
+  {
+    name: 'Standing Cable Chest Press',
+    primary_muscles: ['chest'],
+    secondary_muscles: ['triceps', 'front_delts'],
+    form_cues: [
+      'Set both handles from the mid pulley, one foot forward in a split stance for balance.',
+      'Elbows at roughly 45° from the torso, press forward and let the hands converge slightly at the end of the rep.',
+      'Resist the return slowly — the eccentric under cable tension is where the chest works hardest.',
+      'Keep your core braced and avoid rotating your torso as you press.',
+      'Exhale as you press forward, inhale as you return.'
+    ],
+    common_mistakes: [
+      'Standing too far forward so there is no tension at the start of the rep.',
+      'Flaring the elbows out wide, shifting stress to the shoulders.',
+      'Letting the cables snap back instead of controlling the eccentric.'
+    ],
+    substitutes: ['Pec Fly Machine (Pec Deck)', 'Cable Chest Fly', 'Dips'],
+    youtube_search_term: 'standing cable chest press proper form',
+    equipment_type: 'cable',
+    required_equipment: ['cable_crossover'],
+  },
+
+  // ── Overhead Cable Tricep Extension ─────────────────────────────
+  {
+    name: 'Overhead Cable Tricep Extension',
+    primary_muscles: ['triceps'],
+    secondary_muscles: [],
+    form_cues: [
+      'Attach a rope to a low pulley; face away from the machine and take a split stance.',
+      'Hold the rope behind your head with elbows pointed forward and upper arms near your ears.',
+      'Extend your arms overhead by straightening at the elbow, squeezing the triceps at lockout.',
+      'Lower the rope back behind your head under control until you feel a deep tricep stretch.',
+      'Keep your upper arms stationary — only the forearms should move. Exhale as you extend.'
+    ],
+    common_mistakes: [
+      'Letting the elbows flare out to the sides, reducing tricep isolation.',
+      'Using momentum by rocking the torso forward and back.',
+      'Not achieving full stretch at the bottom — the long head of the triceps needs the overhead stretch to be fully activated.'
+    ],
+    substitutes: ['Cable Tricep Pushdown', 'Dumbbell Overhead Extension', 'Skull Crushers'],
+    youtube_search_term: 'overhead cable tricep extension proper form',
+    equipment_type: 'cable',
+    required_equipment: ['cable_crossover', 'rope_handle_attachments'],
+  },
+
+  // ── Cable Curl ──────────────────────────────────────────────────
+  {
+    name: 'Cable Curl',
+    primary_muscles: ['biceps'],
+    secondary_muscles: ['forearms'],
+    form_cues: [
+      'Attach a straight bar or EZ bar to a low cable pulley; stand facing the machine with feet shoulder-width apart.',
+      'Keep your elbows pinned to your sides and curl the bar up by contracting your biceps.',
+      'Squeeze hard at the top for a one-second hold, then lower under control.',
+      'The constant cable tension makes the top of the curl harder than free weights — use that to your advantage.',
+      'Exhale as you curl up, inhale as you lower. Do not lean back.'
+    ],
+    common_mistakes: [
+      'Swinging the torso to generate momentum instead of isolating the biceps.',
+      'Standing too close to the machine, reducing the effective range of motion.',
+      'Allowing the elbows to drift forward, which recruits the front delts.'
+    ],
+    substitutes: ['Preacher Curl (EZ Bar)', 'Cable Bicep Curl', 'Dumbbell Hammer Curl'],
+    youtube_search_term: 'cable curl bicep proper form',
+    equipment_type: 'cable',
+    required_equipment: ['cable_crossover'],
   },
 ];
 

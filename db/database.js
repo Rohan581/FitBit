@@ -698,6 +698,65 @@ function runMigrations(db) {
     db.exec(`ALTER TABLE workout_sets ADD COLUMN backfilled INTEGER DEFAULT 0`);
   }
 
+  // workout_sessions: honest completion tracking
+  const sessionCols = db.prepare("PRAGMA table_info(workout_sessions)").all().map(c => c.name);
+  if (!sessionCols.includes('core_exercises_planned')) {
+    db.exec(`ALTER TABLE workout_sessions ADD COLUMN core_exercises_planned INTEGER`);
+    db.exec(`ALTER TABLE workout_sessions ADD COLUMN core_exercises_completed INTEGER`);
+    db.exec(`ALTER TABLE workout_sessions ADD COLUMN completion_ratio REAL`);
+  }
+
+  // exercises: aliases column for Pec Deck → Pec Fly Machine (Pec Deck) rename
+  const exColsAlias = db.prepare("PRAGMA table_info(exercises)").all().map(c => c.name);
+  if (!exColsAlias.includes('aliases')) {
+    db.exec(`ALTER TABLE exercises ADD COLUMN aliases TEXT`);
+  }
+
+  // ── Migration: Pec Deck → Pec Fly Machine (Pec Deck) ──────
+  // Rename the exercise so historical sets and progression attach to the same record
+  const oldPecDeck = db.prepare("SELECT id FROM exercises WHERE name = 'Pec Deck'").get();
+  const newPecDeck = db.prepare("SELECT id FROM exercises WHERE name = 'Pec Fly Machine (Pec Deck)'").get();
+  if (oldPecDeck && !newPecDeck) {
+    db.prepare("UPDATE exercises SET name = 'Pec Fly Machine (Pec Deck)', aliases = ? WHERE id = ?")
+      .run(JSON.stringify(['Pec Deck']), oldPecDeck.id);
+  }
+
+  // ── Migration: Invalidate any active (non-completed) session so next workout uses new templates
+  db.prepare("DELETE FROM workout_sessions WHERE completed = 0").run();
+
+  // ── Migration: Backfill core_exercises_planned/completed for historical sessions
+  const { getWorkoutByType: getWt } = require('./workoutTemplates');
+  const historicalSessions = db.prepare(
+    "SELECT id, workout_type FROM workout_sessions WHERE completed = 1 AND core_exercises_planned IS NULL"
+  ).all();
+  const updateCompletion = db.prepare(
+    "UPDATE workout_sessions SET core_exercises_planned = ?, core_exercises_completed = ?, completion_ratio = ? WHERE id = ?"
+  );
+  for (const hs of historicalSessions) {
+    const tmpl = getWt(hs.workout_type);
+    const coreNames = tmpl.exercises.filter(e => !e.is_bonus).map(e => e.name);
+    const planned = coreNames.length;
+    let completed = 0;
+    for (const name of coreNames) {
+      const ex = db.prepare('SELECT id FROM exercises WHERE name = ?').get(name);
+      if (!ex) continue;
+      const cnt = db.prepare('SELECT COUNT(*) as cnt FROM workout_sets WHERE session_id = ? AND exercise_id = ?').get(hs.id, ex.id)?.cnt || 0;
+      if (cnt > 0) completed++;
+    }
+    updateCompletion.run(planned, completed, planned > 0 ? completed / planned : 1, hs.id);
+  }
+
+  // ── Migration: Seed barbell bench press starting weight at 30 kg
+  // Only set if there's no history for this exercise
+  const benchEx = db.prepare("SELECT id FROM exercises WHERE name = 'Barbell Bench Press'").get();
+  if (benchEx) {
+    const benchHistory = db.prepare('SELECT COUNT(*) as cnt FROM workout_sets WHERE exercise_id = ?').get(benchEx.id)?.cnt || 0;
+    if (benchHistory === 0) {
+      // No history — the weight pre-fill will naturally start at 30 kg from the stalled-load detector
+      // Just noting the seed weight here; actual pre-fill happens server-side in load_suggestions
+    }
+  }
+
   // Seed exercises
   seedExercises(db);
 

@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const { getDB } = require('../db/database');
 const { todayIST, daysAgoIST, getMondayIST, getDaysOfWeek } = require('../dateUtils');
-const { getNextWorkoutType, getWorkoutByType, ROTATION, SUCCESSOR_MAP } = require('../db/workoutTemplates');
+const { getNextWorkoutType, getWorkoutByType, ROTATION, SUCCESSOR_MAP, BANNED_EQUIPMENT, EQUIPMENT_SUBSTITUTIONS } = require('../db/workoutTemplates');
 const { EQUIPMENT_CATALOG } = require('../db/equipmentData');
 
 // ─── Constants ───────────────────────────────────────────────
@@ -23,7 +23,7 @@ const MUSCLE_PRIORITY = ['quads', 'hamstrings', 'glutes', 'lats', 'upper_back', 
 // Exercise to use when catching up a muscle group — machine/cable preferred
 const CATCH_UP_EXERCISES = {
   quads: 'Leg Press', hamstrings: 'Lying Leg Curl', glutes: 'Back Extension',
-  lats: 'Lat Pulldown', upper_back: 'Seated Cable Row', chest: 'Pec Deck',
+  lats: 'Lat Pulldown', upper_back: 'Seated Cable Row', chest: 'Pec Fly Machine (Pec Deck)',
   front_delts: 'Shoulder Press Machine', side_delts: 'Cable Lateral Raise', rear_delts: 'Face Pull',
   biceps: 'Cable Bicep Curl', triceps: 'Cable Tricep Pushdown', abs: 'Cable Crunch',
   calves: 'Seated Calf Raise', lower_back: 'Back Extension', traps: 'Face Pull',
@@ -243,6 +243,9 @@ function computeCatchUp(db, weekDays, templateExercises, weekSessionOrdinal, nex
     if (!templateWorkout) continue;
 
     for (const templateEx of templateWorkout.exercises) {
+      // Bonus exercises never generate catch-ups
+      if (templateEx.is_bonus) continue;
+
       const dbEx = db.prepare('SELECT id, primary_muscles FROM exercises WHERE name = ?').get(templateEx.name);
       if (!dbEx) continue;
       const loggedSets = db.prepare(
@@ -344,35 +347,34 @@ function computeCatchUp(db, weekDays, templateExercises, weekSessionOrdinal, nex
   return { substitutions, notes, debug };
 }
 
-// Apply catch-up substitutions to a template's exercises (substitute, never add)
+// Apply catch-up: insert at slot 1 (ahead of existing exercises), shift down.
+// Catch-ups for bonus exercises are never generated (filtered upstream).
+// A session may run to 5 core exercises while carrying a catch-up.
 function applySubstitutions(exercises, substitutions) {
   if (substitutions.length === 0) return exercises;
 
-  const result = [...exercises];
-  // Find lowest-priority slots to replace (non-compound accessories from the end)
-  const replaceable = [];
-  for (let i = result.length - 1; i >= 0; i--) {
-    if (!COMPOUND_SET.has(result[i].name)) {
-      replaceable.push(i);
-    }
-  }
+  // Separate core and bonus
+  const core = exercises.filter(e => !e.is_bonus);
+  const bonus = exercises.filter(e => e.is_bonus);
 
-  for (let s = 0; s < substitutions.length && s < replaceable.length; s++) {
-    result[replaceable[s]] = substitutions[s];
-  }
+  // Insert catch-ups at the front (slot 1), shift existing core down
+  const merged = [...substitutions.map((s, i) => ({
+    ...s, slot: i + 1, is_bonus: false, is_catchup: true,
+  })), ...core.map((e, i) => ({
+    ...e, slot: substitutions.length + i + 1,
+  }))];
 
-  return result;
+  // Re-add bonus at the end
+  return [...merged, ...bonus.map(b => ({ ...b, slot: merged.length + 1 }))];
 }
 
 // ─── Variation refresh mappings ──────────────────────────────
 // Machine/cable exercises swap within the same equipment category.
 const VARIATION_MAP = {
-  'Smith Machine Bench Press': ['Incline Dumbbell Press', 'Pec Deck'],
-  'Incline Dumbbell Press': ['Smith Machine Bench Press', 'Pec Deck'],
   'Lat Pulldown': ['Assisted Pull-Up Machine'],
   'Assisted Pull-Up Machine': ['Lat Pulldown'],
-  'Seated Cable Row': ['T-Bar Row'],
-  'T-Bar Row': ['Seated Cable Row'],
+  'Cable Tricep Pushdown': ['Overhead Cable Tricep Extension'],
+  'Overhead Cable Tricep Extension': ['Cable Tricep Pushdown'],
   'Shoulder Press Machine': ['Cable Lateral Raise'],
   'Cable Lateral Raise': ['Shoulder Press Machine'],
   'Smith Machine Romanian Deadlift': ['Back Extension'],
@@ -431,6 +433,95 @@ router.get('/', (req, res) => {
       lastNumbers[ex.exercise_id] = db.prepare(
         'SELECT set_number, weight_kg, reps FROM workout_sets WHERE session_id = ? AND exercise_id = ? ORDER BY set_number'
       ).all(lastSession.id, ex.exercise_id);
+    }
+  }
+
+  // ─── Stalled-load detection ────────────────────────────────
+  // For each exercise: check last 3 completed sessions for stalls/regressions
+  const loadSuggestions = {};
+  for (const ex of exercises) {
+    if (!ex.exercise_id) continue;
+    // Get last 3 sessions with this exercise
+    const sessions = db.prepare(`
+      SELECT DISTINCT ws.id, ws.date FROM workout_sessions ws
+      JOIN workout_sets wset ON wset.session_id = ws.id
+      WHERE wset.exercise_id = ? AND ws.completed = 1
+      ORDER BY ws.date DESC LIMIT 3
+    `).all(ex.exercise_id);
+    if (sessions.length < 2) continue;
+
+    // Parse rep range from template (e.g., "6-8" → [6, 8])
+    const repRange = (ex.reps || '').match(/(\d+)\s*-\s*(\d+)/);
+    if (!repRange) continue;
+    const [, repLo, repHi] = repRange.map(Number);
+
+    // Get sets from each session
+    const sessionData = sessions.map(s => {
+      const sets = db.prepare('SELECT weight_kg, reps FROM workout_sets WHERE session_id = ? AND exercise_id = ? ORDER BY set_number').all(s.id, ex.exercise_id);
+      return { date: s.date, sets };
+    });
+
+    // Check for stall: same weight, hit top of rep range on every set, 2+ sessions
+    const latest = sessionData[0];
+    const prev = sessionData[1];
+    if (latest.sets.length > 0 && prev.sets.length > 0) {
+      const latestWeight = latest.sets[0]?.weight_kg;
+      const prevWeight = prev.sets[0]?.weight_kg;
+      const latestAllAtTop = latestWeight && latest.sets.every(s => s.weight_kg === latestWeight && s.reps >= repHi);
+      const prevAllAtTop = prevWeight && prev.sets.every(s => s.weight_kg === prevWeight && s.reps >= repHi);
+
+      if (latestAllAtTop && prevAllAtTop && latestWeight === prevWeight) {
+        // Determine increment: 2.5 kg for barbell, smallest observed delta for machines
+        let increment = 2.5;
+        if (ex.equipment_type === 'machine' || ex.equipment_type === 'cable') {
+          const allWeights = db.prepare(`
+            SELECT DISTINCT weight_kg FROM workout_sets WHERE exercise_id = ? AND weight_kg IS NOT NULL ORDER BY weight_kg
+          `).all(ex.exercise_id).map(r => r.weight_kg);
+          if (allWeights.length >= 2) {
+            const deltas = [];
+            for (let i = 1; i < allWeights.length; i++) {
+              const d = Math.abs(allWeights[i] - allWeights[i - 1]);
+              if (d > 0) deltas.push(d);
+            }
+            if (deltas.length > 0) increment = Math.min(...deltas);
+          }
+        }
+        const suggestedWeight = latestWeight + increment;
+        loadSuggestions[ex.exercise_id] = {
+          type: 'increase',
+          currentWeight: latestWeight,
+          suggestedWeight,
+          message: `You've finished every set at ${latestWeight} kg — going to ${suggestedWeight} kg today.`,
+        };
+        continue;
+      }
+
+      // Check for regression: failing bottom of rep range on 2 consecutive sessions
+      const latestAllBelow = latestWeight && latest.sets.every(s => s.weight_kg === latestWeight && s.reps < repLo);
+      const prevAllBelow = prevWeight && prev.sets.every(s => s.weight_kg === prevWeight && s.reps < repLo);
+      if (latestAllBelow && prevAllBelow && latestWeight === prevWeight) {
+        let decrement = 2.5;
+        if (ex.equipment_type === 'machine' || ex.equipment_type === 'cable') {
+          const allWeights = db.prepare(`
+            SELECT DISTINCT weight_kg FROM workout_sets WHERE exercise_id = ? AND weight_kg IS NOT NULL ORDER BY weight_kg
+          `).all(ex.exercise_id).map(r => r.weight_kg);
+          if (allWeights.length >= 2) {
+            const deltas = [];
+            for (let i = 1; i < allWeights.length; i++) {
+              const d = Math.abs(allWeights[i] - allWeights[i - 1]);
+              if (d > 0) deltas.push(d);
+            }
+            if (deltas.length > 0) decrement = Math.min(...deltas);
+          }
+        }
+        const suggestedWeight = Math.max(0, latestWeight - decrement);
+        loadSuggestions[ex.exercise_id] = {
+          type: 'decrease',
+          currentWeight: latestWeight,
+          suggestedWeight,
+          message: `Struggling at ${latestWeight} kg for two sessions — try ${suggestedWeight} kg today.`,
+        };
+      }
     }
   }
 
@@ -581,8 +672,9 @@ router.get('/', (req, res) => {
 
   res.json({
     last_completed: lastCompleted ? { type: lastCompleted.workout_type, date: lastCompleted.date } : null,
-    next_workout: { ...nextWorkout, exercises: finalExercises, subtitle },
+    next_workout: { ...nextWorkout, exercises: finalExercises, subtitle, bench_swap_options: nextWorkout.bench_swap_options || null },
     last_numbers: lastNumbers,
+    load_suggestions: loadSuggestions,
     recent_sessions: recentSessions,
     week_gym_sessions: weekGymSessions,
     week_swim_sessions: weekSwimSessions,
@@ -716,7 +808,22 @@ router.post('/sessions/:id/complete', (req, res) => {
   if (!session) return res.status(404).json({ error: 'Session not found' });
 
   const duration = req.body.duration_min || null;
-  db.prepare('UPDATE workout_sessions SET completed = 1, duration_min = ? WHERE id = ?').run(duration, req.params.id);
+
+  // Honest completion: count core exercises with ≥1 logged set (exclude bonus)
+  const template = getWorkoutByType(session.workout_type);
+  const coreExNames = template.exercises.filter(e => !e.is_bonus).map(e => e.name);
+  const corePlanned = coreExNames.length;
+  let coreCompleted = 0;
+  for (const name of coreExNames) {
+    const dbEx = db.prepare('SELECT id FROM exercises WHERE name = ?').get(name);
+    if (!dbEx) continue;
+    const logged = db.prepare('SELECT COUNT(*) as cnt FROM workout_sets WHERE session_id = ? AND exercise_id = ?').get(req.params.id, dbEx.id)?.cnt || 0;
+    if (logged > 0) coreCompleted++;
+  }
+  const completionRatio = corePlanned > 0 ? coreCompleted / corePlanned : 1;
+
+  db.prepare('UPDATE workout_sessions SET completed = 1, duration_min = ?, core_exercises_planned = ?, core_exercises_completed = ?, completion_ratio = ? WHERE id = ?')
+    .run(duration, corePlanned, coreCompleted, completionRatio, req.params.id);
 
   // Rotation is deterministic — no counter to advance.
   // The next workout is derived from this session's workout_type via SUCCESSOR_MAP.
@@ -737,8 +844,21 @@ router.post('/sessions/:id/complete', (req, res) => {
     ).run(session.date, 'Gym', duration || 60, 'moderate', `Gym session: ${session.workout_type} (session:${req.params.id})`);
   }
 
+  // Find names of missed core exercises for the completion summary
+  const missedExNames = [];
+  for (const name of coreExNames) {
+    const dbEx = db.prepare('SELECT id FROM exercises WHERE name = ?').get(name);
+    if (!dbEx) continue;
+    const logged = db.prepare('SELECT COUNT(*) as cnt FROM workout_sets WHERE session_id = ? AND exercise_id = ?').get(req.params.id, dbEx.id)?.cnt || 0;
+    if (logged === 0) missedExNames.push(name);
+  }
+
   const nextType = SUCCESSOR_MAP[session.workout_type] || 'upper_a';
-  res.json({ ok: true, next_type: nextType, exercise_log_action });
+  res.json({
+    ok: true, next_type: nextType, exercise_log_action,
+    core_planned: corePlanned, core_completed: coreCompleted,
+    missed_exercises: missedExNames,
+  });
 });
 
 // GET /api/training/exercises — full exercise library
@@ -839,22 +959,46 @@ router.get('/volume', (req, res) => {
     ORDER BY ws.date
   `).all(weekDays[0], weekDays[6]);
 
+  // Sets per muscle — single primary muscle per exercise (first in the array)
   const setsPerMuscle = {};
-  for (const session of gymSessions) {
-    const sets = db.prepare(`
-      SELECT wset.exercise_id, COUNT(*) as set_count, e.primary_muscles
-      FROM workout_sets wset
-      JOIN exercises e ON e.id = wset.exercise_id
-      WHERE wset.session_id = ?
-      GROUP BY wset.exercise_id
-    `).all(session.id);
-    for (const s of sets) {
-      const muscles = JSON.parse(s.primary_muscles);
-      for (const m of muscles) {
-        setsPerMuscle[m] = (setsPerMuscle[m] || 0) + s.set_count;
+  function countSetsForSessions(sessions) {
+    const result = {};
+    for (const session of sessions) {
+      const sets = db.prepare(`
+        SELECT wset.exercise_id, COUNT(*) as set_count, e.primary_muscles
+        FROM workout_sets wset
+        JOIN exercises e ON e.id = wset.exercise_id
+        WHERE wset.session_id = ?
+        GROUP BY wset.exercise_id
+      `).all(session.id);
+      for (const s of sets) {
+        const muscles = JSON.parse(s.primary_muscles);
+        const primary = muscles[0]; // single mapping — first muscle is primary
+        if (primary) result[primary] = (result[primary] || 0) + s.set_count;
       }
     }
+    return result;
   }
+  Object.assign(setsPerMuscle, countSetsForSessions(gymSessions));
+
+  // 4-week average per muscle
+  const fourWeeksAgo = new Date(new Date(monday + 'T12:00:00Z').getTime() - 21 * 86400000).toISOString().split('T')[0];
+  const priorSessions = db.prepare(`
+    SELECT id FROM workout_sessions
+    WHERE completed = 1 AND date >= ? AND date < ?
+  `).all(fourWeeksAgo, weekDays[0]);
+  const priorSetsPerMuscle = countSetsForSessions(priorSessions);
+  // Average over 3 prior weeks (the 4th is current)
+  const avgPerMuscle = {};
+  for (const [m, count] of Object.entries(priorSetsPerMuscle)) {
+    avgPerMuscle[m] = Math.round(count / 3 * 10) / 10;
+  }
+
+  // Target bands per muscle group
+  const TARGET_BANDS = {
+    chest: [8, 12], back: [8, 12], shoulders: [5, 8], triceps: [5, 8],
+    biceps: [3, 6], quads: [8, 12], hamstrings: [6, 10], calves: [6, 10], abs: [3, 6],
+  };
 
   const swimSessions = db.prepare(`
     SELECT date, duration_min FROM exercise_logs
@@ -884,12 +1028,21 @@ router.get('/volume', (req, res) => {
     ...sessionCardio.map(c => ({ date: c.date, type: c.type, duration_min: c.duration_min, in_session: true })),
   ].sort((a, b) => b.date.localeCompare(a.date));
 
+  // Muscle volume readout: per-muscle sets, target bands, 4-week avg
+  const muscleVolume = ['chest', 'back', 'shoulders', 'triceps', 'biceps', 'quads', 'hamstrings', 'calves', 'abs'].map(m => ({
+    muscle: m,
+    sets: setsPerMuscle[m] || 0,
+    avg4w: avgPerMuscle[m] || 0,
+    target: TARGET_BANDS[m] || [0, 0],
+  }));
+
   res.json({
     week_start: monday,
     gym_sessions: gymSessions.length,
     swim_sessions: swimSessions.length,
     total_exercise_sessions: allExercise.length,
     sets_per_muscle: setsPerMuscle,
+    muscle_volume: muscleVolume,
     gym_details: gymSessions,
     swim_details: swimSessions,
     conditioning: allConditioning,
