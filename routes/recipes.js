@@ -315,7 +315,7 @@ router.put('/batches/:id', (req, res) => {
 // POST /api/recipes/log-portion
 router.post('/log-portion', (req, res) => {
   const db = getDB();
-  const { recipe_id, batch_id, servings, grams, meal_type, date } = req.body;
+  const { recipe_id, batch_id, servings, grams, meal_type, date, scale_factor, people } = req.body;
 
   const recipe = db.prepare('SELECT * FROM recipes WHERE id = ?').get(recipe_id);
   if (!recipe) return res.status(404).json({ error: 'Recipe not found' });
@@ -325,6 +325,40 @@ router.post('/log-portion', (req, res) => {
   let unit_used = 'serving';
   const logDate = date || todayIST();
   const meal = meal_type || defaultMeal();
+
+  // Logging by grams from recipe detail (no batch) — uses scale_factor + people
+  if (grams && !batch_id) {
+    const scale = parseFloat(scale_factor) || 1;
+    const ppl = parseInt(people) || 1;
+    const recipeSrv = recipe.servings || 1;
+    const totalWeight = recipe.cooked_yield_g ? recipe.cooked_yield_g * scale : null;
+    if (!totalWeight) return res.status(400).json({ error: 'Recipe has no cooked_yield_g — cannot convert grams' });
+
+    const macroPerGram = {
+      calories: (ps.calories * recipeSrv * scale) / totalWeight,
+      protein_g: (ps.protein_g * recipeSrv * scale) / totalWeight,
+      carbs_g: ((ps.carbs_g || 0) * recipeSrv * scale) / totalWeight,
+      fat_g: ((ps.fat_g || 0) * recipeSrv * scale) / totalWeight,
+      fiber_g: ((ps.fiber_g || 0) * recipeSrv * scale) / totalWeight,
+      sugar_g: ((ps.sugar_g || 0) * recipeSrv * scale) / totalWeight,
+    };
+
+    const g = parseFloat(grams);
+    const result = db.prepare(`
+      INSERT INTO food_logs (date, meal_type, food_name, quantity, calories, protein_g, carbs_g, fat_g, fiber_g, sugar_g, unit_used, recipe_id, batch_id)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(
+      logDate, meal, recipe.title, g,
+      Math.round(macroPerGram.calories * g),
+      Math.round(macroPerGram.protein_g * g * 10) / 10,
+      Math.round(macroPerGram.carbs_g * g * 10) / 10,
+      Math.round(macroPerGram.fat_g * g * 10) / 10,
+      Math.round(macroPerGram.fiber_g * g * 10) / 10,
+      Math.round(macroPerGram.sugar_g * g * 10) / 10,
+      'g', recipe_id, null
+    );
+    return res.status(201).json(db.prepare('SELECT * FROM food_logs WHERE id = ?').get(result.lastInsertRowid));
+  }
 
   if (grams && batch_id) {
     // Logging by weight from a batch

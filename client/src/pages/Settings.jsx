@@ -15,6 +15,7 @@ export default function Settings() {
   const [exporting, setExporting] = useState(null);
   const [syncDiag, setSyncDiag] = useState(null);
   const [flushing, setFlushing] = useState(false);
+  const [volumeDiag, setVolumeDiag] = useState(null);
 
   useEffect(() => {
     const hash = window.location.hash.slice(1);
@@ -362,6 +363,29 @@ export default function Settings() {
               </div>
             )}
           </div>
+        </Section>
+
+        <Section title="Volume diagnostics">
+          <button
+            onClick={async () => { try { const v = await api.getVolumeSummary(); setVolumeDiag(v); } catch {} }}
+            className="w-full py-2.5 rounded-card text-sm border border-hair bg-card text-tx press-scale"
+          >
+            Check muscle mapping
+          </button>
+          {volumeDiag?.unmapped_exercises && Object.keys(volumeDiag.unmapped_exercises).length > 0 && (
+            <div className="mt-2 text-sm">
+              <div className="text-cal font-bold text-xs mb-1">Unmapped exercises</div>
+              {Object.entries(volumeDiag.unmapped_exercises).map(([name, sets]) => (
+                <div key={name} className="flex justify-between text-tx-2">
+                  <span>{name}</span>
+                  <span className="font-num">{sets} sets</span>
+                </div>
+              ))}
+            </div>
+          )}
+          {volumeDiag && !volumeDiag.unmapped_exercises && (
+            <div className="mt-2 text-sm text-points">All exercises mapped</div>
+          )}
         </Section>
 
         <button

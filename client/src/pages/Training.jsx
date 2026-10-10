@@ -277,7 +277,7 @@ export default function Training() {
     });
   }
 
-  async function handleCompleteSet(exId, setNum, exName) {
+  async function handleCompleteSet(exId, setNum, exName, slot) {
     if (!session) return;
     const exSets = sessionSets[exId] || [];
     const set = exSets.find(s => s.set_number === setNum);
@@ -293,12 +293,13 @@ export default function Training() {
         // Re-logging same set (weight/reps changed) — update existing record
         await idbUpdateSet(clientUuid, { weight_kg: weight, reps, set_number: setNum });
       } else {
-        // New set — save locally
+        // New set — save locally (includes slot for swap tracking)
         const record = await idbSaveSet(session.session_id, {
           exercise_id: exId,
           set_number: setNum,
           weight_kg: weight,
           reps,
+          slot: slot || null,
         });
         clientUuid = record.client_uuid;
       }
@@ -373,6 +374,7 @@ export default function Training() {
     const originalId = oldEx._originalId || oldEx.exercise_id;
     const currentId = oldEx.exercise_id;
     const effectiveNewId = newExId || `swap_${Date.now()}`;
+    const slot = oldEx.slot;
 
     // If swapping back to the original template exercise, remove the swap entry
     const originalTemplateEx = next_workout.exercises.find(e => e.exercise_id === originalId);
@@ -382,6 +384,10 @@ export default function Training() {
         delete updated[originalId];
         return updated;
       });
+      // Notify server: slot reverts to planned exercise
+      if (session && slot) {
+        api.swapExercise(session.session_id, { slot, actual_exercise_id: originalId }).catch(() => {});
+      }
       // Restore sets for original exercise
       const oldSets = sessionSets[currentId] || [];
       const restoredSets = [];
@@ -406,6 +412,11 @@ export default function Training() {
       ...prev,
       [originalId]: { exercise_id: effectiveNewId, name: newExName, sets: oldEx.sets, reps: oldEx.reps },
     }));
+
+    // Notify server: slot now has a different exercise
+    if (session && slot && newExId) {
+      api.swapExercise(session.session_id, { slot, actual_exercise_id: newExId }).catch(() => {});
+    }
 
     // Initialize sets for the new exercise, carrying over prescribed sets/reps
     const oldSets = sessionSets[currentId] || [];
@@ -491,6 +502,7 @@ export default function Training() {
         cardio: sessionCardio,
         corePlanned: result.core_planned,
         coreCompleted: result.core_completed,
+        swapCount: result.swap_count || 0,
         missedExercises: result.missed_exercises || [],
       });
     } catch {
@@ -1339,7 +1351,7 @@ function ExerciseCard({ ex, sets, last, onSetChange, onCompleteSet, onAddSet, on
                 style={{ background: set.done ? 'color-mix(in oklab, var(--points) 8%, var(--card-2))' : 'var(--card-2)' }}
               />
               <button
-                onClick={() => onCompleteSet(exId, set.set_number, ex.name)}
+                onClick={() => onCompleteSet(exId, set.set_number, ex.name, ex.slot)}
                 className={`h-[52px] rounded-[13px] text-[18px] press-scale flex items-center justify-center${set.done && !set.synced ? ' animate-pulse' : ''}`}
                 style={{
                   background: set.done
@@ -1453,7 +1465,10 @@ function WeeklyVolumeCard({ volume, volumeNotes }) {
   const MUSCLE_LABELS = {
     chest: 'Chest', back: 'Back', shoulders: 'Shoulders', triceps: 'Triceps',
     biceps: 'Biceps', quads: 'Quads', hamstrings: 'Hamstrings', calves: 'Calves', abs: 'Abs',
+    lower_back: 'Lower back',
   };
+
+  const unmapped = volume.unmapped_exercises;
 
   return (
     <div className="bg-card rounded-[20px] border border-hair p-[18px]">
@@ -1481,6 +1496,16 @@ function WeeklyVolumeCard({ volume, volumeNotes }) {
         </div>
       ) : (
         <p className="text-[13px] text-tx-3 mt-3">Complete a gym session to see volume data</p>
+      )}
+
+      {/* Unmapped exercises */}
+      {unmapped && Object.keys(unmapped).length > 0 && (
+        <div className="mt-2 px-1">
+          <span className="text-[11px] font-bold text-cal uppercase tracking-wider">Unmapped</span>
+          {Object.entries(unmapped).map(([name, sets]) => (
+            <div key={name} className="text-[12px] text-tx-3 mt-0.5">{name} — {sets} sets</div>
+          ))}
+        </div>
       )}
 
       {/* Conditioning section */}
@@ -1549,11 +1574,11 @@ function CompleteScreen({ data: cd, allData, onBack }) {
         </div>
 
         {/* Honest completion note */}
-        {cd.corePlanned != null && cd.coreCompleted != null && cd.coreCompleted < cd.corePlanned && (
+        {cd.corePlanned != null && cd.coreCompleted != null && (
           <div className="w-full mt-3 bg-card rounded-[16px] border border-hair p-3.5 text-left">
             <div className="text-[14px] text-tx-2">
-              {cd.coreCompleted} of {cd.corePlanned} main lifts done.
-              {cd.missedExercises?.length > 0 && (
+              {cd.coreCompleted} of {cd.corePlanned} main lifts done{cd.swapCount > 0 ? ` — you swapped ${cd.swapCount}` : ''}.
+              {cd.missedExercises?.length > 0 && cd.coreCompleted < cd.corePlanned && (
                 <span> {cd.missedExercises.join(', ')} didn't happen — {cd.missedExercises.length === 1 ? "it'll" : "they'll"} be first next {formatWorkoutType(cd.workout.type)}.</span>
               )}
             </div>

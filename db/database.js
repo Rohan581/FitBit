@@ -403,6 +403,21 @@ function initDB() {
     );
   `);
 
+  // Session-level exercise/slot tracking — planned vs actual for swap detection
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS session_exercises (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      session_id INTEGER NOT NULL,
+      slot INTEGER NOT NULL,
+      planned_exercise_id INTEGER NOT NULL,
+      actual_exercise_id INTEGER NOT NULL,
+      was_swapped INTEGER DEFAULT 0,
+      is_bonus INTEGER DEFAULT 0,
+      FOREIGN KEY (session_id) REFERENCES workout_sessions(id) ON DELETE CASCADE,
+      UNIQUE(session_id, slot)
+    );
+  `);
+
   // Run migrations for existing databases
   runMigrations(db);
 
@@ -754,6 +769,87 @@ function runMigrations(db) {
     if (benchHistory === 0) {
       // No history — the weight pre-fill will naturally start at 30 kg from the stalled-load detector
       // Just noting the seed weight here; actual pre-fill happens server-side in load_suggestions
+    }
+  }
+
+  // workout_sets: slot column — tracks which template slot a set belongs to
+  const setColsSlot = db.prepare("PRAGMA table_info(workout_sets)").all().map(c => c.name);
+  if (!setColsSlot.includes('slot')) {
+    db.exec(`ALTER TABLE workout_sets ADD COLUMN slot INTEGER`);
+  }
+
+  // ── Migration: Backfill session_exercises for completed sessions without entries
+  const sessionsNeedingSE = db.prepare(`
+    SELECT ws.id, ws.workout_type FROM workout_sessions ws
+    WHERE ws.completed = 1
+      AND NOT EXISTS (SELECT 1 FROM session_exercises se WHERE se.session_id = ws.id)
+  `).all();
+  if (sessionsNeedingSE.length > 0) {
+    const insertSE = db.prepare(`
+      INSERT OR IGNORE INTO session_exercises (session_id, slot, planned_exercise_id, actual_exercise_id, was_swapped, is_bonus)
+      VALUES (?, ?, ?, ?, ?, ?)
+    `);
+    for (const sess of sessionsNeedingSE) {
+      const tmplSE = getWt(sess.workout_type);
+      for (const texSE of tmplSE.exercises) {
+        const dbExSE = db.prepare('SELECT id FROM exercises WHERE name = ?').get(texSE.name);
+        if (!dbExSE) continue;
+        // Check if a different exercise was actually logged for this slot
+        const loggedSets = db.prepare(
+          'SELECT COUNT(*) as cnt FROM workout_sets WHERE session_id = ? AND exercise_id = ?'
+        ).get(sess.id, dbExSE.id)?.cnt || 0;
+        if (loggedSets > 0) {
+          // Slot was done with planned exercise
+          insertSE.run(sess.id, texSE.slot, dbExSE.id, dbExSE.id, 0, texSE.is_bonus ? 1 : 0);
+        } else {
+          // Template exercise wasn't logged — check if any other exercise filled this slot
+          // by looking at exercises logged in this session that aren't in the template
+          const templateIds = tmplSE.exercises.map(e => {
+            const r = db.prepare('SELECT id FROM exercises WHERE name = ?').get(e.name);
+            return r?.id;
+          }).filter(Boolean);
+          const otherEx = db.prepare(`
+            SELECT DISTINCT exercise_id FROM workout_sets
+            WHERE session_id = ? AND exercise_id NOT IN (${templateIds.map(() => '?').join(',')})
+          `).all(sess.id, ...templateIds);
+          // If there's an exercise logged that shares the same muscle group, assume it was a swap
+          const plannedMuscles = db.prepare('SELECT primary_muscles FROM exercises WHERE id = ?').get(dbExSE.id);
+          let actualId = dbExSE.id;
+          let wasSwapped = 0;
+          if (plannedMuscles && otherEx.length > 0) {
+            const plannedMuscleArr = JSON.parse(plannedMuscles.primary_muscles);
+            for (const oe of otherEx) {
+              const oeMuscles = db.prepare('SELECT primary_muscles FROM exercises WHERE id = ?').get(oe.exercise_id);
+              if (oeMuscles) {
+                const oeMuscleArr = JSON.parse(oeMuscles.primary_muscles);
+                if (plannedMuscleArr.some(m => oeMuscleArr.includes(m))) {
+                  actualId = oe.exercise_id;
+                  wasSwapped = 1;
+                  break;
+                }
+              }
+            }
+          }
+          insertSE.run(sess.id, texSE.slot, dbExSE.id, actualId, wasSwapped, texSE.is_bonus ? 1 : 0);
+        }
+      }
+    }
+
+    // Recompute core_exercises_completed using session_exercises for sessions with swaps
+    const swappedSessions = db.prepare(`
+      SELECT DISTINCT session_id FROM session_exercises WHERE was_swapped = 1
+    `).all();
+    for (const { session_id } of swappedSessions) {
+      const slots = db.prepare('SELECT * FROM session_exercises WHERE session_id = ? AND is_bonus = 0').all(session_id);
+      const planned = slots.length;
+      let completed = 0;
+      for (const slot of slots) {
+        const cnt = db.prepare('SELECT COUNT(*) as cnt FROM workout_sets WHERE session_id = ? AND exercise_id = ?')
+          .get(session_id, slot.actual_exercise_id)?.cnt || 0;
+        if (cnt > 0) completed++;
+      }
+      db.prepare('UPDATE workout_sessions SET core_exercises_completed = ?, completion_ratio = ? WHERE id = ?')
+        .run(completed, planned > 0 ? completed / planned : 1, session_id);
     }
   }
 

@@ -147,7 +147,10 @@ function LogPortionSheet({ open, onClose, batch, onLogged }) {
         ...(mode === 'servings' ? { servings: servingsVal } : { grams: gramsVal }),
       };
       await api.logPortion(body);
-      const msg = `Added to ${MEAL_LABELS[mealType]} \u00B7 ${Math.round(portionMacros.calories)} kcal \u00B7 ${Math.round(portionMacros.protein_g)}g protein`;
+      const amountLabel = mode === 'grams'
+        ? `Logged ${Math.round(gramsVal)} g of ${batch.recipe_title || 'recipe'}`
+        : `Added to ${MEAL_LABELS[mealType]}`;
+      const msg = `${amountLabel} \u00B7 ${Math.round(portionMacros.calories)} kcal \u00B7 ${Math.round(portionMacros.protein_g)}g protein`;
       setToast(msg);
       if (toastTimer.current) clearTimeout(toastTimer.current);
       toastTimer.current = setTimeout(() => {

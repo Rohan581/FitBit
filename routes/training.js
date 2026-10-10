@@ -8,6 +8,24 @@ const { EQUIPMENT_CATALOG } = require('../db/equipmentData');
 // ─── Constants ───────────────────────────────────────────────
 const SESSION_CAP = 5; // hard cap: 5 exercises per session, no exceptions
 
+// Fine-grained muscle → coarse volume-readout group.
+// Every primary_muscles value in the exercises table must resolve here.
+const MUSCLE_GROUP_MAP = {
+  chest: 'chest',
+  back: 'back', lats: 'back', upper_back: 'back', traps: 'back',
+  front_delts: 'shoulders', side_delts: 'shoulders', rear_delts: 'shoulders', shoulders: 'shoulders',
+  triceps: 'triceps',
+  biceps: 'biceps',
+  quads: 'quads',
+  hamstrings: 'hamstrings',
+  glutes: 'quads',            // glute work credited to quads group (compound overlap)
+  calves: 'calves',
+  abs: 'abs',
+  lower_back: 'lower_back',
+  forearms: 'biceps',          // hammer curl forearm work → biceps group
+  hip_flexors: 'abs',          // hanging leg raise hip flexor work → abs group
+};
+
 const COMPOUND_SET = new Set([
   'Barbell Back Squat', 'Smith Machine Squat', 'Barbell Bench Press', 'Conventional Deadlift',
   'Romanian Deadlift', 'Standing Overhead Press', 'Barbell Row',
@@ -236,33 +254,67 @@ function computeCatchUp(db, weekDays, templateExercises, weekSessionOrdinal, nex
     }
   }
 
-  // Find muscles with zero logged sets from exercises in completed session templates
+  // Find muscles with zero logged sets — use session_exercises for slot-based satisfaction
   const missedMuscles = new Map(); // muscle -> { reason, skipped_exercise, source_session_id, source_session_type }
   for (const session of completedSessions) {
-    const templateWorkout = ROTATION.find(w => w.type === session.workout_type);
-    if (!templateWorkout) continue;
+    // Prefer session_exercises for slot-based checking (swap-aware)
+    const sessionSlots = db.prepare('SELECT * FROM session_exercises WHERE session_id = ?').all(session.id);
 
-    for (const templateEx of templateWorkout.exercises) {
-      // Bonus exercises never generate catch-ups
-      if (templateEx.is_bonus) continue;
+    if (sessionSlots.length > 0) {
+      // Slot-based: a slot is satisfied if actual_exercise_id has logged sets
+      for (const slot of sessionSlots) {
+        if (slot.is_bonus) continue; // Bonus exercises never generate catch-ups
 
-      const dbEx = db.prepare('SELECT id, primary_muscles FROM exercises WHERE name = ?').get(templateEx.name);
-      if (!dbEx) continue;
-      const loggedSets = db.prepare(
-        'SELECT COUNT(*) as cnt FROM workout_sets WHERE session_id = ? AND exercise_id = ?'
-      ).get(session.id, dbEx.id)?.cnt || 0;
+        const loggedSets = db.prepare(
+          'SELECT COUNT(*) as cnt FROM workout_sets WHERE session_id = ? AND exercise_id = ?'
+        ).get(session.id, slot.actual_exercise_id)?.cnt || 0;
+        const hasPending = pendingExerciseIds && pendingExerciseIds.has(slot.actual_exercise_id);
 
-      // Skip exercises that have pending (unsynced) sets on the client
-      const hasPending = pendingExerciseIds && pendingExerciseIds.has(dbEx.id);
-      if (loggedSets === 0 && !hasPending) {
-        for (const m of JSON.parse(dbEx.primary_muscles)) {
-          if (!missedMuscles.has(m)) {
-            missedMuscles.set(m, {
-              reason: `${templateEx.name} skipped in ${session.workout_type.replace(/_/g, ' ')}`,
-              skipped_exercise: templateEx.name,
-              source_session_id: session.id,
-              source_session_type: session.workout_type,
-            });
+        if (loggedSets === 0 && !hasPending) {
+          // Also check if the planned exercise was logged (swap-back edge case)
+          const plannedSets = slot.was_swapped ? db.prepare(
+            'SELECT COUNT(*) as cnt FROM workout_sets WHERE session_id = ? AND exercise_id = ?'
+          ).get(session.id, slot.planned_exercise_id)?.cnt || 0 : 0;
+          const hasPendingPlanned = pendingExerciseIds && pendingExerciseIds.has(slot.planned_exercise_id);
+
+          if (plannedSets === 0 && !hasPendingPlanned) {
+            const plannedEx = db.prepare('SELECT name, primary_muscles FROM exercises WHERE id = ?').get(slot.planned_exercise_id);
+            if (!plannedEx) continue;
+            for (const m of JSON.parse(plannedEx.primary_muscles)) {
+              if (!missedMuscles.has(m)) {
+                missedMuscles.set(m, {
+                  reason: `${plannedEx.name} skipped in ${session.workout_type.replace(/_/g, ' ')}`,
+                  skipped_exercise: plannedEx.name,
+                  source_session_id: session.id,
+                  source_session_type: session.workout_type,
+                });
+              }
+            }
+          }
+        }
+      }
+    } else {
+      // Fallback: template-based checking for legacy sessions without session_exercises
+      const templateWorkout = ROTATION.find(w => w.type === session.workout_type);
+      if (!templateWorkout) continue;
+      for (const templateEx of templateWorkout.exercises) {
+        if (templateEx.is_bonus) continue;
+        const dbEx = db.prepare('SELECT id, primary_muscles FROM exercises WHERE name = ?').get(templateEx.name);
+        if (!dbEx) continue;
+        const loggedSets = db.prepare(
+          'SELECT COUNT(*) as cnt FROM workout_sets WHERE session_id = ? AND exercise_id = ?'
+        ).get(session.id, dbEx.id)?.cnt || 0;
+        const hasPending = pendingExerciseIds && pendingExerciseIds.has(dbEx.id);
+        if (loggedSets === 0 && !hasPending) {
+          for (const m of JSON.parse(dbEx.primary_muscles)) {
+            if (!missedMuscles.has(m)) {
+              missedMuscles.set(m, {
+                reason: `${templateEx.name} skipped in ${session.workout_type.replace(/_/g, ' ')}`,
+                skipped_exercise: templateEx.name,
+                source_session_id: session.id,
+                source_session_type: session.workout_type,
+              });
+            }
           }
         }
       }
@@ -731,14 +783,42 @@ router.post('/sessions', (req, res) => {
     INSERT INTO workout_sessions (date, workout_type, completed) VALUES (?, ?, 0)
   `).run(today, workout.type);
 
-  res.json({ session_id: result.lastInsertRowid, workout_type: workout.type, date: today });
+  const sessionId = result.lastInsertRowid;
+
+  // Populate session_exercises from template — tracks planned vs actual per slot
+  const insertSE = db.prepare(
+    'INSERT INTO session_exercises (session_id, slot, planned_exercise_id, actual_exercise_id, was_swapped, is_bonus) VALUES (?, ?, ?, ?, 0, ?)'
+  );
+  for (const ex of workout.exercises) {
+    const dbEx = db.prepare('SELECT id FROM exercises WHERE name = ?').get(ex.name);
+    if (dbEx) insertSE.run(sessionId, ex.slot, dbEx.id, dbEx.id, ex.is_bonus ? 1 : 0);
+  }
+
+  res.json({ session_id: sessionId, workout_type: workout.type, date: today });
+});
+
+// POST /api/training/sessions/:id/swap — record an in-session exercise swap
+router.post('/sessions/:id/swap', (req, res) => {
+  const db = getDB();
+  const sessionId = req.params.id;
+  const { slot, actual_exercise_id } = req.body;
+  if (slot == null || !actual_exercise_id) return res.status(400).json({ error: 'slot and actual_exercise_id required' });
+
+  const se = db.prepare('SELECT * FROM session_exercises WHERE session_id = ? AND slot = ?').get(sessionId, slot);
+  if (!se) return res.status(404).json({ error: 'Slot not found for this session' });
+
+  const wasSwapped = actual_exercise_id !== se.planned_exercise_id ? 1 : 0;
+  db.prepare('UPDATE session_exercises SET actual_exercise_id = ?, was_swapped = ? WHERE session_id = ? AND slot = ?')
+    .run(actual_exercise_id, wasSwapped, sessionId, slot);
+
+  res.json({ ok: true, was_swapped: !!wasSwapped });
 });
 
 // POST /api/training/sessions/:id/sets — log a set (idempotent via client_uuid)
 router.post('/sessions/:id/sets', (req, res) => {
   const db = getDB();
   const sessionId = req.params.id;
-  const { exercise_id, set_number, weight_kg, reps, client_uuid, created_at } = req.body;
+  const { exercise_id, set_number, weight_kg, reps, client_uuid, created_at, slot } = req.body;
 
   // Primary path: upsert on client_uuid (local-first clients)
   if (client_uuid) {
@@ -749,8 +829,8 @@ router.post('/sessions/:id/sets', (req, res) => {
       return res.json({ id: existing.id, updated: true });
     }
     const result = db.prepare(
-      'INSERT INTO workout_sets (session_id, exercise_id, set_number, weight_kg, reps, client_uuid, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)'
-    ).run(sessionId, exercise_id, set_number, weight_kg, reps, client_uuid, created_at || new Date().toISOString());
+      'INSERT INTO workout_sets (session_id, exercise_id, set_number, weight_kg, reps, client_uuid, created_at, slot) VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
+    ).run(sessionId, exercise_id, set_number, weight_kg, reps, client_uuid, created_at || new Date().toISOString(), slot || null);
     return res.json({ id: result.lastInsertRowid, updated: false });
   }
 
@@ -765,8 +845,8 @@ router.post('/sessions/:id/sets', (req, res) => {
     res.json({ id: existing.id, updated: true });
   } else {
     const result = db.prepare(
-      'INSERT INTO workout_sets (session_id, exercise_id, set_number, weight_kg, reps, created_at) VALUES (?, ?, ?, ?, ?, ?)'
-    ).run(sessionId, exercise_id, set_number, weight_kg, reps, new Date().toISOString());
+      'INSERT INTO workout_sets (session_id, exercise_id, set_number, weight_kg, reps, created_at, slot) VALUES (?, ?, ?, ?, ?, ?, ?)'
+    ).run(sessionId, exercise_id, set_number, weight_kg, reps, new Date().toISOString(), slot || null);
     res.json({ id: result.lastInsertRowid, updated: false });
   }
 });
@@ -809,24 +889,59 @@ router.post('/sessions/:id/complete', (req, res) => {
 
   const duration = req.body.duration_min || null;
 
-  // Honest completion: count core exercises with ≥1 logged set (exclude bonus)
-  const template = getWorkoutByType(session.workout_type);
-  const coreExNames = template.exercises.filter(e => !e.is_bonus).map(e => e.name);
-  const corePlanned = coreExNames.length;
+  // Slot-based completion: use session_exercises (planned vs actual per slot)
+  const slots = db.prepare('SELECT * FROM session_exercises WHERE session_id = ?').all(req.params.id);
+  const coreSlots = slots.filter(s => !s.is_bonus);
+  const corePlanned = coreSlots.length;
   let coreCompleted = 0;
-  for (const name of coreExNames) {
-    const dbEx = db.prepare('SELECT id FROM exercises WHERE name = ?').get(name);
-    if (!dbEx) continue;
-    const logged = db.prepare('SELECT COUNT(*) as cnt FROM workout_sets WHERE session_id = ? AND exercise_id = ?').get(req.params.id, dbEx.id)?.cnt || 0;
-    if (logged > 0) coreCompleted++;
+  let swapCount = 0;
+  const missedExNames = [];
+
+  for (const slot of coreSlots) {
+    // A slot is satisfied when its actual_exercise_id has ≥1 logged set
+    const logged = db.prepare('SELECT COUNT(*) as cnt FROM workout_sets WHERE session_id = ? AND exercise_id = ?')
+      .get(req.params.id, slot.actual_exercise_id)?.cnt || 0;
+    if (logged > 0) {
+      coreCompleted++;
+    } else {
+      // Also check if ANY set was logged for any exercise for this slot (double-swap edge case)
+      const anySlotSets = db.prepare('SELECT COUNT(*) as cnt FROM workout_sets WHERE session_id = ? AND slot = ?')
+        .get(req.params.id, slot.slot)?.cnt || 0;
+      if (anySlotSets > 0) {
+        coreCompleted++;
+      } else {
+        // Truly missed — report the planned exercise name
+        const plannedEx = db.prepare('SELECT name FROM exercises WHERE id = ?').get(slot.planned_exercise_id);
+        if (plannedEx) missedExNames.push(plannedEx.name);
+      }
+    }
+    if (slot.was_swapped) swapCount++;
   }
+
+  // Fallback: if no session_exercises rows exist (legacy session), use template matching
+  if (slots.length === 0) {
+    const template = getWorkoutByType(session.workout_type);
+    const coreExNames = template.exercises.filter(e => !e.is_bonus).map(e => e.name);
+    const planned = coreExNames.length;
+    let completed = 0;
+    for (const name of coreExNames) {
+      const dbEx = db.prepare('SELECT id FROM exercises WHERE name = ?').get(name);
+      if (!dbEx) continue;
+      const logged = db.prepare('SELECT COUNT(*) as cnt FROM workout_sets WHERE session_id = ? AND exercise_id = ?').get(req.params.id, dbEx.id)?.cnt || 0;
+      if (logged > 0) completed++;
+      else missedExNames.push(name);
+    }
+    return finishCompletion(db, session, req.params.id, duration, planned, completed, 0, missedExNames, res);
+  }
+
+  finishCompletion(db, session, req.params.id, duration, corePlanned, coreCompleted, swapCount, missedExNames, res);
+});
+
+function finishCompletion(db, session, sessionId, duration, corePlanned, coreCompleted, swapCount, missedExNames, res) {
   const completionRatio = corePlanned > 0 ? coreCompleted / corePlanned : 1;
 
   db.prepare('UPDATE workout_sessions SET completed = 1, duration_min = ?, core_exercises_planned = ?, core_exercises_completed = ?, completion_ratio = ? WHERE id = ?')
-    .run(duration, corePlanned, coreCompleted, completionRatio, req.params.id);
-
-  // Rotation is deterministic — no counter to advance.
-  // The next workout is derived from this session's workout_type via SUCCESSOR_MAP.
+    .run(duration, corePlanned, coreCompleted, completionRatio, sessionId);
 
   // Double-count guard
   const existingGymLog = db.prepare(
@@ -836,30 +951,22 @@ router.post('/sessions/:id/complete', (req, res) => {
   let exercise_log_action = 'created';
   if (existingGymLog) {
     db.prepare('UPDATE exercise_logs SET duration_min = ?, notes = ? WHERE id = ?')
-      .run(duration || 60, `Gym session: ${session.workout_type} (session:${req.params.id})`, existingGymLog.id);
+      .run(duration || 60, `Gym session: ${session.workout_type} (session:${sessionId})`, existingGymLog.id);
     exercise_log_action = 'replaced_existing';
   } else {
     db.prepare(
       'INSERT INTO exercise_logs (date, type, duration_min, intensity, notes) VALUES (?, ?, ?, ?, ?)'
-    ).run(session.date, 'Gym', duration || 60, 'moderate', `Gym session: ${session.workout_type} (session:${req.params.id})`);
-  }
-
-  // Find names of missed core exercises for the completion summary
-  const missedExNames = [];
-  for (const name of coreExNames) {
-    const dbEx = db.prepare('SELECT id FROM exercises WHERE name = ?').get(name);
-    if (!dbEx) continue;
-    const logged = db.prepare('SELECT COUNT(*) as cnt FROM workout_sets WHERE session_id = ? AND exercise_id = ?').get(req.params.id, dbEx.id)?.cnt || 0;
-    if (logged === 0) missedExNames.push(name);
+    ).run(session.date, 'Gym', duration || 60, 'moderate', `Gym session: ${session.workout_type} (session:${sessionId})`);
   }
 
   const nextType = SUCCESSOR_MAP[session.workout_type] || 'upper_a';
   res.json({
     ok: true, next_type: nextType, exercise_log_action,
     core_planned: corePlanned, core_completed: coreCompleted,
+    swap_count: swapCount,
     missed_exercises: missedExNames,
   });
-});
+}
 
 // GET /api/training/exercises — full exercise library
 router.get('/exercises', (req, res) => {
@@ -959,13 +1066,14 @@ router.get('/volume', (req, res) => {
     ORDER BY ws.date
   `).all(weekDays[0], weekDays[6]);
 
-  // Sets per muscle — single primary muscle per exercise (first in the array)
+  // Sets per muscle — map fine-grained muscles to coarse volume groups via MUSCLE_GROUP_MAP
   const setsPerMuscle = {};
+  const unmappedExercises = {}; // { exercise_name: set_count }
   function countSetsForSessions(sessions) {
     const result = {};
     for (const session of sessions) {
       const sets = db.prepare(`
-        SELECT wset.exercise_id, COUNT(*) as set_count, e.primary_muscles
+        SELECT wset.exercise_id, COUNT(*) as set_count, e.primary_muscles, e.name as exercise_name
         FROM workout_sets wset
         JOIN exercises e ON e.id = wset.exercise_id
         WHERE wset.session_id = ?
@@ -973,8 +1081,14 @@ router.get('/volume', (req, res) => {
       `).all(session.id);
       for (const s of sets) {
         const muscles = JSON.parse(s.primary_muscles);
-        const primary = muscles[0]; // single mapping — first muscle is primary
-        if (primary) result[primary] = (result[primary] || 0) + s.set_count;
+        const primary = muscles[0]; // first muscle is primary
+        const group = primary ? MUSCLE_GROUP_MAP[primary] : null;
+        if (group) {
+          result[group] = (result[group] || 0) + s.set_count;
+        } else if (primary) {
+          console.warn(`[VOLUME] Unmapped muscle "${primary}" for exercise "${s.exercise_name}" (id ${s.exercise_id})`);
+          unmappedExercises[s.exercise_name] = (unmappedExercises[s.exercise_name] || 0) + s.set_count;
+        }
       }
     }
     return result;
@@ -998,6 +1112,7 @@ router.get('/volume', (req, res) => {
   const TARGET_BANDS = {
     chest: [8, 12], back: [8, 12], shoulders: [5, 8], triceps: [5, 8],
     biceps: [3, 6], quads: [8, 12], hamstrings: [6, 10], calves: [6, 10], abs: [3, 6],
+    lower_back: [3, 6],
   };
 
   const swimSessions = db.prepare(`
@@ -1029,7 +1144,7 @@ router.get('/volume', (req, res) => {
   ].sort((a, b) => b.date.localeCompare(a.date));
 
   // Muscle volume readout: per-muscle sets, target bands, 4-week avg
-  const muscleVolume = ['chest', 'back', 'shoulders', 'triceps', 'biceps', 'quads', 'hamstrings', 'calves', 'abs'].map(m => ({
+  const muscleVolume = ['chest', 'back', 'shoulders', 'triceps', 'biceps', 'quads', 'hamstrings', 'calves', 'abs', 'lower_back'].map(m => ({
     muscle: m,
     sets: setsPerMuscle[m] || 0,
     avg4w: avgPerMuscle[m] || 0,
@@ -1043,6 +1158,7 @@ router.get('/volume', (req, res) => {
     total_exercise_sessions: allExercise.length,
     sets_per_muscle: setsPerMuscle,
     muscle_volume: muscleVolume,
+    unmapped_exercises: Object.keys(unmappedExercises).length > 0 ? unmappedExercises : null,
     gym_details: gymSessions,
     swim_details: swimSessions,
     conditioning: allConditioning,
@@ -1160,5 +1276,18 @@ router.get('/rotation', (req, res) => {
     queue,
   });
 });
+
+// ─── Startup assertion: muscle mapping coverage ─────────────
+// Every exercise in every template must resolve to a volume group.
+(function assertMuscleMapping() {
+  for (const w of ROTATION) {
+    for (const ex of w.exercises) {
+      const group = MUSCLE_GROUP_MAP[ex.primary_muscle];
+      if (!group) {
+        console.error(`[MUSCLE ASSERT] Template exercise "${ex.name}" has primary_muscle "${ex.primary_muscle}" which is not in MUSCLE_GROUP_MAP`);
+      }
+    }
+  }
+})();
 
 module.exports = router;

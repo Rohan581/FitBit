@@ -98,6 +98,7 @@ export const api = {
   logSet: (sessionId, data) => req('POST', `/training/sessions/${sessionId}/sets`, data),
   deleteSet: (sessionId, setId) => req('DELETE', `/training/sessions/${sessionId}/sets/${setId}`),
   backfillSet: (sessionId, data) => req('POST', `/training/sessions/${sessionId}/backfill`, data),
+  swapExercise: (sessionId, data) => req('POST', `/training/sessions/${sessionId}/swap`, data),
   completeSession: (sessionId, duration_min) => req('POST', `/training/sessions/${sessionId}/complete`, { duration_min }),
   getExercises: () => req('GET', '/training/exercises'),
   getExercise: (id) => req('GET', `/training/exercises/${id}`),

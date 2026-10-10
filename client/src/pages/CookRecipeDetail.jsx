@@ -193,6 +193,20 @@ function LogPortionSheet({ open, onClose, recipe, scaleFactor, people, perPerson
   const totalBatch = {};
   MACROS.forEach(m => { totalBatch[m.key] = (ps[m.key] || 0) * (recipe.servings || 1) * scaleFactor; });
 
+  // Per-person grams for grams ↔ servings conversion
+  const yieldG = (recipe.cooked_yield_g || 500) * scaleFactor;
+  const perPersonG = people > 0 ? yieldG / people : yieldG;
+
+  // Live sync: editing servings updates grams and vice versa
+  function handleServingsChange(val) {
+    setServingsVal(val);
+    setGramsVal(Math.round(val * perPersonG));
+  }
+  function handleGramsChange(val) {
+    setGramsVal(val);
+    if (perPersonG > 0) setServingsVal(Math.round((val / perPersonG) * 100) / 100);
+  }
+
   const portionMacros = {};
   if (mode === 'servings') {
     // 1 serving = 1 person's share = totalBatch / people
@@ -201,7 +215,6 @@ function LogPortionSheet({ open, onClose, recipe, scaleFactor, people, perPerson
       portionMacros[m.key] = m.key === 'calories' ? roundCal(v) : roundMacro(v);
     });
   } else {
-    const yieldG = (recipe.cooked_yield_g || 500) * scaleFactor;
     MACROS.forEach(m => {
       const v = yieldG > 0 ? (totalBatch[m.key] / yieldG) * gramsVal : 0;
       portionMacros[m.key] = m.key === 'calories' ? roundCal(v) : roundMacro(v);
@@ -214,10 +227,15 @@ function LogPortionSheet({ open, onClose, recipe, scaleFactor, people, perPerson
       const body = {
         recipe_id: recipe.id,
         meal_type: mealType,
-        ...(mode === 'servings' ? { servings: servingsVal } : { grams: gramsVal }),
+        ...(mode === 'servings'
+          ? { servings: servingsVal }
+          : { grams: gramsVal, scale_factor: scaleFactor, people }),
       };
       await api.logPortion(body);
-      const msg = `Added to ${MEAL_LABELS[mealType]} \u00B7 ${Math.round(portionMacros.calories)} kcal \u00B7 ${Math.round(portionMacros.protein_g)}g protein`;
+      const amountLabel = mode === 'grams'
+        ? `Logged ${Math.round(gramsVal)} g of ${recipe.title}`
+        : `Added to ${MEAL_LABELS[mealType]}`;
+      const msg = `${amountLabel} \u00B7 ${Math.round(portionMacros.calories)} kcal \u00B7 ${Math.round(portionMacros.protein_g)}g protein`;
       setToast(msg);
       if (toastTimer.current) clearTimeout(toastTimer.current);
       toastTimer.current = setTimeout(() => { setToast(null); onClose(); }, 4000);
@@ -243,14 +261,14 @@ function LogPortionSheet({ open, onClose, recipe, scaleFactor, people, perPerson
         </div>
 
         {mode === 'servings' ? (
-          <Stepper value={servingsVal} onChange={setServingsVal} min={0.5} step={0.5} label="Portions" />
+          <Stepper value={servingsVal} onChange={handleServingsChange} min={0.5} step={0.5} label="Portions" />
         ) : (
           <div className="flex items-center gap-2">
             <label className="text-sm text-tx-2">Grams</label>
             <input
               type="number"
               value={gramsVal}
-              onChange={e => setGramsVal(Math.max(0, +e.target.value))}
+              onChange={e => handleGramsChange(Math.max(0, +e.target.value))}
               className="w-24 px-3 py-1.5 rounded-lg bg-card-2 text-tx font-num text-center border border-hair"
             />
           </div>

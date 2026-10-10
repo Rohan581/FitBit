@@ -61,6 +61,7 @@ export async function saveSet(sessionId, data) {
     set_number: data.set_number,
     weight_kg: data.weight_kg,
     reps: data.reps,
+    slot: data.slot || null,
     created_at: new Date().toISOString(),
     synced: 0,      // 0 = pending, 1 = synced
     retries: 0,
@@ -165,6 +166,7 @@ export async function flushSync() {
           reps: set.reps,
           client_uuid: set.client_uuid,
           created_at: set.created_at,
+          slot: set.slot || null,
         });
         // Mark synced
         const store = await tx('readwrite');
