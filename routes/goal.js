@@ -190,14 +190,25 @@ function weeklyTDEERecompute(db) {
       VALUES (?, NULL, ?, NULL, ?, NULL, NULL, NULL, 'formula')
     `).run(today, formulaTDEE, result.coverage_pct || null);
 
-    // Keep using previous observed_tdee if we had one, else use formula
-    if (!goal.observed_tdee) {
+    // Use best available TDEE: previous observed if exists, else formula
+    const activeTDEE = goal.observed_tdee || formulaTDEE;
+    const tdeeSource = goal.observed_tdee ? goal.tdee_source : 'formula';
+
+    db.prepare(`
+      UPDATE goal SET tdee_source = ?, last_tdee_compute_date = ? WHERE id = 1
+    `).run(tdeeSource, today);
+
+    // Re-derive macros from best available TDEE so targets aren't stale
+    if (rollingAvg) {
+      const macros = deriveMacrosFromTDEE(activeTDEE, goal.deficit_pct, rollingAvg);
       db.prepare(`
-        UPDATE goal SET tdee_source = 'formula', last_tdee_compute_date = ? WHERE id = 1
-      `).run(today);
-    } else {
-      // Keep last good observed_tdee, just update compute date
-      db.prepare(`UPDATE goal SET last_tdee_compute_date = ? WHERE id = 1`).run(today);
+        UPDATE goal SET
+          current_calorie_target = CASE WHEN calorie_override = 0 THEN ? ELSE current_calorie_target END,
+          current_protein_target_g = CASE WHEN protein_override = 0 THEN ? ELSE current_protein_target_g END,
+          current_fat_target_g = CASE WHEN fat_override = 0 THEN ? ELSE current_fat_target_g END,
+          current_carb_target_g = CASE WHEN carb_override = 0 THEN ? ELSE current_carb_target_g END
+        WHERE id = 1
+      `).run(macros.calorie_target, macros.protein_target, macros.fat_target, macros.carb_target);
     }
   }
 }

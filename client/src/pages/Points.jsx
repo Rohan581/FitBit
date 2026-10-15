@@ -31,24 +31,13 @@ export default function Points() {
 
   const load = useCallback(async () => {
     try {
+      // Bank GET now runs server-side reconciliation for all past weeks
       const [w, b] = await Promise.all([
         api.getWeeklySummary(weekStart),
         api.getBank(),
       ]);
       setWeekData(w);
       setBankData(b);
-
-      // Auto-credit if threshold met and not yet credited this week
-      if (w.treat_earned) {
-        const alreadyCredited = b.ledger.some(
-          l => l.kind === 'weekly_credit' && l.week_start === weekStart
-        );
-        if (!alreadyCredited) {
-          await api.creditBank(weekStart);
-          const updated = await api.getBank();
-          setBankData(updated);
-        }
-      }
     } finally {
       setLoading(false);
     }
@@ -96,7 +85,7 @@ export default function Points() {
   if (!weekData || !bankData) return null;
 
   const { total_points, threshold, treat_earned, by_day } = weekData;
-  const { balance, credit_amount, items, ledger } = bankData;
+  const { balance, credit_amount, items, ledger, pending_weeks } = bankData;
   const remaining = Math.max(0, threshold - total_points);
   const unpurchasedItems = items.filter(i => !i.purchased);
 
@@ -140,6 +129,23 @@ export default function Points() {
           )}
         </div>
       </div>
+
+      {/* Pending uncredited weeks — should auto-heal, but show if any remain */}
+      {pending_weeks?.length > 0 && (
+        <div className="bg-card rounded-card p-4 mb-3 stagger-enter border border-cal/20 tint-cal">
+          <p className="text-sm font-semibold text-tx mb-2">Pending credits</p>
+          <div className="space-y-1.5">
+            {pending_weeks.map(pw => (
+              <div key={pw.week_start} className="flex items-center justify-between">
+                <p className="text-sm text-tx-2">
+                  Week of {new Date(pw.week_start + 'T12:00:00Z').toLocaleDateString('en-US', { day: 'numeric', month: 'short' })}
+                </p>
+                <span className="text-xs text-cal">{formatAmount(pw.amount)} pending, not credited</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Wishlist items with progress bars */}
       {unpurchasedItems.length > 0 && (

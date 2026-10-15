@@ -970,6 +970,11 @@ function runMigrations(db) {
     }
   }
 
+  // ── v37: Unique constraint on reward_bank_ledger(week_start) for weekly_credit
+  // Prevents double-crediting if reconciliation runs twice
+  db.exec(`CREATE UNIQUE INDEX IF NOT EXISTS idx_ledger_weekly_credit_week
+    ON reward_bank_ledger(week_start) WHERE kind = 'weekly_credit'`);
+
   // Seed exercises
   seedExercises(db);
 

@@ -21,6 +21,11 @@ router.get('/', (req, res) => {
 
   const byDay = days.map(d => calculateDailyPoints(db, d));
   const total_points = byDay.reduce((s, d) => s + d.total, 0);
+
+  // Keep weekly_summary.total_points in sync with live computation
+  db.prepare('UPDATE weekly_summary SET total_points = ?, threshold = ? WHERE week_start = ?')
+    .run(total_points, threshold, weekStart);
+
   res.json({
     week_start: weekStart,
     total_points,

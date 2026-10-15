@@ -2,6 +2,8 @@ const express = require('express');
 const router = express.Router();
 const { getDB } = require('../db/database');
 const { calculateDailyPoints, getRestDayTargets } = require('./points');
+const { weeklyTDEERecompute } = require('./goal');
+const { reconcileMissingCredits } = require('./bank');
 const { todayIST, getMondayIST, getDaysOfWeek } = require('../dateUtils');
 
 // Check if a date falls within a maintenance period
@@ -17,12 +19,18 @@ router.get('/', (req, res) => {
   const weekStart = getMondayIST(today);
   const weekDays = getDaysOfWeek(weekStart);
 
+  // Ensure TDEE-driven targets are up to date (v36 Parts 1 & 3)
+  weeklyTDEERecompute(db);
+
+  // Auto-heal missing reward bank credits (last 8 completed weeks)
+  reconcileMissingCredits(db);
+
   // Today's logs
   const foodLogs = db.prepare('SELECT * FROM food_logs WHERE date = ? ORDER BY logged_at').all(today);
   const exerciseLogs = db.prepare('SELECT * FROM exercise_logs WHERE date = ? ORDER BY logged_at').all(today);
   const sleepLog = db.prepare('SELECT * FROM sleep_logs WHERE date = ? ORDER BY logged_at DESC LIMIT 1').get(today);
   const weightLog = db.prepare('SELECT * FROM weight_logs WHERE date = ? ORDER BY logged_at DESC LIMIT 1').get(today);
-  // Goal & targets
+  // Goal & targets (re-read after TDEE recompute)
   const goal = db.prepare('SELECT * FROM goal WHERE id = 1').get();
 
   // Steps

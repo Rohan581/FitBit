@@ -43,24 +43,32 @@ function calculateDailyPoints(db, date) {
   let total = 0;
 
   // ── Calorie adherence ───────────────────────────────────────────
+  // At or under target: full points (weight-loss friendly).
+  // Floor at 60% of target: under-eating earns nothing.
+  // Slightly over (within 100/200 kcal): partial credit.
   if (foodLogs.length > 0) {
     const totalCal = foodLogs.reduce((s, f) => s + f.calories, 0);
     // During maintenance, target is the observed TDEE (no deficit)
     const target = inMaintenance && goal?.observed_tdee
       ? Math.round(goal.observed_tdee)
       : (restDayTargets?.calorie_target || goal?.current_calorie_target || 2240);
-    const diff = totalCal - target;
-    const absDiff = Math.abs(diff);
+    const floor = target * 0.6;
+    const diff = totalCal - target; // positive = over, negative = under
 
-    if (absDiff <= 100) {
+    if (totalCal < floor) {
+      // Below 60% of target — dangerous under-eating, no points
+      breakdown.push({ category: 'calories', points: 0, reason: `${Math.round(totalCal)} kcal — below 60% of target, too low` });
+    } else if (totalCal <= target) {
+      // At or under target (but above floor) — full points
+      breakdown.push({ category: 'calories', points: 20, reason: `${Math.round(totalCal)} kcal — at or under target` });
+      total += 20;
+    } else if (diff <= 100) {
+      // Slightly over, still good
       breakdown.push({ category: 'calories', points: 20, reason: `${Math.round(totalCal)} kcal — within 100 kcal of target` });
       total += 20;
-    } else if (absDiff <= 200) {
+    } else if (diff <= 200) {
       breakdown.push({ category: 'calories', points: 12, reason: `${Math.round(totalCal)} kcal — within 200 kcal of target` });
       total += 12;
-    } else if (diff < 0) {
-      breakdown.push({ category: 'calories', points: 5, reason: `${Math.round(totalCal)} kcal — under target` });
-      total += 5;
     }
   }
 

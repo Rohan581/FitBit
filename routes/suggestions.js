@@ -243,84 +243,156 @@ function generateSwapSuggestion(db, logs, date) {
   return null;
 }
 
+/**
+ * Identify the primary nutrient gap by fraction of target remaining.
+ * Returns { nutrient, gapAmount, target, current, fractionRemaining }
+ * or null if both are >= 70% of target.
+ */
+function identifyPrimaryGap(totals, proTarget, fiberTarget) {
+  const proteinFrac = proTarget > 0 ? totals.protein_g / proTarget : 1;
+  const fiberFrac = fiberTarget > 0 ? totals.fiber_g / fiberTarget : 1;
+
+  // Only suggest if meaningfully behind (< 70% of target)
+  if (proteinFrac >= 0.7 && fiberFrac >= 0.7) return null;
+
+  // Select by fraction of target remaining (higher fraction remaining = bigger gap)
+  const proteinRemaining = 1 - proteinFrac;
+  const fiberRemaining = 1 - fiberFrac;
+
+  if (fiberRemaining >= proteinRemaining) {
+    return {
+      nutrient: 'fiber',
+      nutrientKey: 'fiber_g',
+      gapAmount: Math.round(fiberTarget - totals.fiber_g),
+      target: fiberTarget,
+      current: totals.fiber_g,
+      fractionRemaining: fiberRemaining,
+    };
+  }
+  return {
+    nutrient: 'protein',
+    nutrientKey: 'protein_g',
+    gapAmount: Math.round(proTarget - totals.protein_g),
+    target: proTarget,
+    current: totals.protein_g,
+    fractionRemaining: proteinRemaining,
+  };
+}
+
+/**
+ * Check if two foods are near-identical (within 5% on all six macros).
+ */
+function areMacrosNearIdentical(a, b) {
+  const keys = ['calories', 'protein_g', 'carbs_g', 'fat_g', 'fiber_g', 'sugar_g'];
+  return keys.every(k => {
+    const va = a[k] || 0;
+    const vb = b[k] || 0;
+    const max = Math.max(Math.abs(va), Math.abs(vb), 1); // avoid div-by-zero
+    return Math.abs(va - vb) / max <= 0.05;
+  });
+}
+
 function generateGapSuggestion(db, totals, calTarget, proTarget, fiberTarget, remainingCal, isRestDay = false) {
   if (remainingCal < 150) return null;
 
-  const proteinPct = totals.protein_g / proTarget;
-  const fiberPct = totals.fiber_g / fiberTarget;
+  // ── 1. Choose the gap ONCE ──────────────────────────────────
+  const gap = identifyPrimaryGap(totals, proTarget, fiberTarget);
+  if (!gap) return null;
 
-  // Only suggest if meaningfully behind (< 70% of target)
-  if (proteinPct >= 0.7 && fiberPct >= 0.7) return null;
+  const { nutrient, nutrientKey, gapAmount } = gap;
 
-  const primaryGap = proteinPct <= fiberPct ? 'protein' : 'fiber';
-  const gapAmount = primaryGap === 'protein' ? (proTarget - totals.protein_g) : (fiberTarget - totals.fiber_g);
-
-  // Get candidates
-  const favorites = db.prepare('SELECT * FROM foods WHERE is_favorite = 1').all();
+  // ── 2. Build candidate pool ─────────────────────────────────
   const frequentIds = db.prepare(`
     SELECT food_id, COUNT(*) as cnt FROM food_logs
     WHERE food_id IS NOT NULL GROUP BY food_id ORDER BY cnt DESC LIMIT 30
   `).all().map(r => r.food_id);
 
-  const frequents = frequentIds.length > 0
-    ? db.prepare(`SELECT * FROM foods WHERE id IN (${frequentIds.map(() => '?').join(',')})`).all(...frequentIds)
-    : [];
-
   const allFoods = db.prepare('SELECT * FROM foods').all();
 
-  const seen = new Set();
-  const candidates = [];
-  for (const food of [...favorites, ...frequents, ...allFoods]) {
-    if (seen.has(food.id)) continue;
-    seen.add(food.id);
-    if (food.calories > remainingCal || food.calories <= 0) continue;
-    candidates.push(food);
-  }
+  const candidates = allFoods.filter(food => {
+    if (food.calories > remainingCal || food.calories <= 0) return false;
+    // Hard invariant: candidate must contain > 0g of the target nutrient
+    if ((food[nutrientKey] || 0) <= 0) return false;
+    return true;
+  });
 
-  // For fiber gap: rank strictly by fiber per calorie so high-fiber foods
-  // (psyllium husk, guava, chana, peas, Cook recipes) rank above raw salad items
+  // ── 3. Rank by nutrient per calorie ─────────────────────────
   const scored = candidates.map(food => {
-    const nutrientPerCal = primaryGap === 'protein'
-      ? food.protein_g / food.calories
-      : (food.fiber_g || 0) / Math.max(1, food.calories);
-    const favBonus = food.is_favorite ? 0.3 : 0;
-    const freqBonus = frequentIds.includes(food.id) ? 0.2 : 0;
-    // On rest days, boost protein-dense, lower-carb options
-    const restDayBonus = isRestDay
-      ? (food.protein_g / Math.max(1, food.carbs_g)) * 0.15
-      : 0;
-    // For fiber: penalize very-low-fiber foods (< 1g) to avoid surfacing raw salad items
-    const fiberFloorPenalty = primaryGap === 'fiber' && (food.fiber_g || 0) < 1 ? -0.5 : 0;
-    return { food, score: nutrientPerCal + favBonus + freqBonus + restDayBonus + fiberFloorPenalty };
+    const nutrientPerCal = (food[nutrientKey] || 0) / food.calories;
+    // Small tiebreaker bonuses (capped so they never override nutrient/cal ranking)
+    const favBonus = food.is_favorite ? 0.005 : 0;
+    const freqBonus = frequentIds.includes(food.id) ? 0.003 : 0;
+    return { food, score: nutrientPerCal + favBonus + freqBonus };
   });
 
   scored.sort((a, b) => b.score - a.score);
-  const top3 = scored.slice(0, 3);
-  if (top3.length === 0) return null;
 
-  const suggestions = top3.map(({ food }) => {
-    const nutrient = primaryGap === 'protein'
-      ? `+${Math.round(food.protein_g)}g protein`
-      : `+${Math.round(food.fiber_g || 0)}g fiber`;
+  // ── 4. Deduplicate near-identical foods ─────────────────────
+  const deduped = [];
+  for (const entry of scored) {
+    if (deduped.length >= 3) break;
+    const isDupe = deduped.some(d => areMacrosNearIdentical(d.food, entry.food));
+    if (isDupe) continue;
+    deduped.push(entry);
+  }
+
+  // ── 5. Assertion: no zero-contribution items ────────────────
+  if (process.env.NODE_ENV !== 'production') {
+    for (const { food } of deduped) {
+      if ((food[nutrientKey] || 0) <= 0) {
+        throw new Error(
+          `Gap suggestion invariant violated: "${food.name}" has 0g ${nutrient} but was included in ${nutrient} gap suggestions`
+        );
+      }
+    }
+  }
+
+  // ── 6. Handle unclosable gap ────────────────────────────────
+  if (deduped.length === 0) {
+    // Find the single best food regardless of calorie fit for the hint
+    const bestAny = allFoods
+      .filter(f => (f[nutrientKey] || 0) > 0 && f.calories > 0)
+      .sort((a, b) => (b[nutrientKey] || 0) / b.calories - (a[nutrientKey] || 0) / a.calories)[0];
+
+    const hint = bestAny
+      ? ` — ${bestAny.name} gets you ${Math.round(bestAny[nutrientKey])}g for ${Math.round(bestAny.calories)} kcal`
+      : '';
+
+    return {
+      type: 'gap',
+      priority: 60 + Math.round(gapAmount / 5),
+      title: `Close the ${nutrient} gap`,
+      message: `Nothing in your foods closes a ${gapAmount}g ${nutrient} gap in ${Math.round(remainingCal)} kcal${hint}.`,
+      suggestions: [],
+      primary_gap: nutrient,
+      gap_amount: gapAmount,
+      color: nutrient === 'protein' ? 'var(--protein)' : 'var(--fiber)',
+    };
+  }
+
+  // ── 7. Build response ───────────────────────────────────────
+  const suggestions = deduped.map(({ food }) => {
+    const amount = Math.round(food[nutrientKey] || 0);
+    const highlight = `+${amount}g ${nutrient}`;
     return {
       food_id: food.id,
       food_name: food.name,
       serving_unit: food.serving_unit,
       calories: Math.round(food.calories),
-      nutrient_highlight: nutrient,
-      description: `${food.serving_unit} · ${nutrient} · ${Math.round(food.calories)} kcal`,
+      nutrient_highlight: highlight,
+      description: `${food.serving_unit} · ${highlight} · ${Math.round(food.calories)} kcal`,
     };
   });
 
   return {
     type: 'gap',
     priority: 60 + Math.round(gapAmount / 5),
-    title: `Close the ${primaryGap} gap`,
-    message: `${Math.round(gapAmount)}g ${primaryGap} remaining within ${Math.round(remainingCal)} kcal.`,
+    title: `Close the ${nutrient} gap`,
+    message: `${gapAmount}g ${nutrient} remaining within ${Math.round(remainingCal)} kcal.`,
     suggestions,
-    primary_gap: primaryGap,
-    gap_amount: Math.round(gapAmount),
-    color: primaryGap === 'protein' ? 'var(--protein)' : 'var(--fiber)',
+    primary_gap: nutrient,
+    gap_amount: gapAmount,
+    color: nutrient === 'protein' ? 'var(--protein)' : 'var(--fiber)',
   };
 }
 
