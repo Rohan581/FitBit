@@ -42,6 +42,7 @@ function getDaySummary(data) {
   if (data.foodLogs?.length) parts.push(`${data.foodLogs.length} foods`);
   if (data.exerciseLogs?.length) parts.push('exercised');
   if (data.sleepLog) parts.push(`${data.sleepLog.hours}h sleep`);
+  if (data.steps) parts.push(`${Number(data.steps).toLocaleString()} steps`);
   return parts.join(' · ') || 'No entries';
 }
 
@@ -146,7 +147,7 @@ function DayDetail({ data, date, onDataChanged }) {
   if (!data) return <p className="bg-card rounded-card px-4 py-3 text-xs text-tx-3">Loading...</p>;
   if (data.error) return <p className="bg-card rounded-card px-4 py-3 text-xs text-tx-3">Couldn't load this day</p>;
 
-  const { foodLogs, exerciseLogs, sleepLog, weightLog, points, foodTotals, is_rest_day } = data;
+  const { foodLogs, exerciseLogs, sleepLog, weightLog, points, foodTotals, is_rest_day, steps } = data;
 
   // Group food logs by meal type
   const grouped = { breakfast: [], lunch: [], snack: [], dinner: [], drinks: [] };
@@ -247,6 +248,14 @@ function DayDetail({ data, date, onDataChanged }) {
         <div className="bg-card rounded-card px-4 py-3">
           <p className="text-[11px] text-tx-3 mb-1">Weight</p>
           <p className="text-xs font-num text-tx-2">{weightLog.weight_kg} kg</p>
+        </div>
+      )}
+
+      {/* Steps */}
+      {steps && (
+        <div className="bg-card rounded-card px-4 py-3">
+          <p className="text-[11px] text-tx-3 mb-1">Steps</p>
+          <p className="text-xs font-num text-tx-2">{Number(steps).toLocaleString()}</p>
         </div>
       )}
 

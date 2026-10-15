@@ -853,6 +853,123 @@ function runMigrations(db) {
     }
   }
 
+  // ── tdee_history table for observed TDEE tracking ─────────────
+  const tablesV36 = db.prepare("SELECT name FROM sqlite_master WHERE type='table'").all().map(t => t.name);
+  if (!tablesV36.includes('tdee_history')) {
+    db.exec(`
+      CREATE TABLE tdee_history (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        date TEXT NOT NULL,
+        observed_tdee REAL,
+        formula_tdee REAL NOT NULL,
+        window_days INTEGER,
+        coverage_pct REAL,
+        mean_intake REAL,
+        rolling_weight_start REAL,
+        rolling_weight_end REAL,
+        source TEXT NOT NULL DEFAULT 'formula'
+      )
+    `);
+  }
+
+  // ── step_logs table ─────────────────────────────────────────
+  if (!tablesV36.includes('step_logs')) {
+    db.exec(`
+      CREATE TABLE step_logs (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        date TEXT NOT NULL UNIQUE,
+        steps INTEGER NOT NULL
+      )
+    `);
+  }
+
+  // ── goal columns for v36 features ──────────────────────────
+  const goalColsV36 = db.prepare("PRAGMA table_info(goal)").all().map(c => c.name);
+  if (!goalColsV36.includes('observed_tdee')) {
+    db.exec(`ALTER TABLE goal ADD COLUMN observed_tdee REAL`);
+    db.exec(`ALTER TABLE goal ADD COLUMN tdee_source TEXT DEFAULT 'formula'`);
+    db.exec(`ALTER TABLE goal ADD COLUMN last_tdee_compute_date TEXT`);
+  }
+  if (!goalColsV36.includes('maintenance_start')) {
+    db.exec(`ALTER TABLE goal ADD COLUMN maintenance_start TEXT`);
+    db.exec(`ALTER TABLE goal ADD COLUMN maintenance_end TEXT`);
+  }
+  if (!goalColsV36.includes('goal_date')) {
+    db.exec(`ALTER TABLE goal ADD COLUMN goal_date TEXT`);
+  }
+  if (!goalColsV36.includes('waist_goal_cm')) {
+    db.exec(`ALTER TABLE goal ADD COLUMN waist_goal_cm REAL`);
+  }
+  if (!goalColsV36.includes('step_target_weekday')) {
+    db.exec(`ALTER TABLE goal ADD COLUMN step_target_weekday INTEGER DEFAULT 12000`);
+    db.exec(`ALTER TABLE goal ADD COLUMN step_target_weekend INTEGER DEFAULT 10000`);
+  }
+
+  // ── Migration: Seed "Breakfast — split eggs" saved meal variant ──
+  const splitEggsExists = db.prepare("SELECT id FROM saved_meals WHERE name = 'Breakfast — split eggs'").get();
+  if (!splitEggsExists) {
+    const getFood = db.prepare('SELECT id, calories, protein_g, carbs_g, fat_g, fiber_g, sugar_g FROM foods WHERE name = ?');
+    const splitComponents = [
+      { name: 'Oats', qty: 1 },
+      { name: 'Honey', qty: 1 },
+      { name: 'Chia seeds', qty: 1 },
+      { name: 'Greek yogurt (plain)', qty: 2 },
+      { name: 'Whey protein powder', qty: 1 },
+      { name: 'Almond milk (unsweetened)', qty: 1 },
+      { name: 'Blueberries', qty: 1 },
+      { name: 'Boiled eggs', qty: 1 },       // 1 whole egg instead of 2
+      { name: 'Egg whites', qty: 1 },         // 3 whites (100g serving)
+    ];
+    let tc = 0, tp = 0, tca = 0, tf = 0, tfi = 0, ts = 0;
+    const items = [];
+    let allFound = true;
+    for (const comp of splitComponents) {
+      const food = getFood.get(comp.name);
+      if (!food) { allFound = false; break; }
+      tc += food.calories * comp.qty;
+      tp += food.protein_g * comp.qty;
+      tca += food.carbs_g * comp.qty;
+      tf += food.fat_g * comp.qty;
+      tfi += food.fiber_g * comp.qty;
+      ts += food.sugar_g * comp.qty;
+      items.push({ food_id: food.id, quantity: comp.qty });
+    }
+    if (allFound && items.length > 0) {
+      db.prepare(`
+        INSERT INTO saved_meals (name, items, total_calories, total_protein_g, total_carbs_g, total_fat_g, total_fiber_g, total_sugar_g)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      `).run('Breakfast — split eggs', JSON.stringify(items),
+        Math.round(tc), Math.round(tp * 10) / 10, Math.round(tca * 10) / 10,
+        Math.round(tf * 10) / 10, Math.round(tfi * 10) / 10, Math.round(ts * 10) / 10);
+    }
+  }
+
+  // ── Migration: Rename flour tortilla to distinguish from whole wheat ──
+  const oldTortilla = db.prepare("SELECT id FROM foods WHERE name = 'Flour tortilla (plain, medium)'").get();
+  if (oldTortilla) {
+    db.prepare("UPDATE foods SET name = 'Tortilla (plain flour, medium)', seed_key = 'tortilla_plain_flour_medium' WHERE id = ?")
+      .run(oldTortilla.id);
+  }
+
+  // ── Migration: Add teaspoon unit to all oils if missing ──────────
+  const oilNames = ['Olive oil', 'Ghee', 'Refined/vegetable oil', 'Butter'];
+  for (const oilName of oilNames) {
+    const oil = db.prepare('SELECT id, units, default_unit FROM foods WHERE name = ?').get(oilName);
+    if (oil && oil.units) {
+      const units = JSON.parse(oil.units);
+      const hasTsp = units.some(u => u.unit.includes('tsp'));
+      if (!hasTsp) {
+        units.unshift({ unit: '1 tsp', multiplier: 1 });
+        units.push({ unit: '1 tbsp', multiplier: 3 });
+        db.prepare('UPDATE foods SET units = ? WHERE id = ?').run(JSON.stringify(units), oil.id);
+      }
+    }
+    // Set olive oil default to teaspoon
+    if (oilName === 'Olive oil' && oil) {
+      db.prepare("UPDATE foods SET default_unit = '1 tsp' WHERE id = ? AND (default_unit IS NULL OR default_unit != '1 tsp')").run(oil.id);
+    }
+  }
+
   // Seed exercises
   seedExercises(db);
 

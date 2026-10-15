@@ -147,6 +147,15 @@ export const api = {
   testPush: (endpoint) => req('POST', '/push/test', { endpoint }),
   getSchedulerStatus: () => req('GET', '/push/scheduler-status'),
 
+  // Steps
+  getSteps: (date) => req('GET', `/steps?${new URLSearchParams({ ...(date && { date }) })}`),
+  logSteps: (data) => req('POST', '/steps', data),
+  deleteSteps: (date) => req('DELETE', `/steps?${new URLSearchParams({ ...(date && { date }) })}`),
+  getStepWeeklyAvg: (weeks) => req('GET', `/steps/weekly-avg?${new URLSearchParams({ ...(weeks && { weeks }) })}`),
+
+  // TDEE history
+  getTDEEHistory: () => req('GET', '/goal/tdee-history'),
+
   // Recipes (Cook module)
   getRecipes: (params) => req('GET', `/recipes?${new URLSearchParams(params || {})}`),
   getRecipe: (id) => req('GET', `/recipes/${id}`),

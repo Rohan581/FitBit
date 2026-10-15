@@ -51,6 +51,12 @@ export default function Settings() {
         enable_chest_measurement: g.enable_chest_measurement || 0,
         enable_hips_measurement: g.enable_hips_measurement || 0,
         rest_day_reduction: g.rest_day_reduction || 150,
+        goal_date: g.goal_date || '',
+        waist_goal_cm: g.waist_goal_cm || '',
+        maintenance_start: g.maintenance_start || '',
+        maintenance_end: g.maintenance_end || '',
+        step_target_weekday: g.step_target_weekday || 12000,
+        step_target_weekend: g.step_target_weekend || 10000,
       });
     });
   }, []);
@@ -80,6 +86,12 @@ export default function Settings() {
         enable_chest_measurement: form.enable_chest_measurement ? 1 : 0,
         enable_hips_measurement: form.enable_hips_measurement ? 1 : 0,
         rest_day_reduction: parseInt(form.rest_day_reduction) || 150,
+        goal_date: form.goal_date || null,
+        waist_goal_cm: form.waist_goal_cm ? parseFloat(form.waist_goal_cm) : null,
+        maintenance_start: form.maintenance_start || null,
+        maintenance_end: form.maintenance_end || null,
+        step_target_weekday: parseInt(form.step_target_weekday) || 12000,
+        step_target_weekend: parseInt(form.step_target_weekend) || 10000,
       });
       setGoal(updated);
       setSaved(true);
@@ -150,14 +162,27 @@ export default function Settings() {
         <h1 className="text-[22px] font-bold text-tx">Settings</h1>
       </div>
 
-      {/* Rolling average info */}
+      {/* TDEE & Rolling average info */}
       {rolling_avg_weight && (
         <div className="mb-4 tint-points border border-points/20 rounded-card p-4 stagger-enter">
           <p className="text-sm text-tx">Current 7-day average: <span className="font-num font-semibold">{rolling_avg_weight} kg</span></p>
-          {computed_targets && (
-            <p className="text-xs text-tx-3 mt-1">
-              Computed: <span className="font-num">{computed_targets.calorie_target}</span> kcal · <span className="font-num">{computed_targets.protein_target}</span>g protein · <span className="font-num">{computed_targets.fat_target}</span>g fat · <span className="font-num">{computed_targets.carb_target}</span>g carbs
-            </p>
+          {/* Observed vs formula TDEE */}
+          {goal.tdee_info?.source === 'observed' ? (
+            <div className="mt-2 space-y-1">
+              <p className="text-sm text-tx">
+                <span className="font-semibold">Maintenance: <span className="font-num">{goal.tdee_info.observed_tdee}</span> kcal</span>
+                <span className="text-tx-3"> — measured from your last {goal.tdee_info.window_days} days</span>
+              </p>
+              <p className="text-xs text-tx-3">
+                Formula estimate: <span className="font-num">{goal.tdee_info.formula_tdee}</span>. Using your own data.
+              </p>
+            </div>
+          ) : (
+            <div className="mt-2">
+              <p className="text-xs text-tx-3">
+                Using the formula estimate{computed_targets ? ` (${computed_targets.tdee} kcal)` : ''} — {goal.tdee_info?.reason || 'not enough logged days in the last 28 to measure it.'}
+              </p>
+            </div>
           )}
           <button
             onClick={handleRecalculate}
@@ -182,6 +207,20 @@ export default function Settings() {
         <Section title="Goal">
           <Row label="Starting weight (kg)" value={form.start_weight_kg} onChange={v => set('start_weight_kg', v)} type="number" step="0.1" />
           <Row label="Goal weight (kg)" value={form.goal_weight_kg} onChange={v => set('goal_weight_kg', v)} type="number" step="0.1" />
+          <Row label="Goal date" value={form.goal_date} onChange={v => set('goal_date', v)} type="date" />
+          <Row label="Waist goal (cm)" value={form.waist_goal_cm} onChange={v => set('waist_goal_cm', v)} type="number" step="0.5" />
+        </Section>
+
+        <Section title="Maintenance period">
+          <p className="text-xs text-tx-3 mb-2">During this period, your calorie target switches to maintenance (no deficit). Streaks and points continue normally.</p>
+          <Row label="Start date" value={form.maintenance_start} onChange={v => set('maintenance_start', v)} type="date" />
+          <Row label="End date" value={form.maintenance_end} onChange={v => set('maintenance_end', v)} type="date" />
+        </Section>
+
+        <Section title="Steps">
+          <p className="text-xs text-tx-3 mb-2">Daily step targets. Hitting target earns 5 points.</p>
+          <Row label="Weekday target" value={form.step_target_weekday} onChange={v => set('step_target_weekday', v)} type="number" step="1000" />
+          <Row label="Weekend target" value={form.step_target_weekend} onChange={v => set('step_target_weekend', v)} type="number" step="1000" />
         </Section>
 
         <Section title="Body stats">

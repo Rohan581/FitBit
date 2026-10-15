@@ -40,10 +40,10 @@ const LOWER_A = {
     { name: 'Smith Machine Squat', sets: 4, reps: '6-8', slot: 1, is_bonus: false, primary_muscle: 'quads' },
     { name: 'Leg Press', sets: 3, reps: '10-12', slot: 2, is_bonus: false, primary_muscle: 'quads' },
     { name: 'Lying Leg Curl', sets: 3, reps: '10-12', slot: 3, is_bonus: false, primary_muscle: 'hamstrings' },
-    // Standing calf (straight knee → gastrocnemius) here; seated calf (bent knee → soleus) in Lower B.
-    // Two distinct stimuli across the week instead of the same movement twice.
-    { name: 'Smith Machine Calf Raise', sets: 4, reps: '12-15', slot: 4, is_bonus: false, primary_muscle: 'calves' },
-    { name: 'Cable Crunch', sets: 3, reps: '12-15', slot: 5, is_bonus: true, primary_muscle: 'abs' },
+    // Abs in core slot so they don't get dropped when session runs short.
+    // Standing calf moves to bonus — seated calf (soleus) in Lower B slot 4 gives weekly calf coverage.
+    { name: 'Cable Crunch', sets: 3, reps: '12-15', slot: 4, is_bonus: false, primary_muscle: 'abs' },
+    { name: 'Smith Machine Calf Raise', sets: 4, reps: '12-15', slot: 5, is_bonus: true, primary_muscle: 'calves' },
   ],
 };
 

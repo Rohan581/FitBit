@@ -23,6 +23,12 @@ function getRestDayTargets(db, date, goal) {
   };
 }
 
+// Check if a date falls within a maintenance period
+function isMaintenanceDate(goal, dateStr) {
+  if (!goal?.maintenance_start || !goal?.maintenance_end) return false;
+  return dateStr >= goal.maintenance_start && dateStr <= goal.maintenance_end;
+}
+
 function calculateDailyPoints(db, date) {
   const goal = db.prepare('SELECT * FROM goal WHERE id = 1').get();
   const foodLogs = db.prepare('SELECT * FROM food_logs WHERE date = ?').all(date);
@@ -31,6 +37,7 @@ function calculateDailyPoints(db, date) {
   const weightLog = db.prepare('SELECT * FROM weight_logs WHERE date = ? ORDER BY logged_at DESC LIMIT 1').get(date);
   // Rest-day adjusted targets
   const restDayTargets = getRestDayTargets(db, date, goal);
+  const inMaintenance = isMaintenanceDate(goal, date);
 
   const breakdown = [];
   let total = 0;
@@ -38,7 +45,10 @@ function calculateDailyPoints(db, date) {
   // ── Calorie adherence ───────────────────────────────────────────
   if (foodLogs.length > 0) {
     const totalCal = foodLogs.reduce((s, f) => s + f.calories, 0);
-    const target = restDayTargets?.calorie_target || goal?.current_calorie_target || 2240;
+    // During maintenance, target is the observed TDEE (no deficit)
+    const target = inMaintenance && goal?.observed_tdee
+      ? Math.round(goal.observed_tdee)
+      : (restDayTargets?.calorie_target || goal?.current_calorie_target || 2240);
     const diff = totalCal - target;
     const absDiff = Math.abs(diff);
 
@@ -118,6 +128,20 @@ function calculateDailyPoints(db, date) {
     } else if ((h >= 6.5 && h < 7) || (h > 8.5 && h <= 9)) {
       breakdown.push({ category: 'sleep', points: 8, reason: `${h}h sleep — close to ideal` });
       total += 8;
+    }
+  }
+
+  // ── Steps ────────────────────────────────────────────────────
+  const stepLog = db.prepare('SELECT steps FROM step_logs WHERE date = ?').get(date);
+  if (stepLog) {
+    const dayOfWeek = new Date(date + 'T12:00:00Z').getUTCDay();
+    const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
+    const stepTarget = isWeekend
+      ? (goal?.step_target_weekend || 10000)
+      : (goal?.step_target_weekday || 12000);
+    if (stepLog.steps >= stepTarget) {
+      breakdown.push({ category: 'steps', points: 5, reason: `${stepLog.steps.toLocaleString()} steps — target hit` });
+      total += 5;
     }
   }
 

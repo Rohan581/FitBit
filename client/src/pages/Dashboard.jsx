@@ -62,10 +62,14 @@ export default function Dashboard({ onOpenSidebar }) {
   if (loading) return <LoadingState />;
   if (!data) return <ErrorState onRetry={load} />;
 
-  const { food_totals, goal, daily_points, weekly_points, threshold, rolling_avg_weight, notifications, rest_day } = data;
+  const { food_totals, goal, daily_points, weekly_points, threshold, rolling_avg_weight, notifications, rest_day,
+    steps, step_target, in_maintenance, maintenance_tdee, post_maintenance_note } = data;
 
   const isRestDay = !!rest_day?.is_rest_day;
-  const calTarget = isRestDay ? rest_day.calorie_target : (goal?.current_calorie_target || 2240);
+  // During maintenance, calorie target is the observed TDEE (no deficit)
+  const calTarget = in_maintenance && maintenance_tdee
+    ? Math.round(maintenance_tdee)
+    : (isRestDay ? rest_day.calorie_target : (goal?.current_calorie_target || 2240));
   const proTarget = goal?.current_protein_target_g || 180;
   const carbTarget = isRestDay ? rest_day.carb_target : (goal?.current_carb_target_g || 250);
   const fatTarget = goal?.current_fat_target_g || 60;
@@ -201,15 +205,35 @@ export default function Dashboard({ onOpenSidebar }) {
         </div>
       </div>
 
+      {/* Maintenance banner */}
+      {in_maintenance && (
+        <div className="mb-3 px-4 py-3 rounded-card tint-points border border-points/20 stagger-enter">
+          <p className="text-sm text-tx-2">Maintenance week — target is {calTarget.toLocaleString()}. Holding, not losing.</p>
+        </div>
+      )}
+
+      {/* Post-maintenance weight note */}
+      {post_maintenance_note && (
+        <div className="mb-3 px-4 py-3 rounded-card tint-fiber border border-fiber/20 stagger-enter">
+          <p className="text-sm text-tx-2">{post_maintenance_note}</p>
+        </div>
+      )}
+
+      {/* Steps row */}
+      {step_target > 0 && (
+        <StepRow steps={steps} target={step_target} onLog={load} />
+      )}
+
       {/* Today's fuel macro card */}
       <div className="bg-card rounded-card p-4 mb-3 stagger-enter">
-        <h2 className="text-sm font-semibold text-tx mb-1">{isRestDay ? 'Rest-day targets' : "Today's fuel"}</h2>
-        {isRestDay && (
+        <h2 className="text-sm font-semibold text-tx mb-1">{in_maintenance ? 'Maintenance targets' : isRestDay ? 'Rest-day targets' : "Today's fuel"}</h2>
+        {isRestDay && !in_maintenance && (
           <p className="text-[12px] text-tx-3 mb-3 rounded-[10px] px-3 py-2" style={{ background: 'var(--accent-surface)' }}>
             Planned adjustment — calories {calTarget.toLocaleString()} and carbs {carbTarget}g while you recover. Back to normal tomorrow.
           </p>
         )}
-        {!isRestDay && <div className="mb-2" />}
+        {!isRestDay && !in_maintenance && <div className="mb-2" />}
+        {in_maintenance && <div className="mb-2" />}
         <div className="space-y-3">
           <MacroBar label="Calories" current={food_totals.calories} target={calTarget} token="cal" unit="kcal" />
           <MacroBar label="Protein" current={food_totals.protein_g} target={proTarget} token="protein" />
@@ -342,6 +366,73 @@ function ScaleIcon() {
   return (
     <svg className="w-4.5 h-4.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
       <path strokeLinecap="round" strokeLinejoin="round" d="M3 6l3 1m0 0l-3 9a5.002 5.002 0 006.001 0M6 7l3 9M6 7l6-2m6 2l3-1m-3 1l-3 9a5.002 5.002 0 006.001 0M18 7l3 9m-3-9l-6-2m0-2v2m0 16V5m0 16H9m3 0h3" />
+    </svg>
+  );
+}
+
+function StepRow({ steps, target, onLog }) {
+  const [showInput, setShowInput] = useState(false);
+  const [val, setVal] = useState(steps || '');
+
+  async function handleSave() {
+    const s = parseInt(val) || 0;
+    await api.logSteps({ steps: s });
+    setShowInput(false);
+    onLog();
+  }
+
+  const pct = target > 0 ? Math.min(100, Math.round((steps / target) * 100)) : 0;
+  const hit = steps >= target;
+
+  if (showInput) {
+    return (
+      <div className="bg-card rounded-card p-4 mb-3 stagger-enter">
+        <div className="flex items-center gap-3">
+          <input
+            type="number"
+            value={val}
+            onChange={e => setVal(e.target.value)}
+            placeholder="Steps today"
+            className="flex-1 px-3 py-2 rounded-card border border-hair text-sm font-num text-tx bg-card-2"
+            autoFocus
+          />
+          <button onClick={handleSave} className="px-4 py-2 rounded-card bg-points text-white text-sm press-scale">
+            Save
+          </button>
+          <button onClick={() => setShowInput(false)} className="text-tx-3 text-sm">Cancel</button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <button onClick={() => { setVal(steps || ''); setShowInput(true); }} className="w-full bg-card rounded-card p-4 mb-3 stagger-enter press-scale text-left">
+      <div className="flex items-center justify-between mb-1.5">
+        <div className="flex items-center gap-2">
+          <StepIcon />
+          <span className="text-sm text-tx-2">Steps</span>
+        </div>
+        <span className={`text-sm font-num ${hit ? 'text-points' : 'text-tx-2'}`}>
+          {steps > 0 ? steps.toLocaleString() : '—'} / {target.toLocaleString()}
+        </span>
+      </div>
+      <div className="h-1.5 rounded-full bg-card-2 overflow-hidden">
+        <div
+          className="h-full rounded-full transition-all"
+          style={{
+            width: `${pct}%`,
+            background: hit ? 'var(--points)' : 'var(--drinks, var(--text-3))',
+          }}
+        />
+      </div>
+    </button>
+  );
+}
+
+function StepIcon() {
+  return (
+    <svg className="w-4 h-4 text-tx-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
     </svg>
   );
 }

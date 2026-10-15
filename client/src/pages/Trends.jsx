@@ -121,6 +121,7 @@ export default function Trends() {
         <div className="tab-fade-enter">
           {tab === 'weight' && weightData && <WeightChart data={weightData} range={weightRange} onRangeChange={setWeightRange} />}
           {tab === 'weight' && weightData && <MeasurementsCard measurements={weightData.measurements || []} />}
+          {tab === 'weight' && weightData?.step_logs?.length > 0 && <StepAvgCard stepLogs={weightData.step_logs} />}
           {tab === 'macros' && macroData && <MacrosChart data={macroData} />}
           {tab === 'points' && pointsData && <PointsChart data={pointsData} />}
           {tab === 'planning' && planningData && <PlanningSection data={planningData} />}
@@ -436,6 +437,53 @@ function PointsChart({ data }) {
   );
 }
 
+function StepAvgCard({ stepLogs }) {
+  if (!stepLogs || stepLogs.length === 0) return null;
+
+  // Group by ISO week and compute weekly averages
+  const weekMap = {};
+  for (const row of stepLogs) {
+    const d = new Date(row.date + 'T12:00:00Z');
+    const day = d.getUTCDay();
+    const diff = day === 0 ? -6 : 1 - day;
+    const monday = new Date(d);
+    monday.setUTCDate(d.getUTCDate() + diff);
+    const weekKey = monday.toISOString().split('T')[0];
+    if (!weekMap[weekKey]) weekMap[weekKey] = [];
+    weekMap[weekKey].push(row.steps);
+  }
+
+  const weeklyAvgs = Object.entries(weekMap).map(([week, steps]) => ({
+    week: formatDate(week),
+    avg: Math.round(steps.reduce((s, v) => s + v, 0) / steps.length),
+  })).slice(-8);
+
+  if (weeklyAvgs.length < 2) return null;
+
+  const tooltipStyle = {
+    background: 'var(--card)',
+    border: '1px solid var(--hair)',
+    borderRadius: 12,
+    fontSize: 12,
+    color: 'var(--text-2)',
+  };
+
+  return (
+    <div className="bg-card rounded-card p-4 mt-3 stagger-enter">
+      <p className="text-[15px] font-bold text-tx mb-3">Steps — weekly average</p>
+      <ResponsiveContainer width="100%" height={140}>
+        <BarChart data={weeklyAvgs} margin={{ top: 5, right: 5, left: -25, bottom: 5 }}>
+          <CartesianGrid strokeDasharray="3 3" stroke="var(--hair)" />
+          <XAxis dataKey="week" tick={{ fontSize: 9, fill: 'var(--text-3)' }} tickLine={false} />
+          <YAxis tick={{ fontSize: 10, fill: 'var(--text-3)' }} tickLine={false} />
+          <Tooltip contentStyle={tooltipStyle} />
+          <Bar dataKey="avg" fill="var(--text-3)" radius={[3, 3, 0, 0]} name="Avg steps" />
+        </BarChart>
+      </ResponsiveContainer>
+    </div>
+  );
+}
+
 function PlanningSection({ data }) {
   if (data.insufficient_data) {
     return (
@@ -456,6 +504,31 @@ function PlanningSection({ data }) {
 
   return (
     <div className="space-y-3">
+      {/* Required vs actual rate */}
+      {data.required_rate != null && (
+        <div className="bg-card rounded-card p-4 stagger-enter">
+          <p className="text-[10px] font-semibold uppercase tracking-wider text-tx-3 mb-2">Rate to goal</p>
+          <p className="text-sm text-tx-2">
+            <span className="font-num font-semibold text-tx">{data.required_rate}</span> kg/week needed
+            {data.actual_rate != null && (
+              <> · <span className="font-num font-semibold text-tx">{data.actual_rate}</span> kg/week actual over the last 4 weeks</>
+            )}
+          </p>
+          {data.goal_date && (
+            <p className="text-xs text-tx-3 mt-1">
+              Target: {data.goal_weight} kg by {formatPlanDate(data.goal_date)}
+            </p>
+          )}
+        </div>
+      )}
+
+      {/* Behind-pace suggestion */}
+      {data.behind_pace_suggestion && (
+        <div className="bg-card rounded-card p-4 border border-cal/20 stagger-enter">
+          <p className="text-sm text-tx-2">{data.behind_pace_suggestion}</p>
+        </div>
+      )}
+
       {/* Pace verdict */}
       <div className="bg-card rounded-card p-4 stagger-enter">
         <p className="text-[10px] font-semibold uppercase tracking-wider text-tx-3 mb-2">Weekly pace</p>
@@ -498,6 +571,27 @@ function PlanningSection({ data }) {
           </div>
         )}
       </div>
+
+      {/* Waist goal */}
+      {data.waist_goal && (
+        <div className="bg-card rounded-card p-4 border border-fiber/20 stagger-enter">
+          <p className="text-[10px] font-semibold uppercase tracking-wider text-tx-3 mb-1">Waist goal</p>
+          <div className="flex items-baseline gap-2">
+            <span className="text-lg font-num font-semibold" style={{ color: 'var(--fiber)' }}>
+              {data.waist_goal.current_avg_cm} cm
+            </span>
+            <span className="text-sm text-tx-3">
+              → {data.waist_goal.target_cm} cm by {formatPlanDate(data.waist_goal.target_date)}
+            </span>
+          </div>
+          <p className="text-xs text-tx-3 mt-1">
+            {data.waist_goal.remaining_cm > 0
+              ? `${data.waist_goal.remaining_cm} cm to go`
+              : 'Goal reached!'
+            }
+          </p>
+        </div>
+      )}
 
       {/* Waist context */}
       {data.waist_context && (

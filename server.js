@@ -47,6 +47,7 @@ useRoute('/api/push', './routes/push');
 useRoute('/api/bank', './routes/bank');
 useRoute('/api/export', './routes/export');
 useRoute('/api/recipes', './routes/recipes');
+useRoute('/api/steps', './routes/steps');
 
 // Serve React app in production
 if (process.env.NODE_ENV === 'production') {

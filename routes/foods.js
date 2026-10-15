@@ -54,6 +54,10 @@ router.get('/', (req, res) => {
       const rankB = searchRank(b.name.toLowerCase(), ql);
       if (rankA !== rankB) return rankA - rankB;
       if (b.is_favorite !== a.is_favorite) return b.is_favorite - a.is_favorite;
+      // Boost whole wheat variants above plain flour variants in search
+      const aWholeWheat = a.name.toLowerCase().includes('whole wheat') ? 0 : 1;
+      const bWholeWheat = b.name.toLowerCase().includes('whole wheat') ? 0 : 1;
+      if (aWholeWheat !== bWholeWheat) return aWholeWheat - bWholeWheat;
       return a.name.toLowerCase().localeCompare(b.name.toLowerCase());
     });
     foods = foods.slice(0, 20);

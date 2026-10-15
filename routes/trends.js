@@ -39,7 +39,12 @@ router.get('/weight', (req, res) => {
   // Measurement data (waist trend)
   const measurements = db.prepare('SELECT date, waist_cm FROM measurement_logs ORDER BY date ASC').all();
 
-  res.json({ weights: recent, trajectory, milestones, goal, measurements });
+  // Step weekly averages for trends
+  const stepAvgs = db.prepare(`
+    SELECT date, steps FROM step_logs ORDER BY date ASC
+  `).all();
+
+  res.json({ weights: recent, trajectory, milestones, goal, measurements, step_logs: stepAvgs });
 });
 
 // GET /api/trends/macros?days=60
@@ -117,8 +122,9 @@ router.get('/history/:date', (req, res) => {
   }), { calories: 0, protein_g: 0, carbs_g: 0, fat_g: 0, fiber_g: 0, sugar_g: 0 });
 
   const isRestDay = !!db.prepare('SELECT id FROM rest_days WHERE date = ?').get(date);
+  const stepLog = db.prepare('SELECT steps FROM step_logs WHERE date = ?').get(date);
 
-  res.json({ date, foodLogs, exerciseLogs, sleepLog, weightLog, points, foodTotals, is_rest_day: isRestDay });
+  res.json({ date, foodLogs, exerciseLogs, sleepLog, weightLog, points, foodTotals, is_rest_day: isRestDay, steps: stepLog?.steps || null });
 });
 
 module.exports = router;

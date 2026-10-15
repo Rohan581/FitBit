@@ -14,7 +14,8 @@ const SEED_FOODS = [
   ['Prawn curry (home-style)',      'staple', '1 cup',         240, 230, 22,    8,  13,    1,    2,   null, null],
   ['Grilled/sauteed prawns (plain)','staple', '100g',          100, 120, 24,    1,   1.5,  0,    0,   JSON.stringify([{unit:'100g',multiplier:1},{unit:'150g',multiplier:1.5}]), null],
   ['Prawn masala/fry',              'staple', '100g',          100, 180, 20,    6,   8,    0.5,  1,   null, null],
-  ['Flour tortilla (plain, medium)','staple', '1 piece',         1, 140,  4,   24,   3.5,  1.5,  1,   JSON.stringify([{unit:'1 piece',multiplier:1}]), null],
+  ['Tortilla (whole wheat, medium)', 'staple', '1 piece',        1, 130, 4.5,  21,   3,    3.5,  1,   JSON.stringify([{unit:'1 piece',multiplier:1},{unit:'grams',multiplier:0.025}]), null],
+  ['Tortilla (plain flour, medium)','staple', '1 piece',        1, 140,  4,   24,   3.5,  1.5,  1,   JSON.stringify([{unit:'1 piece',multiplier:1}]), null],
   ['Chicken burrito/wrap',          'staple', '1 wrap',          1, 450, 30,   45,  15,    3,    3,   null, null],
   ['Chicken tortilla tacos',        'staple', '1 serving',       1, 350, 25,   30,  14,    2.5,  2,   null, null],
   ['Curd/yogurt (plain)',           'staple', '1 cup',         240, 150,  8,   11,   8,    0,    8,   JSON.stringify([{unit:'1 cup',multiplier:1},{unit:'1/2 cup',multiplier:0.5}]), null],
@@ -243,6 +244,8 @@ const SEED_FOODS = [
     JSON.stringify([{unit:'1/2 cup',multiplier:1},{unit:'1 cup',multiplier:2}]), null],
   ['Edamame (shelled, cooked)',              'snack', '1 cup', 1, 188, 18, 14, 8, 8, 3,
     JSON.stringify([{unit:'1 cup',multiplier:1},{unit:'1/2 cup',multiplier:0.5}]), null],
+  ['Psyllium husk',                         'snack', '1 tbsp (~6g)', 1, 18, 0.5, 5, 0, 5, 0,
+    JSON.stringify([{unit:'1 tbsp (~6g)',multiplier:1},{unit:'2 tbsp',multiplier:2}]), null],
 
   // ── Cooking fats ──────────────────────────────────────────────
   ['Olive oil',                              'staple', '1 tsp', 1, 40, 0, 0, 4.5, 0, 0,

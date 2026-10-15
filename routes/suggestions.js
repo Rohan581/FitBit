@@ -277,17 +277,21 @@ function generateGapSuggestion(db, totals, calTarget, proTarget, fiberTarget, re
     candidates.push(food);
   }
 
+  // For fiber gap: rank strictly by fiber per calorie so high-fiber foods
+  // (psyllium husk, guava, chana, peas, Cook recipes) rank above raw salad items
   const scored = candidates.map(food => {
     const nutrientPerCal = primaryGap === 'protein'
       ? food.protein_g / food.calories
-      : (food.fiber_g || 0) / food.calories;
+      : (food.fiber_g || 0) / Math.max(1, food.calories);
     const favBonus = food.is_favorite ? 0.3 : 0;
     const freqBonus = frequentIds.includes(food.id) ? 0.2 : 0;
     // On rest days, boost protein-dense, lower-carb options
     const restDayBonus = isRestDay
       ? (food.protein_g / Math.max(1, food.carbs_g)) * 0.15
       : 0;
-    return { food, score: nutrientPerCal + favBonus + freqBonus + restDayBonus };
+    // For fiber: penalize very-low-fiber foods (< 1g) to avoid surfacing raw salad items
+    const fiberFloorPenalty = primaryGap === 'fiber' && (food.fiber_g || 0) < 1 ? -0.5 : 0;
+    return { food, score: nutrientPerCal + favBonus + freqBonus + restDayBonus + fiberFloorPenalty };
   });
 
   scored.sort((a, b) => b.score - a.score);

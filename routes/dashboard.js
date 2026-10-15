@@ -4,6 +4,12 @@ const { getDB } = require('../db/database');
 const { calculateDailyPoints, getRestDayTargets } = require('./points');
 const { todayIST, getMondayIST, getDaysOfWeek } = require('../dateUtils');
 
+// Check if a date falls within a maintenance period
+function isMaintenanceDate(goal, dateStr) {
+  if (!goal?.maintenance_start || !goal?.maintenance_end) return false;
+  return dateStr >= goal.maintenance_start && dateStr <= goal.maintenance_end;
+}
+
 // GET /api/dashboard
 router.get('/', (req, res) => {
   const db = getDB();
@@ -18,6 +24,18 @@ router.get('/', (req, res) => {
   const weightLog = db.prepare('SELECT * FROM weight_logs WHERE date = ? ORDER BY logged_at DESC LIMIT 1').get(today);
   // Goal & targets
   const goal = db.prepare('SELECT * FROM goal WHERE id = 1').get();
+
+  // Steps
+  const stepLog = db.prepare('SELECT steps FROM step_logs WHERE date = ?').get(today);
+  const dayOfWeek = new Date(today + 'T12:00:00Z').getUTCDay();
+  const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
+  const stepTarget = isWeekend
+    ? (goal?.step_target_weekend || 10000)
+    : (goal?.step_target_weekday || 12000);
+
+  // Maintenance mode
+  const inMaintenance = isMaintenanceDate(goal, today);
+  const maintenanceTDEE = goal?.observed_tdee || null;
 
   // Food totals
   const foodTotals = foodLogs.reduce((acc, l) => ({
@@ -162,6 +180,19 @@ router.get('/', (req, res) => {
   // Rest day
   const restDayTargets = getRestDayTargets(db, today, goal);
 
+  // Post-maintenance weight suppression (5 days after maintenance ends)
+  let postMaintenanceNote = null;
+  if (goal?.maintenance_end && !inMaintenance) {
+    const endDate = new Date(goal.maintenance_end + 'T12:00:00Z');
+    const todayDate = new Date(today + 'T12:00:00Z');
+    const daysSinceEnd = Math.round((todayDate - endDate) / 86400000);
+    if (daysSinceEnd > 0 && daysSinceEnd <= 5) {
+      const resumeDate = new Date(endDate);
+      resumeDate.setUTCDate(resumeDate.getUTCDate() + 6);
+      postMaintenanceNote = `Weight after a break home is mostly water. Back to normal readings around ${resumeDate.toISOString().split('T')[0]}.`;
+    }
+  }
+
   res.json({
     today,
     week_start: weekStart,
@@ -178,6 +209,11 @@ router.get('/', (req, res) => {
     rolling_avg_weight,
     notifications,
     rest_day: restDayTargets,
+    steps: stepLog?.steps || 0,
+    step_target: stepTarget,
+    in_maintenance: inMaintenance,
+    maintenance_tdee: inMaintenance ? maintenanceTDEE : null,
+    post_maintenance_note: postMaintenanceNote,
   });
 });
 
