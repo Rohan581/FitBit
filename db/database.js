@@ -975,6 +975,54 @@ function runMigrations(db) {
   db.exec(`CREATE UNIQUE INDEX IF NOT EXISTS idx_ledger_weekly_credit_week
     ON reward_bank_ledger(week_start) WHERE kind = 'weekly_credit'`);
 
+  // ── v38: load_type column on exercises (resistance vs assistance)
+  const exColsV38 = db.prepare("PRAGMA table_info(exercises)").all().map(c => c.name);
+  if (!exColsV38.includes('load_type')) {
+    db.exec(`ALTER TABLE exercises ADD COLUMN load_type TEXT NOT NULL DEFAULT 'resistance'`);
+    // Mark counterweight machines as assistance
+    db.prepare("UPDATE exercises SET load_type = 'assistance' WHERE name = 'Assisted Pull-Up Machine'").run();
+    db.prepare("UPDATE exercises SET load_type = 'assistance' WHERE name = 'Assisted Dip Machine'").run();
+  }
+
+  // ── v38: effective_load_kg on workout_sets for assistance exercises
+  const setColsV38 = db.prepare("PRAGMA table_info(workout_sets)").all().map(c => c.name);
+  if (!setColsV38.includes('effective_load_kg')) {
+    db.exec(`ALTER TABLE workout_sets ADD COLUMN effective_load_kg REAL`);
+    // Backfill effective_load_kg for historical assistance exercise sets
+    // effective_load = bodyweight_at_time − assist_weight
+    const assistExercises = db.prepare("SELECT id FROM exercises WHERE load_type = 'assistance'").all();
+    for (const ex of assistExercises) {
+      const sets = db.prepare(`
+        SELECT wset.id, wset.weight_kg, ws.date
+        FROM workout_sets wset
+        JOIN workout_sessions ws ON ws.id = wset.session_id
+        WHERE wset.exercise_id = ? AND wset.weight_kg IS NOT NULL
+      `).all(ex.id);
+      const updateEL = db.prepare('UPDATE workout_sets SET effective_load_kg = ? WHERE id = ?');
+      for (const s of sets) {
+        // Use closest weight log on or before the set's date
+        const bw = db.prepare('SELECT weight_kg FROM weight_logs WHERE date <= ? ORDER BY date DESC LIMIT 1').get(s.date);
+        if (bw) {
+          const eff = Math.round((bw.weight_kg - s.weight_kg) * 10) / 10;
+          updateEL.run(eff, s.id);
+        }
+      }
+    }
+  }
+
+  // ── v38: Seed lat pulldown working weight at 59 kg ─────────
+  // User performed 59×9 on 9 Oct (successful set in target range) but
+  // dropped back to 52 and stayed there. Seed the override so next
+  // session pre-fills at 59 kg.
+  const exColsOverride = db.prepare("PRAGMA table_info(exercises)").all().map(c => c.name);
+  if (!exColsOverride.includes('next_weight_kg')) {
+    db.exec(`ALTER TABLE exercises ADD COLUMN next_weight_kg REAL`);
+    db.prepare("UPDATE exercises SET next_weight_kg = 59 WHERE name = 'Lat Pulldown'").run();
+  }
+
+  // ── v38: Invalidate cached active sessions → re-materialise from new templates
+  db.prepare("DELETE FROM workout_sessions WHERE completed = 0").run();
+
   // Seed exercises
   seedExercises(db);
 

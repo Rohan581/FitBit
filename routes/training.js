@@ -459,7 +459,7 @@ router.get('/', (req, res) => {
 
   // Resolve exercise IDs for the template
   const exercises = nextWorkout.exercises.map(ex => {
-    const dbEx = db.prepare('SELECT id, name, primary_muscles, secondary_muscles, rest_seconds, equipment_type, required_equipment FROM exercises WHERE name = ?').get(ex.name);
+    const dbEx = db.prepare('SELECT id, name, primary_muscles, secondary_muscles, rest_seconds, equipment_type, required_equipment, load_type FROM exercises WHERE name = ?').get(ex.name);
     return {
       ...ex,
       exercise_id: dbEx?.id || null,
@@ -468,6 +468,7 @@ router.get('/', (req, res) => {
       rest_seconds: dbEx?.rest_seconds || 75,
       required_equipment: dbEx ? JSON.parse(dbEx.required_equipment || '[]') : [],
       equipment_type: dbEx?.equipment_type || null,
+      load_type: dbEx?.load_type || 'resistance',
     };
   });
 
@@ -483,16 +484,19 @@ router.get('/', (req, res) => {
     `).get(ex.exercise_id);
     if (lastSession) {
       lastNumbers[ex.exercise_id] = db.prepare(
-        'SELECT set_number, weight_kg, reps FROM workout_sets WHERE session_id = ? AND exercise_id = ? ORDER BY set_number'
+        'SELECT set_number, weight_kg, reps, effective_load_kg FROM workout_sets WHERE session_id = ? AND exercise_id = ? ORDER BY set_number'
       ).all(lastSession.id, ex.exercise_id);
     }
   }
 
   // ─── Stalled-load detection ────────────────────────────────
-  // For each exercise: check last 3 completed sessions for stalls/regressions
+  // For each exercise: check last 3 completed sessions for stalls/regressions.
+  // Assistance exercises (counterweight machines): progress = lower displayed weight,
+  // so stall/regression directions are inverted.
   const loadSuggestions = {};
   for (const ex of exercises) {
     if (!ex.exercise_id) continue;
+    const isAssist = ex.load_type === 'assistance';
     // Get last 3 sessions with this exercise
     const sessions = db.prepare(`
       SELECT DISTINCT ws.id, ws.date FROM workout_sessions ws
@@ -513,7 +517,25 @@ router.get('/', (req, res) => {
       return { date: s.date, sets };
     });
 
-    // Check for stall: same weight, hit top of rep range on every set, 2+ sessions
+    // Smallest weight increment observed in this exercise's history
+    function smallestDelta() {
+      let inc = 2.5;
+      if (ex.equipment_type === 'machine' || ex.equipment_type === 'cable') {
+        const allWeights = db.prepare(`
+          SELECT DISTINCT weight_kg FROM workout_sets WHERE exercise_id = ? AND weight_kg IS NOT NULL ORDER BY weight_kg
+        `).all(ex.exercise_id).map(r => r.weight_kg);
+        if (allWeights.length >= 2) {
+          const deltas = [];
+          for (let i = 1; i < allWeights.length; i++) {
+            const d = Math.abs(allWeights[i] - allWeights[i - 1]);
+            if (d > 0) deltas.push(d);
+          }
+          if (deltas.length > 0) inc = Math.min(...deltas);
+        }
+      }
+      return inc;
+    }
+
     const latest = sessionData[0];
     const prev = sessionData[1];
     if (latest.sets.length > 0 && prev.sets.length > 0) {
@@ -523,28 +545,23 @@ router.get('/', (req, res) => {
       const prevAllAtTop = prevWeight && prev.sets.every(s => s.weight_kg === prevWeight && s.reps >= repHi);
 
       if (latestAllAtTop && prevAllAtTop && latestWeight === prevWeight) {
-        // Determine increment: 2.5 kg for barbell, smallest observed delta for machines
-        let increment = 2.5;
-        if (ex.equipment_type === 'machine' || ex.equipment_type === 'cable') {
-          const allWeights = db.prepare(`
-            SELECT DISTINCT weight_kg FROM workout_sets WHERE exercise_id = ? AND weight_kg IS NOT NULL ORDER BY weight_kg
-          `).all(ex.exercise_id).map(r => r.weight_kg);
-          if (allWeights.length >= 2) {
-            const deltas = [];
-            for (let i = 1; i < allWeights.length; i++) {
-              const d = Math.abs(allWeights[i] - allWeights[i - 1]);
-              if (d > 0) deltas.push(d);
-            }
-            if (deltas.length > 0) increment = Math.min(...deltas);
-          }
+        const inc = smallestDelta();
+        if (isAssist) {
+          // Assistance: progress = reduce counterweight
+          const suggestedWeight = Math.max(0, latestWeight - inc);
+          loadSuggestions[ex.exercise_id] = {
+            type: 'increase', load_type: 'assistance',
+            currentWeight: latestWeight, suggestedWeight,
+            message: `You've finished every set at ${latestWeight} kg assist — dropping to ${suggestedWeight} kg today.`,
+          };
+        } else {
+          const suggestedWeight = latestWeight + inc;
+          loadSuggestions[ex.exercise_id] = {
+            type: 'increase',
+            currentWeight: latestWeight, suggestedWeight,
+            message: `You've finished every set at ${latestWeight} kg — going to ${suggestedWeight} kg today.`,
+          };
         }
-        const suggestedWeight = latestWeight + increment;
-        loadSuggestions[ex.exercise_id] = {
-          type: 'increase',
-          currentWeight: latestWeight,
-          suggestedWeight,
-          message: `You've finished every set at ${latestWeight} kg — going to ${suggestedWeight} kg today.`,
-        };
         continue;
       }
 
@@ -552,28 +569,78 @@ router.get('/', (req, res) => {
       const latestAllBelow = latestWeight && latest.sets.every(s => s.weight_kg === latestWeight && s.reps < repLo);
       const prevAllBelow = prevWeight && prev.sets.every(s => s.weight_kg === prevWeight && s.reps < repLo);
       if (latestAllBelow && prevAllBelow && latestWeight === prevWeight) {
-        let decrement = 2.5;
-        if (ex.equipment_type === 'machine' || ex.equipment_type === 'cable') {
-          const allWeights = db.prepare(`
-            SELECT DISTINCT weight_kg FROM workout_sets WHERE exercise_id = ? AND weight_kg IS NOT NULL ORDER BY weight_kg
-          `).all(ex.exercise_id).map(r => r.weight_kg);
-          if (allWeights.length >= 2) {
-            const deltas = [];
-            for (let i = 1; i < allWeights.length; i++) {
-              const d = Math.abs(allWeights[i] - allWeights[i - 1]);
-              if (d > 0) deltas.push(d);
-            }
-            if (deltas.length > 0) decrement = Math.min(...deltas);
-          }
+        const dec = smallestDelta();
+        if (isAssist) {
+          // Assistance: regression = need more counterweight (higher number)
+          const suggestedWeight = latestWeight + dec;
+          loadSuggestions[ex.exercise_id] = {
+            type: 'decrease', load_type: 'assistance',
+            currentWeight: latestWeight, suggestedWeight,
+            message: `Struggling at ${latestWeight} kg assist for two sessions — try ${suggestedWeight} kg assist today.`,
+          };
+        } else {
+          const suggestedWeight = Math.max(0, latestWeight - dec);
+          loadSuggestions[ex.exercise_id] = {
+            type: 'decrease',
+            currentWeight: latestWeight, suggestedWeight,
+            message: `Struggling at ${latestWeight} kg for two sessions — try ${suggestedWeight} kg today.`,
+          };
         }
-        const suggestedWeight = Math.max(0, latestWeight - decrement);
-        loadSuggestions[ex.exercise_id] = {
-          type: 'decrease',
-          currentWeight: latestWeight,
-          suggestedWeight,
-          message: `Struggling at ${latestWeight} kg for two sessions — try ${suggestedWeight} kg today.`,
-        };
       }
+    }
+  }
+
+  // ─── next_weight_kg override (one-time seed) ────────────────
+  // If an exercise has next_weight_kg set, use it as the suggested weight
+  for (const ex of exercises) {
+    if (!ex.exercise_id) continue;
+    const override = db.prepare('SELECT next_weight_kg FROM exercises WHERE id = ? AND next_weight_kg IS NOT NULL').get(ex.exercise_id);
+    if (override?.next_weight_kg != null && !loadSuggestions[ex.exercise_id]) {
+      loadSuggestions[ex.exercise_id] = {
+        type: 'increase',
+        currentWeight: null,
+        suggestedWeight: override.next_weight_kg,
+        message: `Pre-filled at ${override.next_weight_kg} kg — you've hit this weight before.`,
+      };
+    }
+  }
+
+  // ─── Stalled lifts (Train home) ───────────────────────────
+  // Any exercise at the same working weight for 3+ consecutive sessions
+  const stalledLifts = [];
+  const allTemplateExercises = ROTATION.flatMap(w => w.exercises);
+  const seenExIds = new Set();
+  for (const tex of allTemplateExercises) {
+    const dbEx = db.prepare('SELECT id, name, load_type FROM exercises WHERE name = ?').get(tex.name);
+    if (!dbEx || seenExIds.has(dbEx.id)) continue;
+    seenExIds.add(dbEx.id);
+    const recentSess = db.prepare(`
+      SELECT DISTINCT ws.id, ws.date FROM workout_sessions ws
+      JOIN workout_sets wset ON wset.session_id = ws.id
+      WHERE wset.exercise_id = ? AND ws.completed = 1
+      ORDER BY ws.date DESC LIMIT 5
+    `).all(dbEx.id);
+    if (recentSess.length < 3) continue;
+    // Get working weight (mode of first set weight) for each session
+    const weights = recentSess.map(s => {
+      const firstSet = db.prepare('SELECT weight_kg FROM workout_sets WHERE session_id = ? AND exercise_id = ? ORDER BY set_number LIMIT 1').get(s.id, dbEx.id);
+      return firstSet?.weight_kg;
+    }).filter(w => w != null);
+    if (weights.length < 3) continue;
+    // Count consecutive same weight from most recent
+    let streak = 1;
+    for (let i = 1; i < weights.length; i++) {
+      if (weights[i] === weights[0]) streak++;
+      else break;
+    }
+    if (streak >= 3) {
+      stalledLifts.push({
+        exercise_id: dbEx.id,
+        name: dbEx.name,
+        weight_kg: weights[0],
+        sessions: streak,
+        load_type: dbEx.load_type || 'resistance',
+      });
     }
   }
 
@@ -636,7 +703,7 @@ router.get('/', (req, res) => {
     `).get(ex.exercise_id);
     if (lastSession) {
       lastNumbers[ex.exercise_id] = db.prepare(
-        'SELECT set_number, weight_kg, reps FROM workout_sets WHERE session_id = ? AND exercise_id = ? ORDER BY set_number'
+        'SELECT set_number, weight_kg, reps, effective_load_kg FROM workout_sets WHERE session_id = ? AND exercise_id = ? ORDER BY set_number'
       ).all(lastSession.id, ex.exercise_id);
     }
   }
@@ -727,6 +794,7 @@ router.get('/', (req, res) => {
     next_workout: { ...nextWorkout, exercises: finalExercises, subtitle, bench_swap_options: nextWorkout.bench_swap_options || null },
     last_numbers: lastNumbers,
     load_suggestions: loadSuggestions,
+    stalled_lifts: stalledLifts.length > 0 ? stalledLifts : null,
     recent_sessions: recentSessions,
     week_gym_sessions: weekGymSessions,
     week_swim_sessions: weekSwimSessions,
@@ -814,23 +882,38 @@ router.post('/sessions/:id/swap', (req, res) => {
   res.json({ ok: true, was_swapped: !!wasSwapped });
 });
 
+// Compute effective load for assistance exercises: bodyweight − assist
+function computeEffectiveLoad(db, exerciseId, assistWeight) {
+  const exInfo = db.prepare('SELECT load_type FROM exercises WHERE id = ?').get(exerciseId);
+  if (exInfo?.load_type !== 'assistance' || assistWeight == null) return null;
+  // 7-day rolling average body weight
+  const avgBw = db.prepare(`
+    SELECT AVG(weight_kg) as avg_bw FROM weight_logs
+    WHERE date >= date('now', '-7 days')
+  `).get()?.avg_bw;
+  if (!avgBw) return null;
+  return Math.round((avgBw - assistWeight) * 10) / 10;
+}
+
 // POST /api/training/sessions/:id/sets — log a set (idempotent via client_uuid)
 router.post('/sessions/:id/sets', (req, res) => {
   const db = getDB();
   const sessionId = req.params.id;
   const { exercise_id, set_number, weight_kg, reps, client_uuid, created_at, slot } = req.body;
 
+  const effectiveLoad = computeEffectiveLoad(db, exercise_id, weight_kg);
+
   // Primary path: upsert on client_uuid (local-first clients)
   if (client_uuid) {
     const existing = db.prepare('SELECT id FROM workout_sets WHERE client_uuid = ?').get(client_uuid);
     if (existing) {
-      db.prepare('UPDATE workout_sets SET weight_kg = ?, reps = ?, set_number = ? WHERE id = ?')
-        .run(weight_kg, reps, set_number, existing.id);
+      db.prepare('UPDATE workout_sets SET weight_kg = ?, reps = ?, set_number = ?, effective_load_kg = ? WHERE id = ?')
+        .run(weight_kg, reps, set_number, effectiveLoad, existing.id);
       return res.json({ id: existing.id, updated: true });
     }
     const result = db.prepare(
-      'INSERT INTO workout_sets (session_id, exercise_id, set_number, weight_kg, reps, client_uuid, created_at, slot) VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
-    ).run(sessionId, exercise_id, set_number, weight_kg, reps, client_uuid, created_at || new Date().toISOString(), slot || null);
+      'INSERT INTO workout_sets (session_id, exercise_id, set_number, weight_kg, reps, client_uuid, created_at, slot, effective_load_kg) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)'
+    ).run(sessionId, exercise_id, set_number, weight_kg, reps, client_uuid, created_at || new Date().toISOString(), slot || null, effectiveLoad);
     return res.json({ id: result.lastInsertRowid, updated: false });
   }
 
@@ -840,13 +923,13 @@ router.post('/sessions/:id/sets', (req, res) => {
   ).get(sessionId, exercise_id, set_number);
 
   if (existing) {
-    db.prepare('UPDATE workout_sets SET weight_kg = ?, reps = ? WHERE id = ?')
-      .run(weight_kg, reps, existing.id);
+    db.prepare('UPDATE workout_sets SET weight_kg = ?, reps = ?, effective_load_kg = ? WHERE id = ?')
+      .run(weight_kg, reps, effectiveLoad, existing.id);
     res.json({ id: existing.id, updated: true });
   } else {
     const result = db.prepare(
-      'INSERT INTO workout_sets (session_id, exercise_id, set_number, weight_kg, reps, created_at, slot) VALUES (?, ?, ?, ?, ?, ?, ?)'
-    ).run(sessionId, exercise_id, set_number, weight_kg, reps, new Date().toISOString(), slot || null);
+      'INSERT INTO workout_sets (session_id, exercise_id, set_number, weight_kg, reps, created_at, slot, effective_load_kg) VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
+    ).run(sessionId, exercise_id, set_number, weight_kg, reps, new Date().toISOString(), slot || null, effectiveLoad);
     res.json({ id: result.lastInsertRowid, updated: false });
   }
 });
@@ -943,6 +1026,12 @@ function finishCompletion(db, session, sessionId, duration, corePlanned, coreCom
   db.prepare('UPDATE workout_sessions SET completed = 1, duration_min = ?, core_exercises_planned = ?, core_exercises_completed = ?, completion_ratio = ? WHERE id = ?')
     .run(duration, corePlanned, coreCompleted, completionRatio, sessionId);
 
+  // Clear next_weight_kg overrides for exercises that were logged in this session
+  const loggedExIds = db.prepare('SELECT DISTINCT exercise_id FROM workout_sets WHERE session_id = ?').all(sessionId);
+  for (const { exercise_id } of loggedExIds) {
+    db.prepare('UPDATE exercises SET next_weight_kg = NULL WHERE id = ? AND next_weight_kg IS NOT NULL').run(exercise_id);
+  }
+
   // Double-count guard
   const existingGymLog = db.prepare(
     "SELECT id, notes FROM exercise_logs WHERE date = ? AND LOWER(type) = 'gym'"
@@ -1004,8 +1093,11 @@ router.get('/exercises/:id/history', (req, res) => {
   const db = getDB();
   const exerciseId = req.params.id;
 
+  const exInfo = db.prepare('SELECT load_type FROM exercises WHERE id = ?').get(exerciseId);
+  const isAssist = exInfo?.load_type === 'assistance';
+
   const sessions = db.prepare(`
-    SELECT ws.date, ws.workout_type, wset.set_number, wset.weight_kg, wset.reps
+    SELECT ws.date, ws.workout_type, wset.set_number, wset.weight_kg, wset.reps, wset.effective_load_kg
     FROM workout_sets wset
     JOIN workout_sessions ws ON ws.id = wset.session_id
     WHERE wset.exercise_id = ? AND ws.completed = 1
@@ -1019,6 +1111,18 @@ router.get('/exercises/:id/history', (req, res) => {
   }
 
   const history = Object.entries(byDate).map(([date, sets]) => {
+    if (isAssist) {
+      // For assistance exercises, chart effective load (bodyweight − assist).
+      // "Top" = highest effective load = lowest assist weight.
+      const withEffective = sets.filter(s => s.effective_load_kg != null);
+      if (withEffective.length > 0) {
+        const topSet = withEffective.reduce((best, s) => (s.effective_load_kg > best.effective_load_kg ? s : best), withEffective[0]);
+        return {
+          date, top_weight: topSet.effective_load_kg, assist_weight: topSet.weight_kg,
+          top_reps: topSet.reps, e1rm: null, total_sets: sets.length, load_type: 'assistance',
+        };
+      }
+    }
     const topSet = sets.reduce((best, s) => (s.weight_kg > best.weight_kg ? s : best), sets[0]);
     const e1rm = topSet.weight_kg && topSet.reps
       ? Math.round(topSet.weight_kg * (1 + topSet.reps / 30) * 10) / 10
@@ -1038,7 +1142,12 @@ router.get('/exercises/:id/history', (req, res) => {
       const avgRecent = topWeights.reduce((s, w) => s + w, 0) / topWeights.length;
       const firstWeight = topWeights[0];
       const weightDiff = avgRecent - firstWeight;
-      if (latestWeight && fourWeeksAgoWeight) {
+      if (isAssist) {
+        // For assistance: rising effective load = progress. Dropping assistance = getting stronger.
+        if (weightDiff > 0) {
+          progression_note = `Effective load is trending up — you're getting stronger.`;
+        }
+      } else if (latestWeight && fourWeeksAgoWeight) {
         const bodyWeightDrop = fourWeeksAgoWeight.weight_kg - latestWeight.weight_kg;
         if (bodyWeightDrop > 1 && Math.abs(weightDiff) < 2.5) {
           progression_note = `Same weight at ${Math.round(bodyWeightDrop * 10) / 10} kg lighter — that's relative strength going up.`;
@@ -1049,7 +1158,7 @@ router.get('/exercises/:id/history', (req, res) => {
     }
   }
 
-  res.json({ exercise_id: parseInt(exerciseId), history, progression_note });
+  res.json({ exercise_id: parseInt(exerciseId), history, progression_note, load_type: isAssist ? 'assistance' : 'resistance' });
 });
 
 // GET /api/training/volume — weekly volume summary

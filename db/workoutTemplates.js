@@ -4,6 +4,17 @@
 // 4 core exercises per session (slot 1–4) + 1 bonus.
 // Cardio sits outside the slots.
 
+// Upper A ordering rationale:
+// - Back takes slot 2-3 (two exercises), triceps slot 4. v33 cut back to 2 exercises
+//   which dropped weekly back volume below the 8-12 target band. Restoring Seated
+//   Cable Row gives back 9 sets/week (lat pulldown 3 + cable row 3 + pull-up 3).
+// - Triceps stay in a core slot: pushdown has progressed 15.9 → 18.1 kg and triceps
+//   also get indirect work from bench press and pec deck.
+// - Shoulder Press Machine moves to bonus: it was regressing in slot 4 due to fatigue
+//   (36 kg → 26% volume drop). Front delts get work from bench; side delts from
+//   cable lateral raise in Upper B. Shoulders at 3 core sets/week is a monitored
+//   trade-off — if "Sets this week" shows shoulders below band for 3 consecutive
+//   weeks, revisit.
 const UPPER_A = {
   type: 'upper_a',
   label: 'Upper A',
@@ -11,9 +22,9 @@ const UPPER_A = {
   exercises: [
     { name: 'Barbell Bench Press', sets: 4, reps: '6-8', slot: 1, is_bonus: false, primary_muscle: 'chest' },
     { name: 'Lat Pulldown', sets: 3, reps: '8-10', slot: 2, is_bonus: false, primary_muscle: 'back' },
-    { name: 'Cable Tricep Pushdown', sets: 3, reps: '10-12', slot: 3, is_bonus: false, primary_muscle: 'triceps' },
-    { name: 'Shoulder Press Machine', sets: 3, reps: '8-10', slot: 4, is_bonus: false, primary_muscle: 'shoulders' },
-    { name: 'Cable Curl', sets: 3, reps: '10-12', slot: 5, is_bonus: true, primary_muscle: 'biceps' },
+    { name: 'Seated Cable Row', sets: 3, reps: '10-12', slot: 3, is_bonus: false, primary_muscle: 'back' },
+    { name: 'Cable Tricep Pushdown', sets: 3, reps: '10-12', slot: 4, is_bonus: false, primary_muscle: 'triceps' },
+    { name: 'Shoulder Press Machine', sets: 3, reps: '8-10', slot: 5, is_bonus: true, primary_muscle: 'shoulders' },
   ],
   // Bench-occupied swap: two options for slot 1 when the station is in use
   bench_swap_options: ['Standing Cable Chest Press', 'Pec Fly Machine (Pec Deck)'],

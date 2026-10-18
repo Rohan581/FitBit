@@ -998,6 +998,7 @@ const EXERCISE_DATA = [
     youtube_search_term: 'assisted pull up machine proper form',
     equipment_type: 'machine',
     required_equipment: ['assisted_pullup_machine'],
+    load_type: 'assistance',
   },
   {
     name: 'Cable Lateral Raise',

@@ -1241,6 +1241,23 @@ export default function Training() {
             </div>
           </div>
 
+          {/* Stalled lifts */}
+          {data.stalled_lifts && data.stalled_lifts.length > 0 && (
+            <div className="bg-card rounded-[20px] border border-hair p-[18px]">
+              <span className="text-[15px] font-bold text-tx">Stalled lifts</span>
+              <div className="flex flex-col gap-1.5 mt-2.5">
+                {data.stalled_lifts.map(sl => (
+                  <div key={sl.exercise_id} className="flex items-center justify-between">
+                    <span className="text-[13.5px] font-semibold text-tx-2">{sl.name}</span>
+                    <span className="text-[12.5px] font-num text-cal">
+                      {sl.load_type === 'assistance' ? `${sl.weight_kg} kg assist` : `${sl.weight_kg} kg`} · {sl.sessions} sessions
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           {/* Weekly volume + conditioning */}
           <WeeklyVolumeCard volume={volume} volumeNotes={volumeNotes} />
 
@@ -1278,9 +1295,13 @@ function CollapsedExercise({ ex, allDone, onTap }) {
 
 function ExerciseCard({ ex, sets, last, onSetChange, onCompleteSet, onAddSet, onDeleteSet, onDetail, onProg, onSwap, loadSuggestion }) {
   const exId = ex.exercise_id;
+  const isAssist = ex.load_type === 'assistance';
   const allDone = sets.length > 0 && sets.every(s => s.done);
   const lastTxt = last.length > 0
-    ? last.map(l => `${l.weight_kg}×${l.reps}`).join(', ')
+    ? last.map(l => isAssist && l.effective_load_kg != null
+        ? `${l.weight_kg}→${l.effective_load_kg}×${l.reps}`
+        : `${l.weight_kg}×${l.reps}`
+      ).join(', ')
     : '—';
 
   return (
@@ -1315,7 +1336,7 @@ function ExerciseCard({ ex, sets, last, onSetChange, onCompleteSet, onAddSet, on
       <div className="grid gap-2 items-center mt-3.5 px-0.5" style={{ gridTemplateColumns: '22px 54px 1fr 1fr 42px 24px' }}>
         <span className="text-[11px] font-bold text-tx-3">set</span>
         <span className="text-[11px] font-bold text-tx-3">prev</span>
-        <span className="text-[11px] font-bold text-tx-3 text-center">kg</span>
+        <span className="text-[11px] font-bold text-tx-3 text-center">{isAssist ? 'assist' : 'kg'}</span>
         <span className="text-[11px] font-bold text-tx-3 text-center">reps</span>
         <span className="text-[11px] font-bold text-tx-3 text-center">✓</span>
         <span />

@@ -19,15 +19,24 @@ function seedExercises(db) {
     db.exec(`ALTER TABLE exercises ADD COLUMN required_equipment TEXT NOT NULL DEFAULT '[]'`);
   }
 
+  // Ensure load_type column exists
+  const exColsLt = db.prepare("PRAGMA table_info(exercises)").all().map(c => c.name);
+  const hasLoadType = exColsLt.includes('load_type');
+
   const insert = db.prepare(`
     INSERT OR IGNORE INTO exercises (name, primary_muscles, secondary_muscles, form_cues, common_mistakes, substitutes, youtube_search_term, equipment_type, required_equipment)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
   `);
 
-  const update = db.prepare(`
+  const updateBase = db.prepare(`
     UPDATE exercises SET primary_muscles = ?, secondary_muscles = ?, form_cues = ?, common_mistakes = ?, substitutes = ?, youtube_search_term = ?, equipment_type = ?, required_equipment = ?
     WHERE name = ?
   `);
+
+  const updateWithLoadType = hasLoadType ? db.prepare(`
+    UPDATE exercises SET primary_muscles = ?, secondary_muscles = ?, form_cues = ?, common_mistakes = ?, substitutes = ?, youtube_search_term = ?, equipment_type = ?, required_equipment = ?, load_type = ?
+    WHERE name = ?
+  `) : null;
 
   const tx = db.transaction(() => {
     for (const ex of EXERCISE_DATA) {
@@ -41,7 +50,11 @@ function seedExercises(db) {
 
       insert.run(ex.name, pm, sm, fc, cm, sub, ex.youtube_search_term, eqType, reqEq);
       // Always update to keep data in sync with seed
-      update.run(pm, sm, fc, cm, sub, ex.youtube_search_term, eqType, reqEq, ex.name);
+      if (updateWithLoadType && ex.load_type) {
+        updateWithLoadType.run(pm, sm, fc, cm, sub, ex.youtube_search_term, eqType, reqEq, ex.load_type, ex.name);
+      } else {
+        updateBase.run(pm, sm, fc, cm, sub, ex.youtube_search_term, eqType, reqEq, ex.name);
+      }
     }
   });
 
