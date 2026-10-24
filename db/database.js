@@ -1023,6 +1023,26 @@ function runMigrations(db) {
   // ── v38: Invalidate cached active sessions → re-materialise from new templates
   db.prepare("DELETE FROM workout_sessions WHERE completed = 0").run();
 
+  // ── v39: pending TDEE change columns on goal ──────────────
+  const goalColsV39 = db.prepare("PRAGMA table_info(goal)").all().map(c => c.name);
+  if (!goalColsV39.includes('pending_calorie_target')) {
+    db.exec(`ALTER TABLE goal ADD COLUMN pending_calorie_target REAL`);
+    db.exec(`ALTER TABLE goal ADD COLUMN pending_tdee REAL`);
+  }
+
+  // ── v39: Reset deficit to 21% so target stays ~1,950 ──────
+  // One-time migration: only fires if deficit is still at the old 25% default
+  const currentGoalV39 = db.prepare('SELECT deficit_pct FROM goal WHERE id = 1').get();
+  if (currentGoalV39 && Math.abs(currentGoalV39.deficit_pct - 0.25) < 0.001) {
+    db.prepare('UPDATE goal SET deficit_pct = 0.21 WHERE id = 1').run();
+  }
+
+  // ── v39: quick_add flag on food_logs ──────────────────────
+  const logColsV39 = db.prepare("PRAGMA table_info(food_logs)").all().map(c => c.name);
+  if (!logColsV39.includes('quick_add')) {
+    db.exec(`ALTER TABLE food_logs ADD COLUMN quick_add INTEGER DEFAULT 0`);
+  }
+
   // Seed exercises
   seedExercises(db);
 

@@ -153,8 +153,10 @@ export const api = {
   deleteSteps: (date) => req('DELETE', `/steps?${new URLSearchParams({ ...(date && { date }) })}`),
   getStepWeeklyAvg: (weeks) => req('GET', `/steps/weekly-avg?${new URLSearchParams({ ...(weeks && { weeks }) })}`),
 
-  // TDEE history
+  // TDEE management
   getTDEEHistory: () => req('GET', '/goal/tdee-history'),
+  acceptTDEE: () => req('POST', '/goal/accept-tdee'),
+  dismissTDEE: () => req('POST', '/goal/dismiss-tdee'),
 
   // Recipes (Cook module)
   getRecipes: (params) => req('GET', `/recipes?${new URLSearchParams(params || {})}`),

@@ -33,10 +33,11 @@ router.post('/', (req, res) => {
   const db = getDB();
   const date = req.body.date || todayIST();
   const meal_type = req.body.meal_type || 'snack';
+  const isQuickAdd = req.body.quick_add ? 1 : 0;
 
   const insertLog = db.prepare(`
-    INSERT INTO food_logs (date, meal_type, food_id, saved_meal_id, food_name, quantity, calories, protein_g, carbs_g, fat_g, fiber_g, sugar_g, unit_used)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO food_logs (date, meal_type, food_id, saved_meal_id, food_name, quantity, calories, protein_g, carbs_g, fat_g, fiber_g, sugar_g, unit_used, quick_add)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `);
 
   // Case 1: logging a saved meal
@@ -54,7 +55,7 @@ router.post('/', (req, res) => {
         const result = insertLog.run(
           date, meal_type, food.id, meal.id, food.name, qty,
           food.calories * qty, food.protein_g * qty, food.carbs_g * qty, food.fat_g * qty,
-          (food.fiber_g || 0) * qty, (food.sugar_g || 0) * qty, null
+          (food.fiber_g || 0) * qty, (food.sugar_g || 0) * qty, null, 0
         );
         ids.push(result.lastInsertRowid);
       }
@@ -96,17 +97,17 @@ router.post('/', (req, res) => {
     const result = insertLog.run(
       date, meal_type, food.id, null, food.name, qty,
       food.calories * multiplier, food.protein_g * multiplier, food.carbs_g * multiplier, food.fat_g * multiplier,
-      (food.fiber_g || 0) * multiplier, (food.sugar_g || 0) * multiplier, unitUsed
+      (food.fiber_g || 0) * multiplier, (food.sugar_g || 0) * multiplier, unitUsed, 0
     );
     return res.status(201).json(db.prepare('SELECT * FROM food_logs WHERE id = ?').get(result.lastInsertRowid));
   }
 
-  // Case 3: custom/manual entry
+  // Case 3: custom/manual entry (or quick add)
   const { food_name, calories, protein_g = 0, carbs_g = 0, fat_g = 0, fiber_g = 0, sugar_g = 0 } = req.body;
   if (!food_name || calories == null) {
     return res.status(400).json({ error: 'food_name and calories are required for manual entries' });
   }
-  const result = insertLog.run(date, meal_type, null, null, food_name, 1, calories, protein_g, carbs_g, fat_g, fiber_g, sugar_g, null);
+  const result = insertLog.run(date, meal_type, null, null, food_name, 1, calories, protein_g, carbs_g, fat_g, fiber_g, sugar_g, null, isQuickAdd);
   res.status(201).json(db.prepare('SELECT * FROM food_logs WHERE id = ?').get(result.lastInsertRowid));
 });
 
@@ -129,17 +130,17 @@ router.post('/copy-yesterday', (req, res) => {
     return res.status(404).json({ error: 'No entries found for yesterday\'s ' + meal_type });
   }
 
-  const insertLog = db.prepare(`
-    INSERT INTO food_logs (date, meal_type, food_id, saved_meal_id, food_name, quantity, calories, protein_g, carbs_g, fat_g, fiber_g, sugar_g, unit_used)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  const insertLog2 = db.prepare(`
+    INSERT INTO food_logs (date, meal_type, food_id, saved_meal_id, food_name, quantity, calories, protein_g, carbs_g, fat_g, fiber_g, sugar_g, unit_used, quick_add)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `);
 
   const ids = db.transaction(() => {
     const newIds = [];
     for (const log of yesterdayLogs) {
-      const result = insertLog.run(
+      const result = insertLog2.run(
         today, meal_type, log.food_id, log.saved_meal_id, log.food_name, log.quantity,
-        log.calories, log.protein_g, log.carbs_g, log.fat_g, log.fiber_g || 0, log.sugar_g || 0, log.unit_used
+        log.calories, log.protein_g, log.carbs_g, log.fat_g, log.fiber_g || 0, log.sugar_g || 0, log.unit_used, log.quick_add || 0
       );
       newIds.push(result.lastInsertRowid);
     }

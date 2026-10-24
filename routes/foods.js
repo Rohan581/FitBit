@@ -66,7 +66,7 @@ router.get('/', (req, res) => {
   res.json(foods);
 });
 
-// GET /api/foods/recents — last 10 distinct logged foods
+// GET /api/foods/recents — last 10 distinct logged foods + quick adds
 router.get('/recents', (req, res) => {
   const db = getDB();
   const { categories } = req.query;
@@ -88,7 +88,18 @@ router.get('/recents', (req, res) => {
 
   sql += ' ORDER BY fl.logged_at DESC LIMIT 10';
   const recents = db.prepare(sql).all(...params);
-  res.json(recents);
+
+  // Include recent quick-add items (no food_id, quick_add=1)
+  const quickAdds = categories ? [] : db.prepare(`
+    SELECT food_name as name, calories, protein_g, carbs_g, fat_g,
+      MAX(logged_at) as last_used, COUNT(*) as use_count
+    FROM food_logs
+    WHERE quick_add = 1 AND food_id IS NULL
+    GROUP BY food_name
+    ORDER BY MAX(logged_at) DESC LIMIT 5
+  `).all();
+
+  res.json({ foods: recents, quick_adds: quickAdds });
 });
 
 // GET /api/foods/favorites

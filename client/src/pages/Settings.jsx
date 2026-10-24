@@ -174,7 +174,10 @@ export default function Settings() {
                 <span className="text-tx-3"> — measured from your last {goal.tdee_info.window_days} days</span>
               </p>
               <p className="text-xs text-tx-3">
-                Formula estimate: <span className="font-num">{goal.tdee_info.formula_tdee}</span>. Using your own data.
+                Formula estimate: <span className="font-num">{goal.tdee_info.formula_tdee}</span>.
+                {computed_targets?.source === 'observed'
+                  ? ' Target derives from your measured data.'
+                  : ' Target derives from the formula estimate.'}
               </p>
             </div>
           ) : (
@@ -200,6 +203,45 @@ export default function Settings() {
             </div>
           )}
           {recalcResult?.error && <p className="mt-2 text-xs text-danger">{recalcResult.error}</p>}
+        </div>
+      )}
+
+      {/* Pending TDEE change acceptance */}
+      {goal.pending_calorie_target && (
+        <div className="mb-4 border border-amber-500/30 bg-amber-500/5 rounded-card p-4 stagger-enter">
+          <p className="text-sm font-semibold text-tx">Target change needs approval</p>
+          <p className="text-xs text-tx-2 mt-1">
+            Your measured maintenance suggests a new calorie target of <span className="font-num font-semibold">{Math.round(goal.pending_calorie_target)}</span> kcal
+            (currently <span className="font-num">{Math.round(goal.current_calorie_target)}</span>).
+            This is a {Math.abs(Math.round(goal.pending_calorie_target - goal.current_calorie_target))} kcal change.
+          </p>
+          <div className="flex gap-2 mt-3">
+            <button
+              onClick={async () => {
+                const updated = await api.acceptTDEE();
+                setGoal(prev => ({ ...prev, ...updated, pending_calorie_target: null, pending_tdee: null }));
+                setForm(f => ({
+                  ...f,
+                  current_calorie_target: updated.current_calorie_target,
+                  current_protein_target_g: updated.current_protein_target_g,
+                  current_fat_target_g: updated.current_fat_target_g,
+                  current_carb_target_g: updated.current_carb_target_g,
+                }));
+              }}
+              className="flex-1 py-2 rounded-card text-sm bg-points text-white press-scale"
+            >
+              Accept
+            </button>
+            <button
+              onClick={async () => {
+                const updated = await api.dismissTDEE();
+                setGoal(prev => ({ ...prev, ...updated, pending_calorie_target: null, pending_tdee: null }));
+              }}
+              className="flex-1 py-2 rounded-card text-sm border border-hair bg-card text-tx-3 press-scale"
+            >
+              Dismiss
+            </button>
+          </div>
         </div>
       )}
 
@@ -239,19 +281,19 @@ export default function Settings() {
             <input
               type="range"
               min="0.15"
-              max="0.28"
+              max="0.25"
               step="0.01"
-              value={form.deficit_pct || 0.25}
+              value={form.deficit_pct || 0.21}
               onChange={e => set('deficit_pct', parseFloat(e.target.value))}
               className="w-full accent-[var(--points)]"
             />
             <div className="flex justify-between text-[10px] text-tx-3">
               <span>15% (gentle)</span>
-              <span>28% (aggressive)</span>
+              <span>25% (max safe)</span>
             </div>
-            <p className="text-xs text-tx-3 px-1">Target = TDEE x (1 - deficit%). Default: 25%. Higher values risk muscle loss.</p>
+            <p className="text-xs text-tx-3 px-1">Target = TDEE × (1 − deficit%). Capped at 25% to preserve muscle.</p>
             {computed_targets?.floored && (
-              <p className="text-xs text-amber-500 px-1">Target was floored to BMR x 1.1 to prevent going below safe intake.</p>
+              <p className="text-xs text-amber-500 px-1">Target was floored to the safety minimum (max of 1,600 or 22 × bodyweight) to prevent going below safe intake.</p>
             )}
           </div>
         </Section>

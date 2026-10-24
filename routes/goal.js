@@ -25,11 +25,17 @@ function computeMacros(weight_kg, height_cm, age, activity_multiplier, deficit_p
 // ── Derive macros from a given TDEE and deficit ──────────────
 function deriveMacrosFromTDEE(tdee, deficit_pct, weight_kg) {
   const defPct = typeof deficit_pct === 'number' ? deficit_pct : 0.25;
-  const calorie_target = Math.round(tdee * (1 - defPct));
+  let calorie_target = Math.round(tdee * (1 - defPct));
+
+  // Safety floor: max(1600, 22 × bodyweight_kg)
+  const floor = Math.max(1600, Math.round(22 * weight_kg));
+  const floored = calorie_target < floor;
+  if (floored) calorie_target = floor;
+
   const protein_target = Math.max(160, Math.round(2 * weight_kg));
   const fat_target = Math.round((calorie_target * 0.26) / 9);
   const carb_target = Math.round((calorie_target - protein_target * 4 - fat_target * 9) / 4);
-  return { calorie_target, protein_target, fat_target, carb_target };
+  return { calorie_target, protein_target, fat_target, carb_target, floored };
 }
 
 function get7DayRollingAvg(db) {
@@ -38,84 +44,98 @@ function get7DayRollingAvg(db) {
   return recent.reduce((s, w) => s + w.weight_kg, 0) / recent.length;
 }
 
+// ── Single TDEE source of truth ─────────────────────────────
+// Returns the best available TDEE: observed if stored, else formula.
+function getTDEE(db, goal) {
+  const rollingAvg = get7DayRollingAvg(db);
+  const weight = rollingAvg || goal.start_weight_kg;
+  const { bmr, tdee: formulaTDEE } = computeFormulaTDEE(weight, goal.height_cm, goal.age, goal.activity_multiplier);
+
+  if (goal.observed_tdee && goal.tdee_source === 'observed') {
+    return { tdee: goal.observed_tdee, source: 'observed', bmr, formula_tdee: formulaTDEE };
+  }
+  return { tdee: formulaTDEE, source: 'formula', bmr, formula_tdee: formulaTDEE };
+}
+
 // ── Observed TDEE computation ────────────────────────────────
 // observedTDEE = meanDailyIntake + (weightChangeKg × 7700) / days
-// Uses 7-day rolling avg at each end of the window for smoothing.
+// Both weight endpoints use date-aligned 7-day rolling averages.
+// Intake window and weight window use the same date range [cutoff, today].
+// Intake mean divides by logged days; weight delta divides by elapsed days.
 function computeObservedTDEE(db, goal) {
   const today = todayIST();
   const windowDays = 28;
-  const minDays = 14;
 
-  // Get all weight logs in the last 28 days
+  // Window = [cutoff, today]
   const cutoff = new Date(today + 'T12:00:00Z');
   cutoff.setUTCDate(cutoff.getUTCDate() - windowDays);
   const cutoffStr = cutoff.toISOString().split('T')[0];
 
-  const allWeights = db.prepare(
-    'SELECT date, weight_kg FROM weight_logs WHERE date >= ? ORDER BY date ASC'
-  ).all(cutoffStr);
+  // Need enough weight entries across the full window
+  const weightCount = db.prepare(
+    'SELECT COUNT(*) as cnt FROM weight_logs WHERE date >= ? AND date <= ?'
+  ).get(cutoffStr, today).cnt;
 
-  if (allWeights.length < 10) {
+  if (weightCount < 10) {
     return { source: 'formula', reason: 'fewer than 10 weight entries in window' };
   }
 
-  // Compute 7-day rolling avg at start and end of window
-  const allWeightsFull = db.prepare('SELECT date, weight_kg FROM weight_logs ORDER BY date ASC').all();
-  function rollingAvgAt(targetDate, direction) {
-    // Find entries near targetDate
-    const idx = allWeightsFull.findIndex(w => w.date >= targetDate);
-    if (idx < 0) return null;
-    if (direction === 'start') {
-      const window = allWeightsFull.slice(idx, Math.min(idx + 7, allWeightsFull.length));
-      if (window.length < 3) return null;
-      return window.reduce((s, w) => s + w.weight_kg, 0) / window.length;
-    } else {
-      // End: use last 7
-      const end = allWeightsFull.length;
-      const start = Math.max(0, end - 7);
-      const window = allWeightsFull.slice(start, end);
-      if (window.length < 3) return null;
-      return window.reduce((s, w) => s + w.weight_kg, 0) / window.length;
-    }
+  // 7-day rolling average at START: weights in [cutoff, cutoff+6 days]
+  const startEnd = new Date(cutoffStr + 'T12:00:00Z');
+  startEnd.setUTCDate(startEnd.getUTCDate() + 6);
+  const startEndStr = startEnd.toISOString().split('T')[0];
+
+  const startWeights = db.prepare(
+    'SELECT weight_kg FROM weight_logs WHERE date >= ? AND date <= ?'
+  ).all(cutoffStr, startEndStr);
+
+  if (startWeights.length < 3) {
+    return { source: 'formula', reason: 'insufficient weight data at start of window (need 3+ in first 7 days)' };
   }
+  const rollingStart = startWeights.reduce((s, w) => s + w.weight_kg, 0) / startWeights.length;
 
-  const rollingStart = rollingAvgAt(cutoffStr, 'start');
-  const rollingEnd = rollingAvgAt(today, 'end');
+  // 7-day rolling average at END: weights in [today-6, today]
+  const endStart = new Date(today + 'T12:00:00Z');
+  endStart.setUTCDate(endStart.getUTCDate() - 6);
+  const endStartStr = endStart.toISOString().split('T')[0];
 
-  if (!rollingStart || !rollingEnd) {
-    return { source: 'formula', reason: 'insufficient weight data for rolling averages' };
+  const endWeights = db.prepare(
+    'SELECT weight_kg FROM weight_logs WHERE date >= ? AND date <= ?'
+  ).all(endStartStr, today);
+
+  if (endWeights.length < 3) {
+    return { source: 'formula', reason: 'insufficient weight data at end of window (need 3+ in last 7 days)' };
   }
+  const rollingEnd = endWeights.reduce((s, w) => s + w.weight_kg, 0) / endWeights.length;
 
-  // Check food log coverage
-  const foodDays = db.prepare(`
-    SELECT COUNT(DISTINCT date) as cnt FROM food_logs WHERE date >= ?
-  `).get(cutoffStr);
+  // Food log coverage — same window [cutoff, today]
+  const foodDays = db.prepare(
+    'SELECT COUNT(DISTINCT date) as cnt FROM food_logs WHERE date >= ? AND date <= ?'
+  ).get(cutoffStr, today);
 
-  const totalDaysInWindow = Math.round(
-    (new Date(today + 'T12:00:00Z') - new Date(cutoffStr + 'T12:00:00Z')) / 86400000
-  );
-  const actualWindow = Math.max(minDays, totalDaysInWindow);
-  const coveragePct = (foodDays.cnt / actualWindow) * 100;
+  const elapsedDays = windowDays;
+  const coveragePct = (foodDays.cnt / elapsedDays) * 100;
 
   if (coveragePct < 80) {
     return {
       source: 'formula',
-      reason: `food logged on ${foodDays.cnt} of ${actualWindow} days (${Math.round(coveragePct)}%) — need 80%`,
+      reason: `food logged on ${foodDays.cnt} of ${elapsedDays} days (${Math.round(coveragePct)}%) — need 80%`,
       coverage_pct: Math.round(coveragePct),
     };
   }
 
-  // Compute mean daily intake over logged days
-  const intakeData = db.prepare(`
-    SELECT SUM(calories) / COUNT(DISTINCT date) as mean_intake
-    FROM food_logs WHERE date >= ?
-  `).get(cutoffStr);
+  // Mean daily intake: SUM / COUNT(DISTINCT date) — divides by logged days
+  const intakeData = db.prepare(
+    'SELECT SUM(calories) / COUNT(DISTINCT date) as mean_intake FROM food_logs WHERE date >= ? AND date <= ?'
+  ).get(cutoffStr, today);
 
   const meanIntake = intakeData.mean_intake || 0;
   const weightChangeKg = rollingEnd - rollingStart;
-  const observedTDEE = meanIntake + (weightChangeKg * 7700) / actualWindow;
 
-  // Sanity clamp: ±25% of formula TDEE
+  // Weight delta divides by elapsed calendar days
+  const observedTDEE = meanIntake + (weightChangeKg * 7700) / elapsedDays;
+
+  // Sanity band: 0.75–1.25 × formula TDEE
   const { tdee: formulaTDEE } = computeFormulaTDEE(
     rollingEnd, goal.height_cm, goal.age, goal.activity_multiplier
   );
@@ -127,7 +147,7 @@ function computeObservedTDEE(db, goal) {
     source: 'observed',
     observed_tdee: clampedTDEE,
     formula_tdee: formulaTDEE,
-    window_days: actualWindow,
+    window_days: elapsedDays,
     coverage_pct: Math.round(coveragePct),
     mean_intake: Math.round(meanIntake),
     rolling_weight_start: Math.round(rollingStart * 100) / 100,
@@ -159,8 +179,9 @@ function weeklyTDEERecompute(db) {
     rollingAvg || goal.start_weight_kg, goal.height_cm, goal.age, goal.activity_multiplier
   );
 
+  let activeTDEE;
+
   if (result.source === 'observed') {
-    // Store in tdee_history
     db.prepare(`
       INSERT INTO tdee_history (date, observed_tdee, formula_tdee, window_days, coverage_pct, mean_intake, rolling_weight_start, rolling_weight_end, source)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'observed')
@@ -171,42 +192,40 @@ function weeklyTDEERecompute(db) {
       UPDATE goal SET observed_tdee = ?, tdee_source = 'observed', last_tdee_compute_date = ? WHERE id = 1
     `).run(result.observed_tdee, today);
 
-    // Re-derive targets from observed TDEE if not overridden
-    if (rollingAvg) {
-      const macros = deriveMacrosFromTDEE(result.observed_tdee, goal.deficit_pct, rollingAvg);
-      db.prepare(`
-        UPDATE goal SET
-          current_calorie_target = CASE WHEN calorie_override = 0 THEN ? ELSE current_calorie_target END,
-          current_protein_target_g = CASE WHEN protein_override = 0 THEN ? ELSE current_protein_target_g END,
-          current_fat_target_g = CASE WHEN fat_override = 0 THEN ? ELSE current_fat_target_g END,
-          current_carb_target_g = CASE WHEN carb_override = 0 THEN ? ELSE current_carb_target_g END
-        WHERE id = 1
-      `).run(macros.calorie_target, macros.protein_target, macros.fat_target, macros.carb_target);
-    }
+    activeTDEE = result.observed_tdee;
   } else {
-    // Store formula fallback in history
     db.prepare(`
       INSERT INTO tdee_history (date, observed_tdee, formula_tdee, window_days, coverage_pct, mean_intake, rolling_weight_start, rolling_weight_end, source)
       VALUES (?, NULL, ?, NULL, ?, NULL, NULL, NULL, 'formula')
     `).run(today, formulaTDEE, result.coverage_pct || null);
 
-    // Use best available TDEE: previous observed if exists, else formula
-    const activeTDEE = goal.observed_tdee || formulaTDEE;
+    activeTDEE = goal.observed_tdee || formulaTDEE;
     const tdeeSource = goal.observed_tdee ? goal.tdee_source : 'formula';
 
     db.prepare(`
       UPDATE goal SET tdee_source = ?, last_tdee_compute_date = ? WHERE id = 1
     `).run(tdeeSource, today);
+  }
 
-    // Re-derive macros from best available TDEE so targets aren't stale
-    if (rollingAvg) {
-      const macros = deriveMacrosFromTDEE(activeTDEE, goal.deficit_pct, rollingAvg);
+  // Re-derive targets from best available TDEE
+  if (rollingAvg) {
+    const macros = deriveMacrosFromTDEE(activeTDEE, goal.deficit_pct, rollingAvg);
+    const delta = Math.abs(macros.calorie_target - goal.current_calorie_target);
+
+    if (!goal.calorie_override && delta > 150) {
+      // Large change — store as pending, require user acceptance
+      db.prepare(`
+        UPDATE goal SET pending_calorie_target = ?, pending_tdee = ? WHERE id = 1
+      `).run(macros.calorie_target, activeTDEE);
+    } else {
+      // Small change or user has override — auto-apply
       db.prepare(`
         UPDATE goal SET
           current_calorie_target = CASE WHEN calorie_override = 0 THEN ? ELSE current_calorie_target END,
           current_protein_target_g = CASE WHEN protein_override = 0 THEN ? ELSE current_protein_target_g END,
           current_fat_target_g = CASE WHEN fat_override = 0 THEN ? ELSE current_fat_target_g END,
-          current_carb_target_g = CASE WHEN carb_override = 0 THEN ? ELSE current_carb_target_g END
+          current_carb_target_g = CASE WHEN carb_override = 0 THEN ? ELSE current_carb_target_g END,
+          pending_calorie_target = NULL, pending_tdee = NULL
         WHERE id = 1
       `).run(macros.calorie_target, macros.protein_target, macros.fat_target, macros.carb_target);
     }
@@ -235,9 +254,14 @@ router.get('/', (req, res) => {
   goal = db.prepare('SELECT * FROM goal WHERE id = 1').get();
 
   const rollingAvg = get7DayRollingAvg(db);
-  const computed = rollingAvg
-    ? computeMacros(rollingAvg, goal.height_cm, goal.age, goal.activity_multiplier, goal.deficit_pct)
-    : null;
+  const tdeeResult = getTDEE(db, goal);
+
+  // Compute targets from the active TDEE (observed when available, else formula)
+  let computed = null;
+  if (rollingAvg) {
+    const macros = deriveMacrosFromTDEE(tdeeResult.tdee, goal.deficit_pct, rollingAvg);
+    computed = { ...macros, bmr: tdeeResult.bmr, tdee: tdeeResult.tdee, source: tdeeResult.source, formula_tdee: tdeeResult.formula_tdee };
+  }
 
   // Observed TDEE info for display
   const tdeeInfo = computeObservedTDEE(db, goal);
@@ -283,7 +307,7 @@ router.put('/', (req, res) => {
     updates.calorie_override ? 1 : 0, updates.protein_override ? 1 : 0,
     updates.fat_override ? 1 : 0, updates.carb_override ? 1 : 0,
     updates.weekly_point_threshold || 315,
-    Math.max(0.15, Math.min(0.28, parseFloat(updates.deficit_pct) || 0.25)),
+    Math.max(0.15, Math.min(0.25, parseFloat(updates.deficit_pct) || 0.25)),
     updates.enable_chest_measurement ? 1 : 0, updates.enable_hips_measurement ? 1 : 0,
     Math.max(100, Math.min(250, parseInt(updates.rest_day_reduction) || 150)),
     parseFloat(updates.reward_credit_amount) || 2000,
@@ -335,6 +359,38 @@ router.post('/recalculate', (req, res) => {
   });
 });
 
+// POST /api/goal/accept-tdee — accept pending calorie change
+router.post('/accept-tdee', (req, res) => {
+  const db = getDB();
+  const goal = db.prepare('SELECT * FROM goal WHERE id = 1').get();
+  if (!goal?.pending_calorie_target || !goal?.pending_tdee) {
+    return res.status(400).json({ error: 'No pending TDEE change' });
+  }
+
+  const rollingAvg = get7DayRollingAvg(db);
+  const weight = rollingAvg || goal.start_weight_kg;
+  const macros = deriveMacrosFromTDEE(goal.pending_tdee, goal.deficit_pct, weight);
+
+  db.prepare(`
+    UPDATE goal SET
+      current_calorie_target = CASE WHEN calorie_override = 0 THEN ? ELSE current_calorie_target END,
+      current_protein_target_g = CASE WHEN protein_override = 0 THEN ? ELSE current_protein_target_g END,
+      current_fat_target_g = CASE WHEN fat_override = 0 THEN ? ELSE current_fat_target_g END,
+      current_carb_target_g = CASE WHEN carb_override = 0 THEN ? ELSE current_carb_target_g END,
+      pending_calorie_target = NULL, pending_tdee = NULL
+    WHERE id = 1
+  `).run(macros.calorie_target, macros.protein_target, macros.fat_target, macros.carb_target);
+
+  res.json(db.prepare('SELECT * FROM goal WHERE id = 1').get());
+});
+
+// POST /api/goal/dismiss-tdee — dismiss pending calorie change
+router.post('/dismiss-tdee', (req, res) => {
+  const db = getDB();
+  db.prepare('UPDATE goal SET pending_calorie_target = NULL, pending_tdee = NULL WHERE id = 1').run();
+  res.json(db.prepare('SELECT * FROM goal WHERE id = 1').get());
+});
+
 // GET /api/goal/tdee-history — audit trail
 router.get('/tdee-history', (req, res) => {
   const db = getDB();
@@ -345,5 +401,7 @@ router.get('/tdee-history', (req, res) => {
 module.exports = router;
 module.exports.computeMacros = computeMacros;
 module.exports.get7DayRollingAvg = get7DayRollingAvg;
+module.exports.getTDEE = getTDEE;
 module.exports.computeObservedTDEE = computeObservedTDEE;
 module.exports.weeklyTDEERecompute = weeklyTDEERecompute;
+module.exports.deriveMacrosFromTDEE = deriveMacrosFromTDEE;

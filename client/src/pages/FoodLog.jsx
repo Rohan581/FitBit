@@ -396,7 +396,10 @@ function MealSection({ type, label, color, entries, onAdd, onDelete, onCopyYeste
                   <p className="text-sm text-tx truncate">
                     {entry.quantity !== 1 ? `${entry.quantity}x ` : ''}{entry.food_name}
                   </p>
-                  <p className="text-xs text-tx-3">{Math.round(entry.calories)} kcal · {Math.round(entry.protein_g)}g protein</p>
+                  <p className="text-xs text-tx-3">
+                    {Math.round(entry.calories)} kcal · {Math.round(entry.protein_g)}g protein
+                    {entry.quick_add ? <span className="text-tx-3/50"> · logged without macros</span> : ''}
+                  </p>
                 </button>
                 <button
                   onClick={() => onDelete(entry.id)}
@@ -422,12 +425,17 @@ function FoodSearchSheet({ open, onClose, mealType, onLogged, targetDate }) {
   const [results, setResults] = useState([]);
   const [favorites, setFavorites] = useState([]);
   const [recents, setRecents] = useState([]);
+  const [quickAdds, setQuickAdds] = useState([]);
   const [searching, setSearching] = useState(false);
   const [selected, setSelected] = useState(null);
   const [qty, setQty] = useState('1');
   const [selectedUnit, setSelectedUnit] = useState(null);
   const [saving, setSaving] = useState(false);
   const [recipeResults, setRecipeResults] = useState({ recipes: [], batches: [] });
+  const [showQuickAdd, setShowQuickAdd] = useState(false);
+  const [qaName, setQaName] = useState('');
+  const [qaCal, setQaCal] = useState('');
+  const [qaSaving, setQaSaving] = useState(false);
   const inputRef = useRef(null);
 
   // When Drinks meal slot is active, only show alcohol + beverage categories
@@ -443,7 +451,13 @@ function FoodSearchSheet({ open, onClose, mealType, onLogged, targetDate }) {
       ]).then(([all, favs, rec]) => {
         setResults(all);
         setFavorites(favs);
-        setRecents(rec);
+        // Handle both old array format and new { foods, quick_adds } format
+        if (Array.isArray(rec)) {
+          setRecents(rec);
+        } else {
+          setRecents(rec.foods || []);
+          setQuickAdds(rec.quick_adds || []);
+        }
       });
       if (mealType !== 'drinks') {
         api.searchRecipesForFoodLog('').then(setRecipeResults).catch(() => {});
@@ -454,6 +468,9 @@ function FoodSearchSheet({ open, onClose, mealType, onLogged, targetDate }) {
       setQty('1');
       setSelectedUnit(null);
       setRecipeResults({ recipes: [], batches: [] });
+      setShowQuickAdd(false);
+      setQaName('');
+      setQaCal('');
     }
   }, [open]);
 
@@ -548,27 +565,75 @@ function FoodSearchSheet({ open, onClose, mealType, onLogged, targetDate }) {
     };
   })() : null;
 
-  const showFavsRecents = !query && (favorites.length > 0 || recents.length > 0);
+  const showFavsRecents = !query && !showQuickAdd && (favorites.length > 0 || recents.length > 0 || quickAdds.length > 0);
+
+  async function handleQuickAdd() {
+    if (!qaName || !qaCal) return;
+    setQaSaving(true);
+    try {
+      await api.logFood({
+        food_name: qaName.trim(),
+        calories: parseFloat(qaCal),
+        meal_type: mealType,
+        quick_add: true,
+        ...(targetDate && { date: targetDate }),
+      });
+      onLogged?.();
+      onClose();
+    } finally {
+      setQaSaving(false);
+    }
+  }
 
   return (
     <Sheet open={open} onClose={onClose} title={`Add to ${MEAL_LABELS[mealType]}`} height="full">
       <div className="flex flex-col h-full">
         <div className="px-4 pb-3 flex-shrink-0">
-          <div className="relative">
-            <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-tx-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-            </svg>
-            <input
-              ref={inputRef}
-              type="text"
-              value={query}
-              onChange={e => setQuery(e.target.value)}
-              placeholder="Search foods..."
-              className="w-full pl-9 pr-4 py-2.5 rounded-card border border-hair text-sm text-tx focus:outline-none bg-card-2"
-              style={{ '--tw-ring-color': mealColor }}
-            />
+          <div className="flex gap-2">
+            <div className="relative flex-1">
+              <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-tx-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+              </svg>
+              <input
+                ref={inputRef}
+                type="text"
+                value={query}
+                onChange={e => { setQuery(e.target.value); setShowQuickAdd(false); }}
+                placeholder="Search foods..."
+                className="w-full pl-9 pr-4 py-2.5 rounded-card border border-hair text-sm text-tx focus:outline-none bg-card-2"
+                style={{ '--tw-ring-color': mealColor }}
+              />
+            </div>
+            <button
+              onClick={() => setShowQuickAdd(q => !q)}
+              className={`px-3 py-2.5 rounded-card text-xs font-semibold whitespace-nowrap border transition-colors press-scale ${
+                showQuickAdd ? 'border-current text-white' : 'border-hair text-tx-3'
+              }`}
+              style={showQuickAdd ? { backgroundColor: mealColor, borderColor: mealColor } : undefined}
+            >
+              Quick
+            </button>
           </div>
         </div>
+
+        {/* Quick add form */}
+        {showQuickAdd && (
+          <div className="mx-4 mb-3 rounded-card p-3 flex-shrink-0 border border-hair bg-card-2">
+            <p className="text-xs text-tx-3 mb-2">Log calories only — no food entry created</p>
+            <div className="space-y-2">
+              <input type="text" placeholder="What did you eat?" value={qaName} onChange={e => setQaName(e.target.value)}
+                className="w-full px-3 py-2 rounded-lg border border-hair text-sm text-tx bg-card focus:outline-none" autoFocus />
+              <input type="number" placeholder="Calories" value={qaCal} onChange={e => setQaCal(e.target.value)}
+                className="w-full px-3 py-2 rounded-lg border border-hair text-sm font-num text-tx bg-card focus:outline-none" />
+              <button onClick={handleQuickAdd} disabled={!qaName || !qaCal || qaSaving}
+                className="w-full py-2.5 rounded-card text-sm text-white disabled:opacity-40 press-scale"
+                style={{ backgroundColor: mealColor }}
+              >
+                {qaSaving ? 'Logging...' : 'Log it'}
+              </button>
+            </div>
+          </div>
+        )}
 
         {selected && (
           <div className="mx-4 mb-3 rounded-card p-3 flex-shrink-0 border"
@@ -660,6 +725,40 @@ function FoodSearchSheet({ open, onClose, mealType, onLogged, targetDate }) {
               <div className="space-y-1">
                 {recents.filter(r => !favorites.find(f => f.id === r.id)).slice(0, 10).map(food => (
                   <FoodRow key={food.id} food={food} selected={selected} onSelect={selectFood} onToggleFavorite={handleToggleFavorite} mealColor={mealColor} />
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Quick-add recents */}
+          {showFavsRecents && quickAdds.length > 0 && (
+            <div className="mb-3">
+              <p className="text-[11px] text-tx-3 mb-1.5 px-1">Quick adds</p>
+              <div className="space-y-1">
+                {quickAdds.map(qa => (
+                  <button
+                    key={qa.name}
+                    onClick={async () => {
+                      await api.logFood({
+                        food_name: qa.name,
+                        calories: qa.calories,
+                        protein_g: qa.protein_g || 0,
+                        carbs_g: qa.carbs_g || 0,
+                        fat_g: qa.fat_g || 0,
+                        meal_type: mealType,
+                        quick_add: true,
+                        ...(targetDate && { date: targetDate }),
+                      });
+                      onLogged?.();
+                      onClose();
+                    }}
+                    className="w-full flex items-center gap-3 px-3 py-2 rounded-xl bg-card-2 press-scale"
+                  >
+                    <div className="flex-1 text-left min-w-0">
+                      <p className="text-sm text-tx truncate">{qa.name}</p>
+                      <p className="text-[10px] text-tx-3">{Math.round(qa.calories)} kcal · logged {qa.use_count}x</p>
+                    </div>
+                  </button>
                 ))}
               </div>
             </div>

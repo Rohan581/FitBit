@@ -123,8 +123,9 @@ router.get('/history/:date', (req, res) => {
 
   const isRestDay = !!db.prepare('SELECT id FROM rest_days WHERE date = ?').get(date);
   const stepLog = db.prepare('SELECT steps FROM step_logs WHERE date = ?').get(date);
+  const measurementLog = db.prepare('SELECT * FROM measurement_logs WHERE date = ? ORDER BY logged_at DESC LIMIT 1').get(date);
 
-  res.json({ date, foodLogs, exerciseLogs, sleepLog, weightLog, points, foodTotals, is_rest_day: isRestDay, steps: stepLog?.steps || null });
+  res.json({ date, foodLogs, exerciseLogs, sleepLog, weightLog, points, foodTotals, is_rest_day: isRestDay, steps: stepLog?.steps || null, measurement: measurementLog || null });
 });
 
 module.exports = router;
