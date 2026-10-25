@@ -1,8 +1,36 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
+import { execSync } from 'child_process';
+import fs from 'fs';
+import path from 'path';
+
+// Capture build-time info — fallback to 'dev' so local builds never fail
+let buildSha = 'dev';
+let buildTime = new Date().toISOString();
+try {
+  buildSha = execSync('git rev-parse --short HEAD').toString().trim();
+} catch {}
+
+// Plugin: stamp the SHA into sw.js after build copies it to dist/
+function swVersionPlugin(sha) {
+  return {
+    name: 'sw-version',
+    closeBundle() {
+      const swPath = path.resolve(__dirname, 'dist/sw.js');
+      if (fs.existsSync(swPath)) {
+        const content = fs.readFileSync(swPath, 'utf-8');
+        fs.writeFileSync(swPath, content.replace('__CACHE_VERSION__', sha));
+      }
+    },
+  };
+}
 
 export default defineConfig({
-  plugins: [react()],
+  plugins: [react(), swVersionPlugin(buildSha)],
+  define: {
+    __BUILD_SHA__: JSON.stringify(buildSha),
+    __BUILD_TIME__: JSON.stringify(buildTime),
+  },
   server: {
     proxy: {
       '/api': {

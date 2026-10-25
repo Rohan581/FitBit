@@ -2,10 +2,22 @@ const express = require('express');
 const path = require('path');
 const cors = require('cors');
 const fs = require('fs');
+const { execSync } = require('child_process');
 const { initDB } = require('./db/database');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
+const SERVER_STARTED_AT = new Date().toISOString();
+
+// Build info — read from env (set during build) or derive from git
+let BUILD_SHA = process.env.BUILD_SHA || 'dev';
+let BUILD_TIME = process.env.BUILD_TIME || '';
+if (BUILD_SHA === 'dev') {
+  try { BUILD_SHA = execSync('git rev-parse --short HEAD').toString().trim(); } catch {}
+}
+if (!BUILD_TIME) {
+  try { BUILD_TIME = new Date().toISOString(); } catch {}
+}
 
 // Ensure data directory exists
 const dataDir = path.dirname(process.env.DATABASE_PATH || './data/earned.db');
@@ -16,6 +28,12 @@ initDB();
 
 app.use(cors());
 app.use(express.json());
+
+// Version endpoint — must never be cached
+app.get('/api/version', (req, res) => {
+  res.set('Cache-Control', 'no-store');
+  res.json({ sha: BUILD_SHA, builtAt: BUILD_TIME, startedAt: SERVER_STARTED_AT });
+});
 
 // API routes — safe loader so a broken module degrades instead of crash-looping
 function useRoute(path, mod) {
@@ -67,5 +85,5 @@ if (process.env.NODE_ENV === 'production') {
 }
 
 app.listen(PORT, () => {
-  console.log(`Earned server running on port ${PORT}`);
+  console.log(`Earned server up — sha=${BUILD_SHA} builtAt=${BUILD_TIME} port=${PORT}`);
 });

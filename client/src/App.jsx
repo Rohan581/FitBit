@@ -16,6 +16,37 @@ import CookMode from './pages/CookMode';
 import CookCooked from './pages/CookCooked';
 import { initThemeListener } from './theme';
 
+function UpdateToast() {
+  const [show, setShow] = useState(false);
+
+  useEffect(() => {
+    const handler = () => setShow(true);
+    window.addEventListener('sw-update-available', handler);
+    return () => window.removeEventListener('sw-update-available', handler);
+  }, []);
+
+  if (!show) return null;
+
+  async function handleUpdate() {
+    try {
+      const regs = await navigator.serviceWorker?.getRegistrations() || [];
+      await Promise.all(regs.map(r => r.unregister()));
+      const keys = await caches.keys();
+      await Promise.all(keys.map(k => caches.delete(k)));
+    } catch {}
+    window.location.reload();
+  }
+
+  return (
+    <div className="fixed top-4 left-4 right-4 z-50 bg-card border border-points/30 rounded-card p-3 shadow-lg flex items-center justify-between gap-3">
+      <p className="text-sm text-tx">New version available</p>
+      <button onClick={handleUpdate} className="text-sm font-semibold text-points press-scale whitespace-nowrap">
+        Update
+      </button>
+    </div>
+  );
+}
+
 function AppShell() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const location = useLocation();
@@ -25,6 +56,7 @@ function AppShell() {
 
   return (
     <>
+      <UpdateToast />
       <div className="flex flex-col h-full bg-page">
         <div className="flex-1 overflow-y-auto page-content">
           <Routes>

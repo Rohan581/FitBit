@@ -16,6 +16,7 @@ export default function Settings() {
   const [syncDiag, setSyncDiag] = useState(null);
   const [flushing, setFlushing] = useState(false);
   const [volumeDiag, setVolumeDiag] = useState(null);
+  const [versionInfo, setVersionInfo] = useState(null);
 
   useEffect(() => {
     const hash = window.location.hash.slice(1);
@@ -60,6 +61,24 @@ export default function Settings() {
       });
     });
   }, []);
+
+  useEffect(() => {
+    api.getVersion().then(setVersionInfo).catch(() => {});
+  }, []);
+
+  const versionStale = versionInfo && typeof __BUILD_SHA__ !== 'undefined'
+    && __BUILD_SHA__ !== 'dev' && versionInfo.sha !== 'dev'
+    && __BUILD_SHA__ !== versionInfo.sha;
+
+  async function handleForceUpdate() {
+    try {
+      const regs = await navigator.serviceWorker?.getRegistrations() || [];
+      await Promise.all(regs.map(r => r.unregister()));
+      const keys = await caches.keys();
+      await Promise.all(keys.map(k => caches.delete(k)));
+    } catch {}
+    window.location.reload();
+  }
 
   function set(k, v) { setForm(f => ({ ...f, [k]: v })); }
 
@@ -161,6 +180,22 @@ export default function Settings() {
         </Link>
         <h1 className="text-[22px] font-bold text-tx">Settings</h1>
       </div>
+
+      {versionStale && (
+        <div className="mb-4 bg-danger/10 border border-danger/30 rounded-card p-4 stagger-enter">
+          <p className="text-sm font-semibold text-danger">New version available</p>
+          <p className="text-xs text-tx-2 mt-1">
+            You're running <span className="font-mono">{typeof __BUILD_SHA__ !== 'undefined' ? __BUILD_SHA__ : '?'}</span>,
+            server has <span className="font-mono">{versionInfo.sha}</span>.
+          </p>
+          <button
+            onClick={handleForceUpdate}
+            className="mt-2 px-4 py-2 rounded-card text-sm font-semibold bg-danger text-white press-scale"
+          >
+            Update now
+          </button>
+        </div>
+      )}
 
       {/* TDEE & Rolling average info */}
       {rolling_avg_weight && (
@@ -478,9 +513,29 @@ export default function Settings() {
         >
           {saving ? 'Saving...' : saved ? 'Saved!' : 'Save settings'}
         </button>
+
+        {versionInfo && (
+          <p className="text-center text-[11px] text-tx-3 mt-4 font-mono">
+            Build {typeof __BUILD_SHA__ !== 'undefined' ? __BUILD_SHA__ : '?'}
+            {' · '}
+            {versionInfo.builtAt ? new Date(versionInfo.builtAt).toLocaleDateString() : '?'}
+            {' · '}
+            server up {versionInfo.startedAt ? formatUptime(versionInfo.startedAt) : '?'}
+          </p>
+        )}
       </div>
     </div>
   );
+}
+
+function formatUptime(isoString) {
+  const ms = Date.now() - new Date(isoString).getTime();
+  const mins = Math.floor(ms / 60000);
+  if (mins < 60) return `${mins}m`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${hrs}h ${mins % 60}m`;
+  const days = Math.floor(hrs / 24);
+  return `${days}d ${hrs % 24}h`;
 }
 
 function TrainingQueueSection() {

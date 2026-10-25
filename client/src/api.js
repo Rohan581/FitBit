@@ -176,4 +176,7 @@ export const api = {
   // Recipe portion logging
   logPortion: (data) => req('POST', '/recipes/log-portion', data),
   searchRecipesForFoodLog: (q) => req('GET', `/recipes/search/for-food-log?${new URLSearchParams({ ...(q && { q }) })}`),
+
+  // Version
+  getVersion: () => req('GET', '/version'),
 };
