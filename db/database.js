@@ -862,12 +862,17 @@ function runMigrations(db) {
         date TEXT NOT NULL,
         observed_tdee REAL,
         formula_tdee REAL NOT NULL,
-        window_days INTEGER,
+        window_start TEXT,
+        window_end TEXT,
+        days_elapsed INTEGER,
+        days_logged INTEGER,
         coverage_pct REAL,
         mean_intake REAL,
         rolling_weight_start REAL,
         rolling_weight_end REAL,
-        source TEXT NOT NULL DEFAULT 'formula'
+        weight_delta_kg REAL,
+        energy_from_tissue REAL,
+        source_used TEXT NOT NULL DEFAULT 'formula'
       )
     `);
   }
@@ -1042,6 +1047,42 @@ function runMigrations(db) {
   if (!logColsV39.includes('quick_add')) {
     db.exec(`ALTER TABLE food_logs ADD COLUMN quick_add INTEGER DEFAULT 0`);
   }
+
+  // ── v41: Expand tdee_history with full audit columns ──────
+  const tdeeCols = db.prepare("PRAGMA table_info(tdee_history)").all().map(c => c.name);
+  if (tdeeCols.length > 0 && !tdeeCols.includes('window_start')) {
+    db.exec(`ALTER TABLE tdee_history ADD COLUMN window_start TEXT`);
+    db.exec(`ALTER TABLE tdee_history ADD COLUMN window_end TEXT`);
+    db.exec(`ALTER TABLE tdee_history ADD COLUMN days_elapsed INTEGER`);
+    db.exec(`ALTER TABLE tdee_history ADD COLUMN days_logged INTEGER`);
+    db.exec(`ALTER TABLE tdee_history ADD COLUMN weight_delta_kg REAL`);
+    db.exec(`ALTER TABLE tdee_history ADD COLUMN energy_from_tissue REAL`);
+  }
+  // Rename source → source_used if old column exists
+  if (tdeeCols.length > 0 && tdeeCols.includes('source') && !tdeeCols.includes('source_used')) {
+    db.exec(`ALTER TABLE tdee_history RENAME COLUMN source TO source_used`);
+  }
+  // Rename window_days → days_elapsed if old column exists
+  if (tdeeCols.length > 0 && tdeeCols.includes('window_days') && !tdeeCols.includes('days_elapsed')) {
+    // SQLite ALTER RENAME COLUMN available since 3.25.0
+    db.exec(`ALTER TABLE tdee_history RENAME COLUMN window_days TO days_elapsed`);
+  }
+
+  // ── v41: Clamp stored deficit to 25% cap ──────────────────
+  const goalV41 = db.prepare('SELECT deficit_pct FROM goal WHERE id = 1').get();
+  if (goalV41 && goalV41.deficit_pct > 0.25) {
+    db.prepare('UPDATE goal SET deficit_pct = 0.21 WHERE id = 1').run();
+  }
+
+  // ── v41: goal_date → 2026-12-31 ──────────────────────────
+  const goalDateV41 = db.prepare('SELECT goal_date FROM goal WHERE id = 1').get();
+  if (goalDateV41 && goalDateV41.goal_date === '2026-12-20') {
+    db.prepare("UPDATE goal SET goal_date = '2026-12-31' WHERE id = 1").run();
+  }
+
+  // ── v41: Force TDEE recompute (sign fix in observedTDEE) ──
+  // Clear last_tdee_compute_date so weeklyTDEERecompute runs on next request
+  db.prepare("UPDATE goal SET last_tdee_compute_date = NULL, observed_tdee = NULL WHERE id = 1").run();
 
   // Seed exercises
   seedExercises(db);

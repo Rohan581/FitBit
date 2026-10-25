@@ -39,11 +39,10 @@ after(() => {
  *
  * Expected observed TDEE:
  *   meanIntake = 1900
- *   weightChange = 86.0 - 87.0 = -1.0 kg
- *   observedTDEE = 1900 + (-1.0 × 7700) / 28
- *                = 1900 + (-7700) / 28
- *                = 1900 - 275
- *                = 1625
+ *   weightChange = 86.0 - 87.0 = -1.0 kg (lost weight)
+ *   energyFromTissue = (-1.0 × 7700) / 28 = -275 kcal/day
+ *   observedTDEE = 1900 - (-275) = 1900 + 275 = 2175
+ *   (TDEE > intake because weight was lost — body burned stored energy)
  */
 function seedKnownScenario() {
   const today = new Date(Date.now() + 330 * 60000).toISOString().split('T')[0];
@@ -128,10 +127,10 @@ describe('computeObservedTDEE', () => {
     assert.ok(result.mean_intake >= 1850 && result.mean_intake <= 1950,
       `mean intake ${result.mean_intake} should be near 1900`);
 
-    // Observed TDEE should be near 1625 (1900 - 275)
+    // Observed TDEE should be near 2175 (1900 + 275)
     // Allow some slack for random weight variation
-    assert.ok(result.raw_observed >= 1500 && result.raw_observed <= 1750,
-      `raw observed ${result.raw_observed} should be near 1625`);
+    assert.ok(result.raw_observed >= 2050 && result.raw_observed <= 2300,
+      `raw observed ${result.raw_observed} should be near 2175`);
 
     // Window should be 28 days
     assert.equal(result.window_days, 28, 'window should be 28 days');

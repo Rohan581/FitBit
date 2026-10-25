@@ -52,6 +52,7 @@ function getGaps(data) {
   if (!data.foodLogs?.length) gaps.push('food');
   if (!data.weightLog) gaps.push('weight');
   if (!data.sleepLog) gaps.push('sleep');
+  if (!data.steps) gaps.push('steps');
   return gaps;
 }
 
@@ -123,7 +124,7 @@ export default function History() {
                     <p className="text-sm text-tx">{formatDate(date)}</p>
                     {gaps.length > 0 && (
                       <span className="text-[9px] text-amber-500/70" title={`Missing: ${gaps.join(', ')}`}>
-                        {gaps.map(g => g === 'food' ? 'F' : g === 'weight' ? 'W' : 'S').join('')}
+                        {gaps.map(g => ({ food: 'F', weight: 'W', sleep: 'S', steps: 'St' }[g] || '')).join(' ')}
                       </span>
                     )}
                   </div>

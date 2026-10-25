@@ -126,14 +126,17 @@ function computeObservedTDEE(db, goal) {
 
   // Mean daily intake: SUM / COUNT(DISTINCT date) — divides by logged days
   const intakeData = db.prepare(
-    'SELECT SUM(calories) / COUNT(DISTINCT date) as mean_intake FROM food_logs WHERE date >= ? AND date <= ?'
+    'SELECT SUM(calories) as total, COUNT(DISTINCT date) as days FROM food_logs WHERE date >= ? AND date <= ?'
   ).get(cutoffStr, today);
 
-  const meanIntake = intakeData.mean_intake || 0;
+  const daysLogged = intakeData.days || 0;
+  const meanIntake = daysLogged > 0 ? intakeData.total / daysLogged : 0;
   const weightChangeKg = rollingEnd - rollingStart;
 
-  // Weight delta divides by elapsed calendar days
-  const observedTDEE = meanIntake + (weightChangeKg * 7700) / elapsedDays;
+  // TDEE = intake - stored_energy_rate
+  // If weight dropped, stored energy is negative → TDEE > intake (correct)
+  const energyFromTissue = (weightChangeKg * 7700) / elapsedDays;
+  const observedTDEE = meanIntake - energyFromTissue;
 
   // Sanity band: 0.75–1.25 × formula TDEE
   const { tdee: formulaTDEE } = computeFormulaTDEE(
@@ -147,12 +150,16 @@ function computeObservedTDEE(db, goal) {
     source: 'observed',
     observed_tdee: clampedTDEE,
     formula_tdee: formulaTDEE,
+    window_start: cutoffStr,
+    window_end: today,
     window_days: elapsedDays,
+    days_logged: daysLogged,
     coverage_pct: Math.round(coveragePct),
     mean_intake: Math.round(meanIntake),
     rolling_weight_start: Math.round(rollingStart * 100) / 100,
     rolling_weight_end: Math.round(rollingEnd * 100) / 100,
     weight_change_kg: Math.round(weightChangeKg * 100) / 100,
+    energy_from_tissue: Math.round(energyFromTissue),
     raw_observed: Math.round(observedTDEE),
     was_clamped: observedTDEE < lo || observedTDEE > hi,
   };
@@ -183,10 +190,14 @@ function weeklyTDEERecompute(db) {
 
   if (result.source === 'observed') {
     db.prepare(`
-      INSERT INTO tdee_history (date, observed_tdee, formula_tdee, window_days, coverage_pct, mean_intake, rolling_weight_start, rolling_weight_end, source)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'observed')
-    `).run(today, result.observed_tdee, result.formula_tdee, result.window_days, result.coverage_pct,
-      result.mean_intake, result.rolling_weight_start, result.rolling_weight_end);
+      INSERT INTO tdee_history (date, observed_tdee, formula_tdee, window_start, window_end,
+        days_elapsed, days_logged, coverage_pct, mean_intake,
+        rolling_weight_start, rolling_weight_end, weight_delta_kg, energy_from_tissue, source_used)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'observed')
+    `).run(today, result.observed_tdee, result.formula_tdee, result.window_start, result.window_end,
+      result.window_days, result.days_logged, result.coverage_pct, result.mean_intake,
+      result.rolling_weight_start, result.rolling_weight_end,
+      result.weight_change_kg, result.energy_from_tissue);
 
     db.prepare(`
       UPDATE goal SET observed_tdee = ?, tdee_source = 'observed', last_tdee_compute_date = ? WHERE id = 1
@@ -195,8 +206,8 @@ function weeklyTDEERecompute(db) {
     activeTDEE = result.observed_tdee;
   } else {
     db.prepare(`
-      INSERT INTO tdee_history (date, observed_tdee, formula_tdee, window_days, coverage_pct, mean_intake, rolling_weight_start, rolling_weight_end, source)
-      VALUES (?, NULL, ?, NULL, ?, NULL, NULL, NULL, 'formula')
+      INSERT INTO tdee_history (date, formula_tdee, coverage_pct, source_used)
+      VALUES (?, ?, ?, 'formula')
     `).run(today, formulaTDEE, result.coverage_pct || null);
 
     activeTDEE = goal.observed_tdee || formulaTDEE;
@@ -209,7 +220,8 @@ function weeklyTDEERecompute(db) {
 
   // Re-derive targets from best available TDEE
   if (rollingAvg) {
-    const macros = deriveMacrosFromTDEE(activeTDEE, goal.deficit_pct, rollingAvg);
+    const deficit = Math.min(0.25, goal.deficit_pct ?? 0.25);
+    const macros = deriveMacrosFromTDEE(activeTDEE, deficit, rollingAvg);
     const delta = Math.abs(macros.calorie_target - goal.current_calorie_target);
 
     if (!goal.calorie_override && delta > 150) {
@@ -253,13 +265,16 @@ router.get('/', (req, res) => {
   weeklyTDEERecompute(db);
   goal = db.prepare('SELECT * FROM goal WHERE id = 1').get();
 
+  // Clamp deficit on read — stored value must never exceed the cap
+  const deficit = Math.min(0.25, goal.deficit_pct ?? 0.25);
+
   const rollingAvg = get7DayRollingAvg(db);
   const tdeeResult = getTDEE(db, goal);
 
   // Compute targets from the active TDEE (observed when available, else formula)
   let computed = null;
   if (rollingAvg) {
-    const macros = deriveMacrosFromTDEE(tdeeResult.tdee, goal.deficit_pct, rollingAvg);
+    const macros = deriveMacrosFromTDEE(tdeeResult.tdee, deficit, rollingAvg);
     computed = { ...macros, bmr: tdeeResult.bmr, tdee: tdeeResult.tdee, source: tdeeResult.source, formula_tdee: tdeeResult.formula_tdee };
   }
 
@@ -268,6 +283,7 @@ router.get('/', (req, res) => {
 
   res.json({
     ...goal,
+    deficit_pct: deficit,
     rolling_avg_weight: rollingAvg,
     computed_targets: computed,
     tdee_info: tdeeInfo,
@@ -328,8 +344,9 @@ router.post('/recalculate', (req, res) => {
 
   if (!rollingAvg) return res.status(400).json({ error: 'No weight data yet to recalculate from' });
 
-  // Use observed TDEE if available, else formula
-  const activeTDEE = goal.observed_tdee || computeFormulaTDEE(rollingAvg, goal.height_cm, goal.age, goal.activity_multiplier).tdee;
+  // Use the single TDEE source of truth
+  const tdeeResult = getTDEE(db, goal);
+  const activeTDEE = tdeeResult.tdee;
   const macros = deriveMacrosFromTDEE(activeTDEE, goal.deficit_pct, rollingAvg);
   const changes = [];
   const today = todayIST();
@@ -353,7 +370,7 @@ router.post('/recalculate', (req, res) => {
 
   res.json({
     rolling_avg_weight: Math.round(rollingAvg * 100) / 100,
-    computed: { ...macros, tdee: activeTDEE, source: goal.tdee_source || 'formula' },
+    computed: { ...macros, tdee: activeTDEE, source: tdeeResult.source },
     changes,
     goal: db.prepare('SELECT * FROM goal WHERE id = 1').get()
   });
