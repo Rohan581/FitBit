@@ -9,15 +9,15 @@ const app = express();
 const PORT = process.env.PORT || 3001;
 const SERVER_STARTED_AT = new Date().toISOString();
 
-// Build info — read from env (set during build) or derive from git
-let BUILD_SHA = process.env.BUILD_SHA || 'dev';
-let BUILD_TIME = process.env.BUILD_TIME || '';
-if (BUILD_SHA === 'dev') {
-  try { BUILD_SHA = execSync('git rev-parse --short HEAD').toString().trim(); } catch {}
+// Resolve SHA: Railway env → generic env → git → 'dev'
+function resolveSha() {
+  if (process.env.RAILWAY_GIT_COMMIT_SHA) return process.env.RAILWAY_GIT_COMMIT_SHA.slice(0, 7);
+  if (process.env.GIT_COMMIT_SHA) return process.env.GIT_COMMIT_SHA.slice(0, 7);
+  try { return execSync('git rev-parse --short HEAD').toString().trim(); } catch {}
+  return 'dev';
 }
-if (!BUILD_TIME) {
-  try { BUILD_TIME = new Date().toISOString(); } catch {}
-}
+const BUILD_SHA = resolveSha();
+const BUILD_TIME = process.env.BUILD_TIME || new Date().toISOString();
 
 // Ensure data directory exists
 const dataDir = path.dirname(process.env.DATABASE_PATH || './data/earned.db');

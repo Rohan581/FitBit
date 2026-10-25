@@ -4,12 +4,15 @@ import { execSync } from 'child_process';
 import fs from 'fs';
 import path from 'path';
 
-// Capture build-time info — fallback to 'dev' so local builds never fail
-let buildSha = 'dev';
-let buildTime = new Date().toISOString();
-try {
-  buildSha = execSync('git rev-parse --short HEAD').toString().trim();
-} catch {}
+// Resolve SHA: Railway env → generic env → git → 'dev'
+function resolveSha() {
+  if (process.env.RAILWAY_GIT_COMMIT_SHA) return process.env.RAILWAY_GIT_COMMIT_SHA.slice(0, 7);
+  if (process.env.GIT_COMMIT_SHA) return process.env.GIT_COMMIT_SHA.slice(0, 7);
+  try { return execSync('git rev-parse --short HEAD').toString().trim(); } catch {}
+  return 'dev';
+}
+const buildSha = resolveSha();
+const buildTime = new Date().toISOString();
 
 // Plugin: stamp the SHA into sw.js after build copies it to dist/
 function swVersionPlugin(sha) {
