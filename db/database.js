@@ -1084,6 +1084,21 @@ function runMigrations(db) {
   // Clear last_tdee_compute_date so weeklyTDEERecompute runs on next request
   db.prepare("UPDATE goal SET last_tdee_compute_date = NULL, observed_tdee = NULL WHERE id = 1").run();
 
+  // ── v42: weight_estimated flag on recipe_batches ───────────
+  const batchCols = db.prepare("PRAGMA table_info(recipe_batches)").all().map(c => c.name);
+  if (!batchCols.includes('weight_estimated')) {
+    db.exec(`ALTER TABLE recipe_batches ADD COLUMN weight_estimated INTEGER DEFAULT 0`);
+  }
+
+  // ── v42: Fix transposed waist entry 86.5 → 96.5 ──────────
+  const waistBadRows = db.prepare("SELECT id, date FROM measurement_logs WHERE waist_cm = 86.5").all();
+  if (waistBadRows.length === 1) {
+    db.prepare("UPDATE measurement_logs SET waist_cm = 96.5 WHERE id = ?").run(waistBadRows[0].id);
+    console.log(`[v42 migration] Fixed waist 86.5 → 96.5 on date ${waistBadRows[0].date} (id=${waistBadRows[0].id})`);
+  } else if (waistBadRows.length > 1) {
+    console.log(`[v42 migration] Multiple waist rows at 86.5 — not auto-fixing. Dates: ${waistBadRows.map(r => r.date).join(', ')}`);
+  }
+
   // Seed exercises
   seedExercises(db);
 

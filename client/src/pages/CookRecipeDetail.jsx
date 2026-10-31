@@ -327,13 +327,17 @@ function LogPortionSheet({ open, onClose, recipe, scaleFactor, people, perPerson
 
 function ICookedThisSheet({ open, onClose, recipe, scaleFactor, people, onSaved }) {
   const [portions, setPortions] = useState(Math.max(1, Math.round(people || 1)));
-  const [weight, setWeight] = useState(Math.round((recipe?.cooked_yield_g || 500) * scaleFactor));
+  const defaultWeight = Math.round((recipe?.cooked_yield_g || 500) * scaleFactor);
+  const [weight, setWeight] = useState(defaultWeight);
+  const [weighed, setWeighed] = useState(false);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     if (open && recipe) {
       setPortions(Math.max(1, Math.round(people || 1)));
-      setWeight(Math.round((recipe.cooked_yield_g || 500) * scaleFactor));
+      const dw = Math.round((recipe.cooked_yield_g || 500) * scaleFactor);
+      setWeight(dw);
+      setWeighed(false);
     }
   }, [open, recipe, scaleFactor, people]);
 
@@ -348,14 +352,15 @@ function ICookedThisSheet({ open, onClose, recipe, scaleFactor, people, onSaved 
     perPortion[m.key] = m.key === 'calories' ? roundCal(v) : roundMacro(v);
   });
 
-  async function handleSave() {
+  async function handleSave(estimated) {
     setSaving(true);
     try {
       await api.createBatch({
         recipe_id: recipe.id,
         scale_factor: scaleFactor,
         portions,
-        measured_weight_g: weight,
+        measured_weight_g: estimated ? defaultWeight : weight,
+        weight_estimated: estimated ? 1 : 0,
       });
       onSaved?.();
       onClose();
@@ -370,12 +375,12 @@ function ICookedThisSheet({ open, onClose, recipe, scaleFactor, people, onSaved 
         <Stepper value={portions} onChange={v => setPortions(Math.max(1, v))} min={1} step={1} label="Split the batch into" />
 
         <div>
-          <label className="text-sm text-tx-2 block mb-1">Weigh the finished dish, minus the pan</label>
+          <label className="text-sm text-tx-2 block mb-1">Weigh the pan contents (minus the pan) so portions log accurately</label>
           <div className="flex items-center gap-2">
             <input
               type="number"
               value={weight}
-              onChange={e => setWeight(Math.max(0, +e.target.value))}
+              onChange={e => { setWeight(Math.max(0, +e.target.value)); setWeighed(true); }}
               className="w-28 px-3 py-1.5 rounded-lg bg-card-2 text-tx font-num text-center border border-hair"
             />
             <span className="text-sm text-tx-3">g</span>
@@ -388,13 +393,23 @@ function ICookedThisSheet({ open, onClose, recipe, scaleFactor, people, onSaved 
         </div>
 
         <button
-          onClick={handleSave}
+          onClick={() => handleSave(false)}
           disabled={saving}
           className="w-full py-3 rounded-xl font-semibold text-sm press-scale"
           style={{ background: 'var(--cook)', color: 'var(--on-accent)' }}
         >
           {saving ? 'Saving...' : 'Save'}
         </button>
+
+        {!weighed && (
+          <button
+            onClick={() => handleSave(true)}
+            disabled={saving}
+            className="w-full py-2 text-xs text-tx-3 press-scale"
+          >
+            Skip weighing (portions will be estimated)
+          </button>
+        )}
       </div>
     </Sheet>
   );
@@ -909,6 +924,13 @@ function DetailView({ recipe, navigate, onRecipeChange }) {
           <h3 className="text-sm font-semibold text-tx mb-3">Ingredients</h3>
           <ul className="space-y-2">
             {recipe.ingredients?.map((ing, idx) => {
+              if (ing.group) {
+                return (
+                  <li key={idx} className="text-[11px] font-semibold text-tx-3 uppercase tracking-wider pt-2 first:pt-0">
+                    {ing.group}
+                  </li>
+                );
+              }
               const scaledAmt = (ing.amount || 0) * scaleFactor;
               const display = formatQuantity(scaledAmt, ing.unit, ing.name);
               return (
@@ -923,6 +945,13 @@ function DetailView({ recipe, navigate, onRecipeChange }) {
             })}
           </ul>
         </div>
+
+        {/* Scaling note for small batches */}
+        {scaleFactor * (recipe.servings || 1) < 3 && recipe.notes?.includes('Below half a batch') && (
+          <div className="bg-amber-500/10 border border-amber-500/30 rounded-card px-4 py-3">
+            <p className="text-xs text-amber-300">Below half a batch, roast the onions in a pan over low heat for 20 minutes instead of the oven.</p>
+          </div>
+        )}
 
         {/* Steps */}
         {recipe.steps?.length > 0 && (

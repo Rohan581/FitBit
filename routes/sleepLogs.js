@@ -28,6 +28,16 @@ router.post('/', (req, res) => {
   res.status(201).json(db.prepare('SELECT * FROM sleep_logs WHERE id = ?').get(result.lastInsertRowid));
 });
 
+router.put('/:id', (req, res) => {
+  const db = getDB();
+  const { hours, quality } = req.body;
+  if (hours == null) return res.status(400).json({ error: 'hours is required' });
+  const log = db.prepare('SELECT id FROM sleep_logs WHERE id = ?').get(req.params.id);
+  if (!log) return res.status(404).json({ error: 'Log not found' });
+  db.prepare('UPDATE sleep_logs SET hours = ?, quality = ? WHERE id = ?').run(parseFloat(hours), quality || 'ok', req.params.id);
+  res.json(db.prepare('SELECT * FROM sleep_logs WHERE id = ?').get(req.params.id));
+});
+
 router.delete('/:id', (req, res) => {
   const db = getDB();
   const log = db.prepare('SELECT id FROM sleep_logs WHERE id = ?').get(req.params.id);

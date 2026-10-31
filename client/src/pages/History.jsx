@@ -161,21 +161,30 @@ function DayDetail({ data, date, onDataChanged }) {
   const [showFoodSearch, setShowFoodSearch] = useState(false);
   const [selectedMealType, setSelectedMealType] = useState('breakfast');
   const [editEntry, setEditEntry] = useState(null);
-  const [addingWeight, setAddingWeight] = useState(false);
-  const [addingSleep, setAddingSleep] = useState(false);
-  const [addingSteps, setAddingSteps] = useState(false);
-  const [addingWaist, setAddingWaist] = useState(false);
+
+  // Add/Edit mode per metric: null | 'add' | 'edit'
+  const [weightMode, setWeightMode] = useState(null);
+  const [sleepMode, setSleepMode] = useState(null);
+  const [stepsMode, setStepsMode] = useState(null);
+  const [waistMode, setWaistMode] = useState(null);
+
+  // Form values
   const [weightVal, setWeightVal] = useState('');
   const [sleepVal, setSleepVal] = useState('');
   const [stepsVal, setStepsVal] = useState('');
   const [waistVal, setWaistVal] = useState('');
+
+  // Delete confirmation
+  const [confirmDelete, setConfirmDelete] = useState(null); // 'weight'|'sleep'|'steps'|'waist'|null
+
+  // Outlier warning: { metric, value, prevValue, prevDate, saveFn }
+  const [outlierWarning, setOutlierWarning] = useState(null);
 
   if (!data) return <p className="bg-card rounded-card px-4 py-3 text-xs text-tx-3">Loading...</p>;
   if (data.error) return <p className="bg-card rounded-card px-4 py-3 text-xs text-tx-3">Couldn't load this day</p>;
 
   const { foodLogs, exerciseLogs, sleepLog, weightLog, points, foodTotals, is_rest_day, steps, measurement } = data;
 
-  // Group food logs by meal type
   const grouped = { breakfast: [], lunch: [], snack: [], dinner: [], drinks: [] };
   for (const log of (foodLogs || [])) {
     const key = grouped[log.meal_type] ? log.meal_type : 'snack';
@@ -193,10 +202,7 @@ function DayDetail({ data, date, onDataChanged }) {
   }
 
   async function handleCopyPreviousDay(mealType) {
-    try {
-      await api.copyYesterday(mealType, date);
-      onDataChanged?.();
-    } catch (e) { /* no entries */ }
+    try { await api.copyYesterday(mealType, date); onDataChanged?.(); } catch (e) { /* no entries */ }
   }
 
   const hasFoodLogs = foodLogs?.length > 0;
@@ -206,8 +212,124 @@ function DayDetail({ data, date, onDataChanged }) {
     onDataChanged?.();
   }
 
+  // ── Outlier-checked save helpers ──────────────────────────
+  async function saveWeightWithCheck(val, mode) {
+    const v = parseFloat(val);
+    const saveFn = async () => {
+      if (mode === 'edit' && weightLog) {
+        await api.updateWeightLog(weightLog.id, { weight_kg: v });
+      } else {
+        await api.logWeight({ date, weight_kg: v });
+      }
+      setWeightMode(null); setWeightVal(''); setOutlierWarning(null); onDataChanged?.();
+    };
+    try {
+      const prev = await api.getPreviousWeight(date);
+      if (prev && Math.abs(v - prev.weight_kg) > 2) {
+        const diff = (v - prev.weight_kg).toFixed(1);
+        const sign = v > prev.weight_kg ? 'up' : 'down';
+        setOutlierWarning({
+          metric: 'weight',
+          message: `That's ${Math.abs(diff)} kg ${sign} from your last entry (${prev.weight_kg} kg on ${formatDate(prev.date)}). Is that right?`,
+          saveFn,
+        });
+        return;
+      }
+    } catch (e) { /* no previous entry — skip check */ }
+    await saveFn();
+  }
+
+  async function saveWaistWithCheck(val, mode) {
+    const v = parseFloat(val);
+    const saveFn = async () => {
+      if (mode === 'edit' && measurement) {
+        await api.updateMeasurement(measurement.id, { waist_cm: v });
+      } else {
+        await api.logMeasurement({ date, waist_cm: v });
+      }
+      setWaistMode(null); setWaistVal(''); setOutlierWarning(null); onDataChanged?.();
+    };
+    try {
+      const prev = await api.getPreviousMeasurement(date);
+      if (prev && Math.abs(v - prev.waist_cm) > 3) {
+        const diff = (v - prev.waist_cm).toFixed(1);
+        const sign = v > prev.waist_cm ? 'up' : 'down';
+        setOutlierWarning({
+          metric: 'waist',
+          message: `That's ${Math.abs(diff)} cm ${sign} from your last entry (${prev.waist_cm} cm on ${formatDate(prev.date)}). Is that right?`,
+          saveFn,
+        });
+        return;
+      }
+    } catch (e) { /* no previous entry */ }
+    await saveFn();
+  }
+
+  // ── Delete handlers ───────────────────────────────────────
+  async function doDeleteWeight() {
+    await api.deleteWeightLog(weightLog.id);
+    setConfirmDelete(null); onDataChanged?.();
+  }
+  async function doDeleteSleep() {
+    await api.deleteSleepLog(sleepLog.id);
+    setConfirmDelete(null); onDataChanged?.();
+  }
+  async function doDeleteSteps() {
+    await api.deleteSteps(date);
+    setConfirmDelete(null); onDataChanged?.();
+  }
+  async function doDeleteWaist() {
+    await api.deleteMeasurement(measurement.id);
+    setConfirmDelete(null); onDataChanged?.();
+  }
+
+  // ── Metric input row (shared by add and edit) ─────────────
+  function metricInput(val, setVal, opts) {
+    return (
+      <div className="flex items-center gap-2 mt-1.5">
+        <input type="number" step={opts.step} min={opts.min} max={opts.max} placeholder={opts.placeholder}
+          value={val} onChange={e => setVal(e.target.value)}
+          className={`${opts.width || 'w-20'} px-2 py-1.5 rounded-lg border border-hair text-sm font-num text-tx bg-card-2`} autoFocus />
+        <button onClick={opts.onSave} className="text-xs text-points font-semibold press-scale">Save</button>
+        <button onClick={opts.onCancel} className="text-xs text-tx-3 press-scale">Cancel</button>
+      </div>
+    );
+  }
+
+  // ── Inline confirm delete row ─────────────────────────────
+  function deleteConfirmRow(label, onConfirm) {
+    return (
+      <div className="flex items-center gap-2 mt-1.5">
+        <span className="text-[11px] text-red-400">Delete {label}?</span>
+        <button onClick={onConfirm} className="text-[11px] text-red-400 font-semibold press-scale">Yes, delete</button>
+        <button onClick={() => setConfirmDelete(null)} className="text-[11px] text-tx-3 press-scale">Cancel</button>
+      </div>
+    );
+  }
+
+  // ── Edit/Delete action buttons for existing entries ───────
+  function metricActions(metric, onEdit) {
+    return (
+      <div className="flex items-center gap-2">
+        <button onClick={onEdit} className="text-[11px] text-points font-semibold press-scale">Edit</button>
+        <button onClick={() => setConfirmDelete(metric)} className="text-[11px] text-red-400/70 font-semibold press-scale">Delete</button>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-2">
+      {/* Outlier warning overlay */}
+      {outlierWarning && (
+        <div className="bg-amber-500/10 border border-amber-500/30 rounded-card px-4 py-3">
+          <p className="text-xs text-amber-300 mb-2">{outlierWarning.message}</p>
+          <div className="flex items-center gap-3">
+            <button onClick={outlierWarning.saveFn} className="text-[11px] text-points font-semibold press-scale">Yes</button>
+            <button onClick={() => setOutlierWarning(null)} className="text-[11px] text-tx-3 press-scale">Let me fix that</button>
+          </div>
+        </div>
+      )}
+
       {/* Rest day toggle */}
       <div className="bg-card rounded-card px-4 py-2.5 flex items-center justify-between">
         <span className="text-xs text-tx-3">Rest day</span>
@@ -265,104 +387,116 @@ function DayDetail({ data, date, onDataChanged }) {
       <div className="bg-card rounded-card px-4 py-3">
         <div className="flex items-center justify-between">
           <p className="text-[11px] text-tx-3">Sleep</p>
-          {!sleepLog && !addingSleep && (
-            <button onClick={() => setAddingSleep(true)} className="text-[11px] text-points font-semibold press-scale">+ Add</button>
+          {!sleepLog && !sleepMode && (
+            <button onClick={() => setSleepMode('add')} className="text-[11px] text-points font-semibold press-scale">+ Add</button>
           )}
+          {sleepLog && !sleepMode && confirmDelete !== 'sleep' && metricActions('sleep', () => {
+            setSleepMode('edit'); setSleepVal(String(sleepLog.hours));
+          })}
         </div>
-        {sleepLog ? (
+        {confirmDelete === 'sleep' && deleteConfirmRow('sleep entry', doDeleteSleep)}
+        {sleepLog && !sleepMode ? (
           <p className="text-xs text-tx-2 mt-0.5"><span className="font-num">{sleepLog.hours}</span>h ({sleepLog.quality})</p>
-        ) : addingSleep ? (
-          <div className="flex items-center gap-2 mt-1.5">
-            <input type="number" step="0.5" min="0" max="14" placeholder="hours" value={sleepVal} onChange={e => setSleepVal(e.target.value)}
-              className="w-20 px-2 py-1.5 rounded-lg border border-hair text-sm font-num text-tx bg-card-2" autoFocus />
-            <button onClick={async () => {
+        ) : sleepMode ? (
+          metricInput(sleepVal, setSleepVal, {
+            step: '0.5', min: '0', max: '14', placeholder: 'hours',
+            onSave: async () => {
               if (!sleepVal) return;
-              await api.logSleep({ date, hours: parseFloat(sleepVal) });
-              setAddingSleep(false); setSleepVal(''); onDataChanged?.();
-            }} className="text-xs text-points font-semibold press-scale">Save</button>
-            <button onClick={() => { setAddingSleep(false); setSleepVal(''); }} className="text-xs text-tx-3 press-scale">Cancel</button>
-          </div>
-        ) : (
+              if (sleepMode === 'edit' && sleepLog) {
+                await api.updateSleepLog(sleepLog.id, { hours: parseFloat(sleepVal) });
+              } else {
+                await api.logSleep({ date, hours: parseFloat(sleepVal) });
+              }
+              setSleepMode(null); setSleepVal(''); onDataChanged?.();
+            },
+            onCancel: () => { setSleepMode(null); setSleepVal(''); },
+          })
+        ) : !sleepLog ? (
           <p className="text-[10px] text-tx-3/50 mt-0.5">Not logged</p>
-        )}
+        ) : null}
       </div>
 
       {/* Weight */}
       <div className="bg-card rounded-card px-4 py-3">
         <div className="flex items-center justify-between">
           <p className="text-[11px] text-tx-3">Weight</p>
-          {!weightLog && !addingWeight && (
-            <button onClick={() => setAddingWeight(true)} className="text-[11px] text-points font-semibold press-scale">+ Add</button>
+          {!weightLog && !weightMode && (
+            <button onClick={() => setWeightMode('add')} className="text-[11px] text-points font-semibold press-scale">+ Add</button>
           )}
+          {weightLog && !weightMode && confirmDelete !== 'weight' && metricActions('weight', () => {
+            setWeightMode('edit'); setWeightVal(String(weightLog.weight_kg));
+          })}
         </div>
-        {weightLog ? (
+        {confirmDelete === 'weight' && deleteConfirmRow('weight entry', doDeleteWeight)}
+        {weightLog && !weightMode ? (
           <p className="text-xs font-num text-tx-2 mt-0.5">{weightLog.weight_kg} kg</p>
-        ) : addingWeight ? (
-          <div className="flex items-center gap-2 mt-1.5">
-            <input type="number" step="0.1" min="30" max="200" placeholder="kg" value={weightVal} onChange={e => setWeightVal(e.target.value)}
-              className="w-20 px-2 py-1.5 rounded-lg border border-hair text-sm font-num text-tx bg-card-2" autoFocus />
-            <button onClick={async () => {
-              if (!weightVal) return;
-              await api.logWeight({ date, weight_kg: parseFloat(weightVal) });
-              setAddingWeight(false); setWeightVal(''); onDataChanged?.();
-            }} className="text-xs text-points font-semibold press-scale">Save</button>
-            <button onClick={() => { setAddingWeight(false); setWeightVal(''); }} className="text-xs text-tx-3 press-scale">Cancel</button>
-          </div>
-        ) : (
+        ) : weightMode ? (
+          metricInput(weightVal, setWeightVal, {
+            step: '0.1', min: '30', max: '200', placeholder: 'kg',
+            onSave: () => { if (weightVal) saveWeightWithCheck(weightVal, weightMode); },
+            onCancel: () => { setWeightMode(null); setWeightVal(''); },
+          })
+        ) : !weightLog ? (
           <p className="text-[10px] text-tx-3/50 mt-0.5">Not logged</p>
-        )}
+        ) : null}
       </div>
 
       {/* Waist measurement */}
       <div className="bg-card rounded-card px-4 py-3">
         <div className="flex items-center justify-between">
           <p className="text-[11px] text-tx-3">Waist</p>
-          {!measurement && !addingWaist && (
-            <button onClick={() => setAddingWaist(true)} className="text-[11px] text-points font-semibold press-scale">+ Add</button>
+          {!measurement && !waistMode && (
+            <button onClick={() => setWaistMode('add')} className="text-[11px] text-points font-semibold press-scale">+ Add</button>
           )}
+          {measurement && !waistMode && confirmDelete !== 'waist' && metricActions('waist', () => {
+            setWaistMode('edit'); setWaistVal(String(measurement.waist_cm));
+          })}
         </div>
-        {measurement ? (
+        {confirmDelete === 'waist' && deleteConfirmRow('waist entry', doDeleteWaist)}
+        {measurement && !waistMode ? (
           <p className="text-xs font-num text-tx-2 mt-0.5">{measurement.waist_cm} cm</p>
-        ) : addingWaist ? (
-          <div className="flex items-center gap-2 mt-1.5">
-            <input type="number" step="0.5" min="50" max="150" placeholder="cm" value={waistVal} onChange={e => setWaistVal(e.target.value)}
-              className="w-20 px-2 py-1.5 rounded-lg border border-hair text-sm font-num text-tx bg-card-2" autoFocus />
-            <button onClick={async () => {
-              if (!waistVal) return;
-              await api.logMeasurement({ date, waist_cm: parseFloat(waistVal) });
-              setAddingWaist(false); setWaistVal(''); onDataChanged?.();
-            }} className="text-xs text-points font-semibold press-scale">Save</button>
-            <button onClick={() => { setAddingWaist(false); setWaistVal(''); }} className="text-xs text-tx-3 press-scale">Cancel</button>
-          </div>
-        ) : (
+        ) : waistMode ? (
+          metricInput(waistVal, setWaistVal, {
+            step: '0.5', min: '50', max: '150', placeholder: 'cm',
+            onSave: () => { if (waistVal) saveWaistWithCheck(waistVal, waistMode); },
+            onCancel: () => { setWaistMode(null); setWaistVal(''); },
+          })
+        ) : !measurement ? (
           <p className="text-[10px] text-tx-3/50 mt-0.5">Not logged</p>
-        )}
+        ) : null}
       </div>
 
       {/* Steps */}
       <div className="bg-card rounded-card px-4 py-3">
         <div className="flex items-center justify-between">
           <p className="text-[11px] text-tx-3">Steps</p>
-          {!steps && !addingSteps && (
-            <button onClick={() => setAddingSteps(true)} className="text-[11px] text-points font-semibold press-scale">+ Add</button>
+          {!steps && !stepsMode && (
+            <button onClick={() => setStepsMode('add')} className="text-[11px] text-points font-semibold press-scale">+ Add</button>
           )}
+          {steps && !stepsMode && confirmDelete !== 'steps' && metricActions('steps', () => {
+            setStepsMode('edit'); setStepsVal(String(steps));
+          })}
         </div>
-        {steps ? (
+        {confirmDelete === 'steps' && deleteConfirmRow('steps entry', doDeleteSteps)}
+        {steps && !stepsMode ? (
           <p className="text-xs font-num text-tx-2 mt-0.5">{Number(steps).toLocaleString()}</p>
-        ) : addingSteps ? (
-          <div className="flex items-center gap-2 mt-1.5">
-            <input type="number" step="100" min="0" max="99999" placeholder="steps" value={stepsVal} onChange={e => setStepsVal(e.target.value)}
-              className="w-24 px-2 py-1.5 rounded-lg border border-hair text-sm font-num text-tx bg-card-2" autoFocus />
-            <button onClick={async () => {
+        ) : stepsMode ? (
+          metricInput(stepsVal, setStepsVal, {
+            step: '100', min: '0', max: '99999', placeholder: 'steps', width: 'w-24',
+            onSave: async () => {
               if (!stepsVal) return;
-              await api.logSteps({ date, steps: parseInt(stepsVal) });
-              setAddingSteps(false); setStepsVal(''); onDataChanged?.();
-            }} className="text-xs text-points font-semibold press-scale">Save</button>
-            <button onClick={() => { setAddingSteps(false); setStepsVal(''); }} className="text-xs text-tx-3 press-scale">Cancel</button>
-          </div>
-        ) : (
+              if (stepsMode === 'edit') {
+                await api.updateSteps({ date, steps: parseInt(stepsVal) });
+              } else {
+                await api.logSteps({ date, steps: parseInt(stepsVal) });
+              }
+              setStepsMode(null); setStepsVal(''); onDataChanged?.();
+            },
+            onCancel: () => { setStepsMode(null); setStepsVal(''); },
+          })
+        ) : !steps ? (
           <p className="text-[10px] text-tx-3/50 mt-0.5">Not logged</p>
-        )}
+        ) : null}
       </div>
 
       {/* Points breakdown */}

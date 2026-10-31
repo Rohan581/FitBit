@@ -32,6 +32,7 @@ const ICON_MAP = {
   'mayak-eggs': '🥚',
   'air-fryer-egg-muffins': '🥚',
   'protein-pancakes': '🥞',
+  'caramelised-onion-chicken-pasta': '🍝',
 };
 
 function seedRecipes(db) {

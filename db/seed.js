@@ -247,6 +247,36 @@ const SEED_FOODS = [
   ['Psyllium husk',                         'snack', '1 tbsp (~6g)', 1, 18, 0.5, 5, 0, 5, 0,
     JSON.stringify([{unit:'1 tbsp (~6g)',multiplier:1},{unit:'2 tbsp',multiplier:2}]), null],
 
+  // ── Cook module ingredients (per 100g) ─────────────────────────
+  ['Chicken breast, raw',                    'staple', '100g', 100, 110, 23, 0, 1.2, 0, 0,
+    JSON.stringify([{unit:'100g',multiplier:1},{unit:'200g',multiplier:2},{unit:'500g',multiplier:5},{unit:'1 kg',multiplier:10}]), null],
+  ['Spaghetti, dry',                         'staple', '100g', 100, 352, 12.5, 71, 1.5, 3, 2,
+    JSON.stringify([{unit:'100g',multiplier:1},{unit:'250g',multiplier:2.5},{unit:'350g',multiplier:3.5},{unit:'500g',multiplier:5}]), null],
+  ['Skimmed milk powder',                    'staple', '1 tbsp', 8, 29, 2.9, 4.2, 0.1, 0, 4,
+    JSON.stringify([{unit:'1 tbsp',multiplier:1},{unit:'2 tbsp',multiplier:2},{unit:'4 tbsp',multiplier:4},{unit:'100g',multiplier:12.5}]), null],
+  ['Double-toned milk',                      'staple', '1 cup', 240, 113, 8.2, 11.8, 3.6, 0, 11,
+    JSON.stringify([{unit:'1 cup',multiplier:1},{unit:'2 cups',multiplier:2},{unit:'1/2 cup',multiplier:0.5}]), null],
+  ['Parmesan, grated',                       'staple', '1 tbsp', 5, 21, 1.9, 0, 1.4, 0, 0,
+    JSON.stringify([{unit:'1 tbsp',multiplier:1},{unit:'2 tbsp',multiplier:2},{unit:'50g',multiplier:10},{unit:'100g',multiplier:20}]), null],
+  ['Sundried tomatoes (oil-packed, drained)','staple', '100g', 100, 213, 5, 23, 14, 5, 18,
+    JSON.stringify([{unit:'100g',multiplier:1},{unit:'60g',multiplier:0.6},{unit:'30g',multiplier:0.3}]), null],
+  ['Garlic, raw',                            'staple', '1 clove', 3, 4.5, 0.2, 1, 0, 0.1, 0,
+    JSON.stringify([{unit:'1 clove',multiplier:1},{unit:'3 cloves',multiplier:3},{unit:'1 bulb (~10 cloves)',multiplier:10}]), null],
+  ['Cornflour',                              'staple', '1 tbsp', 8, 30, 0, 7.3, 0, 0.1, 0,
+    JSON.stringify([{unit:'1 tbsp',multiplier:1},{unit:'2 tbsp',multiplier:2},{unit:'100g',multiplier:12.5}]), null],
+  ['Dark soy sauce',                         'staple', '1 tsp', 5, 2.7, 0.4, 0.25, 0, 0, 0,
+    JSON.stringify([{unit:'1 tsp',multiplier:1},{unit:'2 tsp',multiplier:2},{unit:'4 tsp',multiplier:4},{unit:'1 tbsp',multiplier:3}]), null],
+
+  // ── Seasonings (per 100g: ~300 kcal, minimal contribution per recipe) ──
+  ['Italian seasoning',                      'staple', '1 tsp', 2, 6, 0.2, 1.1, 0.1, 0.5, 0,
+    JSON.stringify([{unit:'1 tsp',multiplier:1},{unit:'2 tsp',multiplier:2},{unit:'3 tsp',multiplier:3},{unit:'4 tsp',multiplier:4}]), null],
+  ['Garlic powder',                          'staple', '1 tsp', 3, 10, 0.5, 2, 0, 0.3, 0,
+    JSON.stringify([{unit:'1 tsp',multiplier:1},{unit:'2 tsp',multiplier:2},{unit:'4 tsp',multiplier:4}]), null],
+  ['Paprika',                                'staple', '1 tsp', 2, 6, 0.3, 1.2, 0.3, 0.7, 0,
+    JSON.stringify([{unit:'1 tsp',multiplier:1},{unit:'2 tsp',multiplier:2},{unit:'4 tsp',multiplier:4}]), null],
+  ['Dried parsley',                          'staple', '1 tsp', 1, 3, 0.2, 0.5, 0.1, 0.3, 0,
+    JSON.stringify([{unit:'1 tsp',multiplier:1},{unit:'2 tsp',multiplier:2},{unit:'3 tsp',multiplier:3}]), null],
+
   // ── Cooking fats ──────────────────────────────────────────────
   ['Olive oil',                              'staple', '1 tsp', 1, 40, 0, 0, 4.5, 0, 0,
     JSON.stringify([{unit:'1 tsp',multiplier:1},{unit:'1 tbsp',multiplier:3}]), null],

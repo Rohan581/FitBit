@@ -272,7 +272,7 @@ function ActiveBatchCard({ batch, onLog, onFinish }) {
           <div className="flex items-center gap-2 mt-0.5 text-[12px] text-tx-3">
             <span>{formatDate(batch.cooked_on)}</span>
             {batch.portions != null && <span>{batch.portions} portions</span>}
-            {batch.measured_weight_g != null && <span>{batch.measured_weight_g}g</span>}
+            {batch.measured_weight_g != null && <span>{batch.measured_weight_g}g{batch.weight_estimated ? ' (est.)' : ''}</span>}
           </div>
         </div>
       </div>

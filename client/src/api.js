@@ -49,13 +49,16 @@ export const api = {
   // Sleep logs
   getSleepLog: (date) => req('GET', `/sleep-logs?${new URLSearchParams({ ...(date && { date }) })}`),
   logSleep: (entry) => req('POST', '/sleep-logs', entry),
+  updateSleepLog: (id, data) => req('PUT', `/sleep-logs/${id}`, data),
   deleteSleepLog: (id) => req('DELETE', `/sleep-logs/${id}`),
 
   // Weight logs
   getWeightLogs: (limit) => req('GET', `/weight-logs?${new URLSearchParams({ ...(limit && { limit }) })}`),
   getWeightToday: () => req('GET', '/weight-logs/today'),
   getRollingAvg: () => req('GET', '/weight-logs/rolling-average'),
+  getPreviousWeight: (date) => req('GET', `/weight-logs/previous?${new URLSearchParams({ ...(date && { date }) })}`),
   logWeight: (entry) => req('POST', '/weight-logs', entry),
+  updateWeightLog: (id, data) => req('PUT', `/weight-logs/${id}`, data),
   deleteWeightLog: (id) => req('DELETE', `/weight-logs/${id}`),
 
   // Points
@@ -76,7 +79,9 @@ export const api = {
   // Measurements
   getMeasurement: (date) => req('GET', `/measurements?${new URLSearchParams({ ...(date && { date }) })}`),
   getMeasurementTrend: (days) => req('GET', `/measurements/trend?${new URLSearchParams({ ...(days && { days }) })}`),
+  getPreviousMeasurement: (date) => req('GET', `/measurements/previous?${new URLSearchParams({ ...(date && { date }) })}`),
   logMeasurement: (data) => req('POST', '/measurements', data),
+  updateMeasurement: (id, data) => req('PUT', `/measurements/${id}`, data),
   deleteMeasurement: (id) => req('DELETE', `/measurements/${id}`),
 
   // Planning
@@ -150,6 +155,7 @@ export const api = {
   // Steps
   getSteps: (date) => req('GET', `/steps?${new URLSearchParams({ ...(date && { date }) })}`),
   logSteps: (data) => req('POST', '/steps', data),
+  updateSteps: (data) => req('PUT', '/steps', data),
   deleteSteps: (date) => req('DELETE', `/steps?${new URLSearchParams({ ...(date && { date }) })}`),
   getStepWeeklyAvg: (weeks) => req('GET', `/steps/weekly-avg?${new URLSearchParams({ ...(weeks && { weeks }) })}`),
 

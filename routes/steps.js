@@ -38,6 +38,18 @@ router.post('/', (req, res) => {
   res.json({ date: d, steps: s });
 });
 
+// PUT /api/steps — update steps for a date
+router.put('/', (req, res) => {
+  const db = getDB();
+  const { date, steps } = req.body;
+  const d = date || todayIST();
+  const s = parseInt(steps) || 0;
+  const existing = db.prepare('SELECT * FROM step_logs WHERE date = ?').get(d);
+  if (!existing) return res.status(404).json({ error: 'No steps entry for this date' });
+  db.prepare('UPDATE step_logs SET steps = ? WHERE date = ?').run(s, d);
+  res.json({ date: d, steps: s });
+});
+
 // DELETE /api/steps?date=YYYY-MM-DD
 router.delete('/', (req, res) => {
   const db = getDB();

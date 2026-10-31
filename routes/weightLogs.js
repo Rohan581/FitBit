@@ -38,6 +38,14 @@ router.get('/rolling-average', (req, res) => {
   res.json({ rolling_avg: Math.round(avg * 100) / 100, count: recent.length });
 });
 
+// GET /api/weight-logs/previous?date=YYYY-MM-DD — most recent entry before given date
+router.get('/previous', (req, res) => {
+  const db = getDB();
+  const date = req.query.date || todayIST();
+  const prev = db.prepare('SELECT * FROM weight_logs WHERE date < ? ORDER BY date DESC, logged_at DESC LIMIT 1').get(date);
+  res.json(prev || null);
+});
+
 router.post('/', (req, res) => {
   const db = getDB();
   const { weight_kg } = req.body;
@@ -52,11 +60,25 @@ router.post('/', (req, res) => {
   res.status(201).json(db.prepare('SELECT * FROM weight_logs WHERE id = ?').get(result.lastInsertRowid));
 });
 
+router.put('/:id', (req, res) => {
+  const db = getDB();
+  const { weight_kg } = req.body;
+  if (weight_kg == null) return res.status(400).json({ error: 'weight_kg is required' });
+  const log = db.prepare('SELECT * FROM weight_logs WHERE id = ?').get(req.params.id);
+  if (!log) return res.status(404).json({ error: 'Log not found' });
+  db.prepare('UPDATE weight_logs SET weight_kg = ? WHERE id = ?').run(parseFloat(weight_kg), req.params.id);
+  // Clear TDEE compute cache so downstream recomputes
+  db.prepare("UPDATE goal SET last_tdee_compute_date = NULL WHERE id = 1").run();
+  res.json(db.prepare('SELECT * FROM weight_logs WHERE id = ?').get(req.params.id));
+});
+
 router.delete('/:id', (req, res) => {
   const db = getDB();
   const log = db.prepare('SELECT id FROM weight_logs WHERE id = ?').get(req.params.id);
   if (!log) return res.status(404).json({ error: 'Log not found' });
   db.prepare('DELETE FROM weight_logs WHERE id = ?').run(req.params.id);
+  // Clear TDEE compute cache so downstream recomputes
+  db.prepare("UPDATE goal SET last_tdee_compute_date = NULL WHERE id = 1").run();
   res.json({ ok: true });
 });
 

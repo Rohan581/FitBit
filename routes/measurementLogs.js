@@ -26,6 +26,14 @@ router.get('/trend', (req, res) => {
   res.json(logs);
 });
 
+// GET /api/measurements/previous?date=YYYY-MM-DD — most recent entry before given date
+router.get('/previous', (req, res) => {
+  const db = getDB();
+  const date = req.query.date || todayIST();
+  const prev = db.prepare('SELECT * FROM measurement_logs WHERE date < ? ORDER BY date DESC, logged_at DESC LIMIT 1').get(date);
+  res.json(prev || null);
+});
+
 // POST /api/measurements
 router.post('/', (req, res) => {
   const db = getDB();
@@ -44,6 +52,18 @@ router.post('/', (req, res) => {
 
   const log = db.prepare('SELECT * FROM measurement_logs WHERE date = ? ORDER BY logged_at DESC LIMIT 1').get(logDate);
   res.json(log);
+});
+
+// PUT /api/measurements/:id
+router.put('/:id', (req, res) => {
+  const db = getDB();
+  const { waist_cm, chest_cm, hips_cm } = req.body;
+  if (!waist_cm || waist_cm <= 0) return res.status(400).json({ error: 'waist_cm is required' });
+  const log = db.prepare('SELECT id FROM measurement_logs WHERE id = ?').get(req.params.id);
+  if (!log) return res.status(404).json({ error: 'Log not found' });
+  db.prepare('UPDATE measurement_logs SET waist_cm = ?, chest_cm = ?, hips_cm = ? WHERE id = ?')
+    .run(waist_cm, chest_cm || null, hips_cm || null, req.params.id);
+  res.json(db.prepare('SELECT * FROM measurement_logs WHERE id = ?').get(req.params.id));
 });
 
 // DELETE /api/measurements/:id

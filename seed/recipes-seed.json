@@ -3539,6 +3539,194 @@
       ],
       "notes": "Makes about 3 pancakes. 40g protein and 6g fibre for 545 kcal.\n\nThe oats aren't optional in practice — eggs, banana and whey alone make a thin, rubbery pancake that tears when flipped. The oats give it structure and add 3g fibre.\n\nWhey concentrate works better than isolate here; isolate dries the batter out.\n\nHershey's zero sugar syrup is ~15 kcal for 2 tbsp versus ~100 for maple — one of the better swaps available. Use a riper banana and you won't want extra sweetener.\n\nGood as a post-workout breakfast on lifting days.",
       "pairs_with": []
+    },
+    {
+      "seed_key": "caramelised-onion-chicken-pasta",
+      "title": "Caramelised Onion Chicken Pasta",
+      "source": "new",
+      "servings": 6,
+      "cooked_yield_g": 2550,
+      "total_time_min": 70,
+      "tags": [
+        "high-protein",
+        "batch",
+        "chicken",
+        "pasta"
+      ],
+      "per_serving": {
+        "calories": 639,
+        "protein_g": 68,
+        "carbs_g": 63,
+        "fat_g": 11,
+        "fiber_g": 4.3,
+        "sugar_g": 6
+      },
+      "ingredients": [
+        {
+          "group": "Garlic herb chicken"
+        },
+        {
+          "amount": 1300,
+          "unit": "g",
+          "name": "chicken breast, cut into cubes",
+          "main_ingredient": true
+        },
+        {
+          "amount": 2,
+          "unit": "tsp",
+          "name": "olive oil"
+        },
+        {
+          "amount": 2,
+          "unit": "tsp",
+          "name": "salt"
+        },
+        {
+          "amount": 4,
+          "unit": "tsp",
+          "name": "Italian seasoning"
+        },
+        {
+          "amount": 4,
+          "unit": "tsp",
+          "name": "garlic powder"
+        },
+        {
+          "amount": 4,
+          "unit": "tsp",
+          "name": "paprika"
+        },
+        {
+          "amount": 3,
+          "unit": "tsp",
+          "name": "dried parsley"
+        },
+        {
+          "group": "Caramelised onions"
+        },
+        {
+          "amount": 200,
+          "unit": "g",
+          "name": "red onion, thinly sliced"
+        },
+        {
+          "amount": 200,
+          "unit": "g",
+          "name": "white onion, thinly sliced"
+        },
+        {
+          "amount": 60,
+          "unit": "g",
+          "name": "sundried tomatoes, drained and patted dry"
+        },
+        {
+          "amount": 1,
+          "unit": "whole",
+          "name": "garlic bulb, top sliced off"
+        },
+        {
+          "amount": 1,
+          "unit": "tsp",
+          "name": "olive oil"
+        },
+        {
+          "amount": 1,
+          "unit": "tsp",
+          "name": "salt"
+        },
+        {
+          "amount": 3,
+          "unit": "tsp",
+          "name": "Italian seasoning"
+        },
+        {
+          "amount": 2,
+          "unit": "tsp",
+          "name": "paprika"
+        },
+        {
+          "group": "Sauce and pasta"
+        },
+        {
+          "amount": 350,
+          "unit": "g",
+          "name": "spaghetti, dry"
+        },
+        {
+          "amount": 2,
+          "unit": "cups",
+          "name": "double-toned milk"
+        },
+        {
+          "amount": 4,
+          "unit": "tbsp",
+          "name": "skimmed milk powder"
+        },
+        {
+          "amount": 50,
+          "unit": "g",
+          "name": "grated parmesan"
+        },
+        {
+          "amount": 4,
+          "unit": "tsp",
+          "name": "dark soy sauce"
+        },
+        {
+          "amount": 1,
+          "unit": "tbsp",
+          "name": "cornflour"
+        },
+        {
+          "amount": 0,
+          "unit": "",
+          "name": "Fresh parsley and black pepper to finish"
+        }
+      ],
+      "steps": [
+        {
+          "title": "Season chicken",
+          "text": "Toss the chicken cubes with the olive oil and all the chicken seasonings. Set aside while the oven works."
+        },
+        {
+          "title": "Prep onions",
+          "text": "Spread both onions and the sundried tomatoes in a large oven dish with the salt, Italian seasoning and paprika. Sit the garlic bulb cut-side up in the centre, drizzle the oil over, cover tightly with foil."
+        },
+        {
+          "title": "Caramelise onions",
+          "text": "Bake at 190°C for 45 minutes, turning once halfway. The onions should be soft, golden and collapsed.",
+          "timer_seconds": 2700
+        },
+        {
+          "title": "Mix the milk",
+          "text": "Whisk the milk powder and cornflour into the cold milk until no lumps remain. Do this before it goes near heat — cornflour whisked into warm milk will lump and never recover."
+        },
+        {
+          "title": "Make the sauce",
+          "text": "Squeeze the roasted garlic out of its skin into the dish and mash it through the onions. While the dish is still hot but off the heat, pour in the milk mixture and the soy sauce, then stir in the parmesan until melted and smooth. Returning it to a low oven for a few minutes will thicken it further."
+        },
+        {
+          "title": "Boil pasta",
+          "text": "Boil the spaghetti in well-salted water until just short of done. Reserve a mugful of the water before draining.",
+          "timer_seconds": 540
+        },
+        {
+          "title": "Roast chicken",
+          "text": "Spread the chicken on a lined sheet pan and bake at 200°C for 18 minutes.",
+          "timer_seconds": 1080
+        },
+        {
+          "title": "Grill chicken",
+          "text": "Grill for 5 more minutes until the edges catch.",
+          "timer_seconds": 300
+        },
+        {
+          "title": "Combine and serve",
+          "text": "Fold the drained pasta through the sauce, loosening with the reserved pasta water until it coats rather than clings. Fold the chicken through. Finish with parsley and black pepper."
+        }
+      ],
+      "notes": "Batch total: 3,834 kcal · 406 g protein · 380 g carbs · 67 g fat · 26 g fibre. This recipe loses a lot of water: chicken sheds about a quarter of raw weight, onions reduce to roughly half, pasta roughly triples. Weigh the finished dish to get accurate per-gram portions. Below half a batch (under 3 servings), roast the onions in a pan over low heat for 20 minutes instead of the oven.",
+      "pairs_with": []
     }
   ]
 }

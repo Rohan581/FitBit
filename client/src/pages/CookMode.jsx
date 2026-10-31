@@ -292,14 +292,16 @@ export default function CookMode() {
 
   /* ── "I cooked this" handler ───────────────────────────── */
 
-  async function handleCookedThis() {
+  async function handleCookedThis(estimated) {
     setSaving(true);
     try {
+      const defaultW = recipe?.cooked_yield_g ? Math.round(recipe.cooked_yield_g * scaleFactor) : null;
       await api.createBatch({
         recipe_id: Number(id),
         scale_factor: scaleFactor,
         portions,
-        measured_weight_g: measuredWeight ? Number(measuredWeight) : null,
+        measured_weight_g: estimated ? defaultW : (measuredWeight ? Number(measuredWeight) : defaultW),
+        weight_estimated: estimated ? 1 : (!measuredWeight ? 1 : 0),
       });
       localStorage.removeItem(`cook_scale_${id}`);
       navigate('/cook/cooked');
@@ -461,7 +463,7 @@ export default function CookMode() {
           {recipe?.ingredients?.length > 0 && (
             <div className="mt-3 -mx-1 overflow-x-auto scrollbar-none">
               <div className="flex gap-1.5 px-1 pb-1">
-                {recipe.ingredients.map((ing, idx) => {
+                {recipe.ingredients.filter(ing => !ing.group).map((ing, idx) => {
                   const scaledAmt = (ing.amount || 0) * scaleFactor;
                   const display = formatQuantity(scaledAmt, ing.unit, ing.name);
                   if (!display) return null;
@@ -607,6 +609,13 @@ export default function CookMode() {
         <div className="px-5 pb-4">
           <ul className="space-y-2.5">
             {(recipe?.ingredients || []).map((ing, idx) => {
+              if (ing.group) {
+                return (
+                  <li key={idx} className="text-[11px] font-semibold text-tx-3 uppercase tracking-wider pt-2 first:pt-0">
+                    {ing.group}
+                  </li>
+                );
+              }
               const scaledAmt = (ing.amount || 0) * scaleFactor;
               const display = formatQuantity(scaledAmt, ing.unit, ing.name);
               return (
@@ -632,7 +641,7 @@ export default function CookMode() {
           />
 
           <div>
-            <label className="text-sm text-tx-2 block mb-1">Weigh the finished dish (optional)</label>
+            <label className="text-sm text-tx-2 block mb-1">Weigh the pan contents (minus the pan) so portions log accurately</label>
             <div className="flex items-center gap-2">
               <input
                 type="number"
@@ -646,13 +655,23 @@ export default function CookMode() {
           </div>
 
           <button
-            onClick={handleCookedThis}
+            onClick={() => handleCookedThis(false)}
             disabled={saving}
             className="w-full py-3 rounded-xl font-semibold text-sm press-scale disabled:opacity-40"
             style={{ background: 'var(--cook)', color: 'var(--on-accent)' }}
           >
             {saving ? 'Saving...' : 'Save batch'}
           </button>
+
+          {!measuredWeight && (
+            <button
+              onClick={() => handleCookedThis(true)}
+              disabled={saving}
+              className="w-full py-2 text-xs text-tx-3 press-scale"
+            >
+              Skip weighing (portions will be estimated)
+            </button>
+          )}
         </div>
       </Sheet>
     </div>

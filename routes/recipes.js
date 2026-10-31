@@ -278,14 +278,14 @@ router.get('/batches/all', (req, res) => {
 // POST /api/recipes/batches — "I cooked this"
 router.post('/batches', (req, res) => {
   const db = getDB();
-  const { recipe_id, scale_factor, portions, measured_weight_g } = req.body;
+  const { recipe_id, scale_factor, portions, measured_weight_g, weight_estimated } = req.body;
   const recipe = db.prepare('SELECT id FROM recipes WHERE id = ?').get(recipe_id);
   if (!recipe) return res.status(404).json({ error: 'Recipe not found' });
 
   const result = db.prepare(`
-    INSERT INTO recipe_batches (recipe_id, cooked_on, scale_factor, portions, measured_weight_g, finished)
-    VALUES (?, ?, ?, ?, ?, 0)
-  `).run(recipe_id, todayIST(), scale_factor || 1, portions || 1, measured_weight_g || null);
+    INSERT INTO recipe_batches (recipe_id, cooked_on, scale_factor, portions, measured_weight_g, finished, weight_estimated)
+    VALUES (?, ?, ?, ?, ?, 0, ?)
+  `).run(recipe_id, todayIST(), scale_factor || 1, portions || 1, measured_weight_g || null, weight_estimated ? 1 : 0);
 
   const batch = db.prepare('SELECT * FROM recipe_batches WHERE id = ?').get(result.lastInsertRowid);
   res.status(201).json(batch);
@@ -381,11 +381,12 @@ router.post('/log-portion', (req, res) => {
     };
 
     const g = parseFloat(grams);
+    const foodName = batch.weight_estimated ? `${recipe.title} (est.)` : recipe.title;
     const result = db.prepare(`
       INSERT INTO food_logs (date, meal_type, food_name, quantity, calories, protein_g, carbs_g, fat_g, fiber_g, sugar_g, unit_used, recipe_id, batch_id)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(
-      logDate, meal, recipe.title, g,
+      logDate, meal, foodName, g,
       Math.round(macroPerGram.calories * g),
       Math.round(macroPerGram.protein_g * g * 10) / 10,
       Math.round(macroPerGram.carbs_g * g * 10) / 10,
@@ -400,14 +401,15 @@ router.post('/log-portion', (req, res) => {
   // Logging by servings
   const qty = parseFloat(servings) || 1;
   let scaledPs = ps;
+  let isEstimated = false;
 
   if (batch_id) {
     const batch = db.prepare('SELECT * FROM recipe_batches WHERE id = ?').get(batch_id);
     if (batch) {
+      isEstimated = !!batch.weight_estimated;
       const scale = batch.scale_factor || 1;
       const recipeSrv = recipe.servings || 1;
       const portions = batch.portions || recipeSrv;
-      // Per portion = total batch / portions
       scaledPs = {
         calories: (ps.calories * recipeSrv * scale) / portions,
         protein_g: (ps.protein_g * recipeSrv * scale) / portions,
@@ -419,11 +421,12 @@ router.post('/log-portion', (req, res) => {
     }
   }
 
+  const foodName = isEstimated ? `${recipe.title} (est.)` : recipe.title;
   const result = db.prepare(`
     INSERT INTO food_logs (date, meal_type, food_name, quantity, calories, protein_g, carbs_g, fat_g, fiber_g, sugar_g, unit_used, recipe_id, batch_id)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `).run(
-    logDate, meal, recipe.title, qty,
+    logDate, meal, foodName, qty,
     Math.round(scaledPs.calories * qty),
     Math.round((scaledPs.protein_g || 0) * qty * 10) / 10,
     Math.round((scaledPs.carbs_g || 0) * qty * 10) / 10,
