@@ -607,21 +607,19 @@ export default function Training() {
       return ex;
     }).sort((a, b) => (a.slot || 0) - (b.slot || 0));
 
-    // Separate core and bonus
-    const coreExercises = effectiveExercises.filter(e => !e.is_bonus);
-    const bonusExercises = effectiveExercises.filter(e => e.is_bonus);
+    const coreExercises = effectiveExercises;
 
     const coreCount = coreExercises.length;
     const coreDoneCount = coreExercises.filter(
       ex => ex.exercise_id && (sessionSets[ex.exercise_id] || []).every(s => s.done) && (sessionSets[ex.exercise_id] || []).length > 0
     ).length;
 
-    // Determine which exercise should be active (first non-done core, else first non-done bonus)
+    // Determine which exercise should be active (first non-done)
     const currentActive = activeExId || (() => {
       const firstUnfinished = coreExercises.find(
         ex => ex.exercise_id && !((sessionSets[ex.exercise_id] || []).length > 0 && (sessionSets[ex.exercise_id] || []).every(s => s.done))
       );
-      return firstUnfinished?.exercise_id || bonusExercises[0]?.exercise_id || coreExercises[0]?.exercise_id;
+      return firstUnfinished?.exercise_id || coreExercises[0]?.exercise_id;
     })();
 
     // Auto-advance: after completing all sets of the active exercise, move to next
@@ -656,11 +654,6 @@ export default function Training() {
     function handleSlotTap(targetExId) {
       if (targetExId === currentActive) return;
       const targetEx = effectiveExercises.find(e => e.exercise_id === targetExId);
-      // Bonus can always be tapped without confirm
-      if (targetEx?.is_bonus) {
-        setActiveExId(targetExId);
-        return;
-      }
       // If the current active slot is ahead of the target, no confirm needed
       const currentSlot = activeEx?.slot || 0;
       const targetSlot = targetEx?.slot || 0;
@@ -694,7 +687,7 @@ export default function Training() {
         {/* Running-long warning */}
         {showRunningLong && (
           <div className="mx-4 mt-2 px-4 py-2.5 rounded-[12px] text-[12.5px] text-tx-2 flex items-center justify-between" style={{ background: 'color-mix(in oklab, var(--cal) 12%, var(--bg))' }}>
-            <span>Running long — the bonus lift is the one to drop.</span>
+            <span>Running long — consider skipping cardio today.</span>
             <button onClick={() => setRunningLongDismissed(true)} className="text-tx-3 text-[14px] ml-2 press-scale">✕</button>
           </div>
         )}
@@ -764,31 +757,6 @@ export default function Training() {
                 <CollapsedExercise key={ex.exercise_id || i} ex={ex} allDone={allDone} onTap={() => handleSlotTap(ex.exercise_id)} />
               );
             })}
-
-            {/* Bonus separator */}
-            {bonusExercises.length > 0 && (
-              <>
-                <div className="text-[12px] font-bold text-tx-3 uppercase tracking-wider mt-2 mb-0.5 px-1">
-                  Bonus — only if you have time
-                </div>
-                {bonusExercises.map((ex, i) => {
-                  const isActive = ex.exercise_id === currentActive;
-                  const exSets = sessionSets[ex.exercise_id] || [];
-                  const allDone = exSets.length > 0 && exSets.every(s => s.done);
-                  return isActive ? (
-                    <ExerciseCard
-                      key={ex.exercise_id || `bonus-${i}`}
-                      ex={ex} sets={exSets} last={last_numbers[ex.exercise_id] || []}
-                      onSetChange={handleSetChange} onCompleteSet={handleCompleteSet}
-                      onAddSet={handleAddSet} onDeleteSet={handleDeleteSet}
-                      onDetail={setDetailExercise} onProg={setProgExercise} onSwap={setSwapExercise}
-                    />
-                  ) : (
-                    <CollapsedExercise key={ex.exercise_id || `bonus-${i}`} ex={ex} allDone={allDone} onTap={() => setActiveExId(ex.exercise_id)} />
-                  );
-                })}
-              </>
-            )}
 
             {/* In-session cardio — always at the end */}
             <div className="mt-2">
@@ -1179,6 +1147,59 @@ export default function Training() {
             </div>
           )}
 
+          {/* Smith bar weight prompt */}
+          {data.smith_bar_weight_needed && (
+            <SmithBarWeightPrompt onDone={load} />
+          )}
+
+          {/* Load entry confirmation */}
+          {data.load_entry_confirmation_needed && !data.smith_bar_weight_needed && (
+            <div className="rounded-[20px] border border-hair p-[18px]" style={{ background: 'var(--card)' }}>
+              <div className="text-[15px] font-bold text-tx">Confirm how you log weight</div>
+              <p className="text-[13px] text-tx-2 mt-1.5 leading-[1.5]">
+                Smith Machine exercises are logged as per-side weight (bar not counted). All other exercises are logged as total weight.
+              </p>
+              <button
+                onClick={async () => { await api.confirmLoadEntry(); load(); }}
+                className="w-full mt-3 h-[44px] rounded-[12px] text-[14px] font-bold press-scale"
+                style={{ background: 'var(--points)', color: 'var(--accent-surface)' }}
+              >
+                Confirm
+              </button>
+            </div>
+          )}
+
+          {/* Knee block prompt (21 days) */}
+          {data.knee_block_prompt && (
+            <div className="rounded-[20px] border border-hair p-[18px]" style={{ background: 'var(--card)' }}>
+              <div className="text-[15px] font-bold text-tx">{data.knee_block_prompt.message}</div>
+              <p className="text-[13px] text-tx-2 mt-1.5 leading-[1.5]">
+                {data.knee_block_prompt.physio_note}
+              </p>
+              <div className="flex gap-2 mt-3">
+                <button
+                  onClick={async () => { await api.snoozeKneeBlock(); load(); }}
+                  className="flex-1 h-[44px] rounded-[12px] text-[14px] font-bold text-tx-3 border border-hair press-scale"
+                >
+                  Continue
+                </button>
+                <button
+                  onClick={async () => { await api.setKneeBlock(false); load(); }}
+                  className="flex-1 h-[44px] rounded-[12px] text-[14px] font-bold press-scale"
+                  style={{ background: 'var(--points)', color: 'white' }}
+                >
+                  Exit knee block
+                </button>
+                <button
+                  onClick={async () => { await api.snoozeKneeBlock(); load(); }}
+                  className="h-[44px] px-4 rounded-[12px] text-[14px] font-bold text-tx-3 border border-hair press-scale"
+                >
+                  Snooze
+                </button>
+              </div>
+            </div>
+          )}
+
           {/* Log other activity */}
           <button
             onClick={() => setActivitySheetOpen(true)}
@@ -1296,11 +1317,14 @@ function CollapsedExercise({ ex, allDone, onTap }) {
 function ExerciseCard({ ex, sets, last, onSetChange, onCompleteSet, onAddSet, onDeleteSet, onDetail, onProg, onSwap, loadSuggestion }) {
   const exId = ex.exercise_id;
   const isAssist = ex.load_type === 'assistance';
+  const isPerSide = ex.load_entry === 'per_side';
   const allDone = sets.length > 0 && sets.every(s => s.done);
   const lastTxt = last.length > 0
     ? last.map(l => isAssist && l.effective_load_kg != null
         ? `${l.weight_kg}→${l.effective_load_kg}×${l.reps}`
-        : `${l.weight_kg}×${l.reps}`
+        : isPerSide
+          ? `${l.weight_kg}/s×${l.reps}`
+          : `${l.weight_kg}×${l.reps}`
       ).join(', ')
     : '—';
 
@@ -1336,7 +1360,7 @@ function ExerciseCard({ ex, sets, last, onSetChange, onCompleteSet, onAddSet, on
       <div className="grid gap-2 items-center mt-3.5 px-0.5" style={{ gridTemplateColumns: '22px 54px 1fr 1fr 42px 24px' }}>
         <span className="text-[11px] font-bold text-tx-3">set</span>
         <span className="text-[11px] font-bold text-tx-3">prev</span>
-        <span className="text-[11px] font-bold text-tx-3 text-center">{isAssist ? 'assist' : 'kg'}</span>
+        <span className="text-[11px] font-bold text-tx-3 text-center">{isAssist ? 'assist' : isPerSide ? '/side' : 'kg'}</span>
         <span className="text-[11px] font-bold text-tx-3 text-center">reps</span>
         <span className="text-[11px] font-bold text-tx-3 text-center">✓</span>
         <span />
@@ -1346,7 +1370,7 @@ function ExerciseCard({ ex, sets, last, onSetChange, onCompleteSet, onAddSet, on
       <div className="flex flex-col gap-2 mt-1.5">
         {sets.map((set) => {
           const prev = last.find(l => l.set_number === set.set_number);
-          const prevTxt = prev ? `${prev.weight_kg}×${prev.reps}` : '—';
+          const prevTxt = prev ? (isPerSide ? `${prev.weight_kg}/s×${prev.reps}` : `${prev.weight_kg}×${prev.reps}`) : '—';
           return (
             <div key={`${exId}-${set.set_number}`} className="grid gap-2 items-center" style={{ gridTemplateColumns: '22px 54px 1fr 1fr 42px 24px' }}>
               <span className="text-[14px] font-semibold font-num text-tx-3">{set.set_number}</span>
@@ -1396,6 +1420,13 @@ function ExerciseCard({ ex, sets, last, onSetChange, onCompleteSet, onAddSet, on
           );
         })}
       </div>
+
+      {/* Per-side effective total */}
+      {isPerSide && sets.length > 0 && sets[0].weight_kg && (
+        <div className="mt-1.5 text-[12px] font-semibold text-tx-3 text-center">
+          {sets[0].weight_kg}/side · {Math.round((parseFloat(sets[0].weight_kg) * 2 + (ex.bar_weight_kg || 0)) * 10) / 10} kg total
+        </div>
+      )}
 
       {/* Add set */}
       <button
@@ -1475,6 +1506,52 @@ function CardioAddSheet({ onAdd, onClose, defaultMinutes }) {
   );
 }
 
+// ─── Smith Bar Weight Prompt ─────────────────────────────────
+function SmithBarWeightPrompt({ onDone }) {
+  const [weight, setWeight] = useState('7');
+  const [saving, setSaving] = useState(false);
+
+  async function handleSubmit() {
+    const kg = parseFloat(weight);
+    if (!kg || kg < 0) return;
+    setSaving(true);
+    try {
+      await api.setSmithBarWeight(kg);
+      onDone();
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div className="rounded-[20px] border border-hair p-[18px]" style={{ background: 'var(--card)' }}>
+      <div className="text-[15px] font-bold text-tx">How heavy is your gym's Smith Machine bar?</div>
+      <p className="text-[13px] text-tx-2 mt-1.5 leading-[1.5]">
+        Smith machines have different bar weights (typically 7-15 kg). This is added to your per-side entries for accurate tracking.
+      </p>
+      <div className="flex items-center gap-3 mt-3">
+        <input
+          type="number"
+          value={weight}
+          onChange={e => setWeight(e.target.value)}
+          step="0.5"
+          min="0"
+          className="w-20 px-3 py-2 rounded-[10px] border border-hair text-[15px] font-num text-tx text-center bg-card-2"
+        />
+        <span className="text-[14px] text-tx-2">kg</span>
+        <button
+          onClick={handleSubmit}
+          disabled={saving}
+          className="ml-auto h-[40px] px-5 rounded-[12px] text-[14px] font-bold press-scale disabled:opacity-40"
+          style={{ background: 'var(--points)', color: 'var(--accent-surface)' }}
+        >
+          {saving ? 'Saving...' : 'Save'}
+        </button>
+      </div>
+    </div>
+  );
+}
+
 // ─── Weekly Volume Card ──────────────────────────────────────
 function WeeklyVolumeCard({ volume, volumeNotes }) {
   if (!volume) return null;
@@ -1501,16 +1578,24 @@ function WeeklyVolumeCard({ volume, volumeNotes }) {
         <div className="flex flex-col gap-2 mt-3.5">
           {muscleVolume.map(m => {
             const [lo, hi] = m.target;
-            const barColor = m.sets < lo ? 'var(--cal)' : m.sets <= hi ? 'var(--points)' : 'var(--text-3)';
+            // Knee block note: use muted color instead of warning for expected low volume
+            const barColor = m.knee_block_note
+              ? 'var(--text-3)'
+              : m.sets < lo ? 'var(--cal)' : m.sets <= hi ? 'var(--points)' : 'var(--text-3)';
             const barWidth = `${Math.min(100, Math.round((m.sets / maxTarget) * 100))}%`;
             return (
-              <div key={m.muscle} className="grid items-center gap-2" style={{ gridTemplateColumns: '72px 1fr 28px 38px' }}>
-                <span className="text-[13px] font-semibold text-tx-2 capitalize">{MUSCLE_LABELS[m.muscle] || m.muscle}</span>
-                <div className="h-[7px] rounded-full overflow-hidden bg-card-2 relative">
-                  <div className="h-full rounded-full" style={{ width: barWidth, background: barColor, transition: 'width .3s' }} />
+              <div key={m.muscle}>
+                <div className="grid items-center gap-2" style={{ gridTemplateColumns: '72px 1fr 28px 38px' }}>
+                  <span className="text-[13px] font-semibold text-tx-2 capitalize">{MUSCLE_LABELS[m.muscle] || m.muscle}</span>
+                  <div className="h-[7px] rounded-full overflow-hidden bg-card-2 relative">
+                    <div className="h-full rounded-full" style={{ width: barWidth, background: barColor, transition: 'width .3s' }} />
+                  </div>
+                  <span className="text-[13px] font-bold font-num text-right" style={{ color: barColor }}>{m.sets}</span>
+                  <span className="text-[11px] font-num text-tx-3 text-right">avg {m.avg4w}</span>
                 </div>
-                <span className="text-[13px] font-bold font-num text-right" style={{ color: barColor }}>{m.sets}</span>
-                <span className="text-[11px] font-num text-tx-3 text-right">avg {m.avg4w}</span>
+                {m.knee_block_note && (
+                  <div className="text-[10.5px] text-tx-3 ml-[80px] mt-0.5">{m.knee_block_note}</div>
+                )}
               </div>
             );
           })}
@@ -2008,6 +2093,7 @@ function formatWorkoutType(type) {
   const map = {
     fullbody_a: 'Full Body A', fullbody_b: 'Full Body B', fullbody_c: 'Full Body C',
     upper_a: 'Upper A', lower_a: 'Lower A', upper_b: 'Upper B', lower_b: 'Lower B',
+    upper_c: 'Upper C', lower: 'Lower',
   };
   return map[type] || type;
 }

@@ -124,6 +124,14 @@ export const api = {
   removeSessionCardio: (sessionId, cardioId) => req('DELETE', `/training/sessions/${sessionId}/cardio/${cardioId}`),
   getSessionCardio: (sessionId) => req('GET', `/training/sessions/${sessionId}/cardio`),
 
+  // Smith bar weight & load entry
+  setSmithBarWeight: (weight_kg) => req('POST', '/training/smith-bar-weight', { weight_kg }),
+  confirmLoadEntry: () => req('POST', '/training/load-entry-confirm'),
+
+  // Knee block
+  setKneeBlock: (active) => req('POST', '/training/knee-block', { active }),
+  snoozeKneeBlock: () => req('POST', '/training/knee-block/snooze'),
+
   // Rotation queue
   getRotation: () => req('GET', '/training/rotation'),
 

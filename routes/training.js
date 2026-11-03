@@ -2,11 +2,11 @@ const express = require('express');
 const router = express.Router();
 const { getDB } = require('../db/database');
 const { todayIST, daysAgoIST, getMondayIST, getDaysOfWeek } = require('../dateUtils');
-const { getNextWorkoutType, getWorkoutByType, ROTATION, SUCCESSOR_MAP, BANNED_EQUIPMENT, EQUIPMENT_SUBSTITUTIONS } = require('../db/workoutTemplates');
+const { getNextWorkoutType, getWorkoutByType, ROTATION, SUCCESSOR_MAP, KB_ROTATION, KB_SUCCESSOR_MAP, KB_EXCLUDED_EXERCISES, BANNED_EQUIPMENT, EQUIPMENT_SUBSTITUTIONS } = require('../db/workoutTemplates');
 const { EQUIPMENT_CATALOG } = require('../db/equipmentData');
 
 // ─── Constants ───────────────────────────────────────────────
-const SESSION_CAP = 5; // hard cap: 5 exercises per session, no exceptions
+const SESSION_CAP = 4; // hard cap: 4 exercises per session, no exceptions
 
 // Fine-grained muscle → coarse volume-readout group.
 // Every primary_muscles value in the exercises table must resolve here.
@@ -27,8 +27,8 @@ const MUSCLE_GROUP_MAP = {
 };
 
 const COMPOUND_SET = new Set([
-  'Barbell Back Squat', 'Smith Machine Squat', 'Barbell Bench Press', 'Conventional Deadlift',
-  'Romanian Deadlift', 'Standing Overhead Press', 'Barbell Row',
+  'Barbell Back Squat', 'Smith Machine Squat', 'Barbell Bench Press', 'Barbell Bench Press (Volume)',
+  'Conventional Deadlift', 'Romanian Deadlift', 'Standing Overhead Press', 'Barbell Row',
   'Leg Press', 'Bulgarian Split Squat', 'Incline Dumbbell Press',
   'Pull-Up', 'Hip Thrust', 'Dips', 'Shoulder Press Machine',
   'Assisted Pull-Up Machine', 'Smith Machine Bench Press',
@@ -40,7 +40,7 @@ const MUSCLE_PRIORITY = ['quads', 'hamstrings', 'glutes', 'lats', 'upper_back', 
 
 // Exercise to use when catching up a muscle group — machine/cable preferred
 const CATCH_UP_EXERCISES = {
-  quads: 'Leg Press', hamstrings: 'Lying Leg Curl', glutes: 'Back Extension',
+  quads: 'Leg Press', hamstrings: 'Seated Leg Curl', glutes: 'Back Extension',
   lats: 'Lat Pulldown', upper_back: 'Seated Cable Row', chest: 'Pec Fly Machine (Pec Deck)',
   front_delts: 'Shoulder Press Machine', side_delts: 'Cable Lateral Raise', rear_delts: 'Face Pull',
   biceps: 'Cable Bicep Curl', triceps: 'Cable Tricep Pushdown', abs: 'Cable Crunch',
@@ -215,7 +215,8 @@ function muscleRegion(muscle) {
   return 'lower'; // abs, lower_back → lower
 }
 function workoutRegion(workoutType) {
-  return workoutType.includes('lower') ? 'lower' : 'upper';
+  if (workoutType === 'lower' || workoutType === 'lower_a' || workoutType === 'lower_b') return 'lower';
+  return 'upper';
 }
 
 // ─── Catch-up logic ─────────────────────────────────────────
@@ -225,7 +226,7 @@ function workoutRegion(workoutType) {
 // skip muscles already covered by the upcoming template;
 // equipment-aware (only pick servable exercises);
 // least-sets-this-week priority, muscle-size as tie-break.
-function computeCatchUp(db, weekDays, templateExercises, weekSessionOrdinal, nextWorkoutType, availableEquipment, pendingExerciseIds) {
+function computeCatchUp(db, weekDays, templateExercises, weekSessionOrdinal, nextWorkoutType, availableEquipment, pendingExerciseIds, kneeBlockActive) {
   if (weekSessionOrdinal < 3) return { substitutions: [], notes: {}, debug: [] };
 
   const sessionRegion = workoutRegion(nextWorkoutType);
@@ -358,6 +359,8 @@ function computeCatchUp(db, weekDays, templateExercises, weekSessionOrdinal, nex
   for (const muscle of toSubstitute) {
     const exName = CATCH_UP_EXERCISES[muscle];
     if (!exName || templateNames.has(exName)) continue;
+    // Skip exercises excluded during knee block
+    if (kneeBlockActive && KB_EXCLUDED_EXERCISES[exName]) continue;
     const dbEx = db.prepare('SELECT id, name, primary_muscles, secondary_muscles, rest_seconds, equipment_type, required_equipment, substitutes FROM exercises WHERE name = ?').get(exName);
     if (!dbEx) continue;
 
@@ -400,24 +403,14 @@ function computeCatchUp(db, weekDays, templateExercises, weekSessionOrdinal, nex
 }
 
 // Apply catch-up: insert at slot 1 (ahead of existing exercises), shift down.
-// Catch-ups for bonus exercises are never generated (filtered upstream).
-// A session may run to 5 core exercises while carrying a catch-up.
 function applySubstitutions(exercises, substitutions) {
   if (substitutions.length === 0) return exercises;
 
-  // Separate core and bonus
-  const core = exercises.filter(e => !e.is_bonus);
-  const bonus = exercises.filter(e => e.is_bonus);
-
-  // Insert catch-ups at the front (slot 1), shift existing core down
-  const merged = [...substitutions.map((s, i) => ({
-    ...s, slot: i + 1, is_bonus: false, is_catchup: true,
-  })), ...core.map((e, i) => ({
-    ...e, slot: substitutions.length + i + 1,
-  }))];
-
-  // Re-add bonus at the end
-  return [...merged, ...bonus.map(b => ({ ...b, slot: merged.length + 1 }))];
+  // Insert catch-ups at the front (slot 1), shift existing exercises down
+  return [
+    ...substitutions.map((s, i) => ({ ...s, slot: i + 1, is_bonus: false, is_catchup: true })),
+    ...exercises.map((e, i) => ({ ...e, slot: substitutions.length + i + 1 })),
+  ];
 }
 
 // ─── Variation refresh mappings ──────────────────────────────
@@ -440,26 +433,29 @@ function resolveNextWorkout(db) {
     SELECT workout_type, date, logged_at FROM workout_sessions
     WHERE completed = 1 ORDER BY logged_at DESC LIMIT 1
   `).get();
+  const goal = db.prepare('SELECT knee_block_active FROM goal WHERE id = 1').get();
+  const kneeBlockActive = !!goal?.knee_block_active;
   const lastType = lastCompleted?.workout_type || null;
-  const nextType = getNextWorkoutType(lastType);
+  const nextType = getNextWorkoutType(lastType, kneeBlockActive);
   return {
-    workout: getWorkoutByType(nextType),
+    workout: getWorkoutByType(nextType, kneeBlockActive),
     lastCompleted: lastCompleted || null,
+    kneeBlockActive,
   };
 }
 
 // GET /api/training — current state
 router.get('/', (req, res) => {
   const db = getDB();
-  const goal = db.prepare('SELECT template_start_date, refresh_snoozed_until, gym_equipment_set FROM goal WHERE id = 1').get();
-  const { workout: nextWorkout, lastCompleted } = resolveNextWorkout(db);
+  const goal = db.prepare('SELECT template_start_date, refresh_snoozed_until, gym_equipment_set, smith_bar_weight_kg, load_entry_confirmed, knee_block_active, knee_block_start_date, knee_block_snoozed_until FROM goal WHERE id = 1').get();
+  const { workout: nextWorkout, lastCompleted, kneeBlockActive } = resolveNextWorkout(db);
 
   // Get available equipment
   const availableEquipment = getAvailableEquipment(db);
 
   // Resolve exercise IDs for the template
   const exercises = nextWorkout.exercises.map(ex => {
-    const dbEx = db.prepare('SELECT id, name, primary_muscles, secondary_muscles, rest_seconds, equipment_type, required_equipment, load_type FROM exercises WHERE name = ?').get(ex.name);
+    const dbEx = db.prepare('SELECT id, name, primary_muscles, secondary_muscles, rest_seconds, equipment_type, required_equipment, load_type, load_entry, bar_included, bar_weight_kg FROM exercises WHERE name = ?').get(ex.name);
     return {
       ...ex,
       exercise_id: dbEx?.id || null,
@@ -469,6 +465,9 @@ router.get('/', (req, res) => {
       required_equipment: dbEx ? JSON.parse(dbEx.required_equipment || '[]') : [],
       equipment_type: dbEx?.equipment_type || null,
       load_type: dbEx?.load_type || 'resistance',
+      load_entry: dbEx?.load_entry || 'total',
+      bar_included: dbEx?.bar_included ?? 1,
+      bar_weight_kg: dbEx?.bar_weight_kg || null,
     };
   });
 
@@ -511,13 +510,14 @@ router.get('/', (req, res) => {
     if (!repRange) continue;
     const [, repLo, repHi] = repRange.map(Number);
 
-    // Get sets from each session
+    // Get sets from each session (use effective_load_kg for comparison)
+    const isPerSide = ex.load_entry === 'per_side';
     const sessionData = sessions.map(s => {
-      const sets = db.prepare('SELECT weight_kg, reps FROM workout_sets WHERE session_id = ? AND exercise_id = ? ORDER BY set_number').all(s.id, ex.exercise_id);
+      const sets = db.prepare('SELECT weight_kg, reps, effective_load_kg FROM workout_sets WHERE session_id = ? AND exercise_id = ? ORDER BY set_number').all(s.id, ex.exercise_id);
       return { date: s.date, sets };
     });
 
-    // Smallest weight increment observed in this exercise's history
+    // Smallest weight increment observed in this exercise's history (in entry units)
     function smallestDelta() {
       let inc = 2.5;
       if (ex.equipment_type === 'machine' || ex.equipment_type === 'cable') {
@@ -539,6 +539,7 @@ router.get('/', (req, res) => {
     const latest = sessionData[0];
     const prev = sessionData[1];
     if (latest.sets.length > 0 && prev.sets.length > 0) {
+      // Use entry weight for comparison (weight_kg) — this is what the user dials in
       const latestWeight = latest.sets[0]?.weight_kg;
       const prevWeight = prev.sets[0]?.weight_kg;
       const latestAllAtTop = latestWeight && latest.sets.every(s => s.weight_kg === latestWeight && s.reps >= repHi);
@@ -547,7 +548,6 @@ router.get('/', (req, res) => {
       if (latestAllAtTop && prevAllAtTop && latestWeight === prevWeight) {
         const inc = smallestDelta();
         if (isAssist) {
-          // Assistance: progress = reduce counterweight
           const suggestedWeight = Math.max(0, latestWeight - inc);
           loadSuggestions[ex.exercise_id] = {
             type: 'increase', load_type: 'assistance',
@@ -556,10 +556,11 @@ router.get('/', (req, res) => {
           };
         } else {
           const suggestedWeight = latestWeight + inc;
+          const displayUnit = isPerSide ? '/side' : ' kg';
           loadSuggestions[ex.exercise_id] = {
             type: 'increase',
             currentWeight: latestWeight, suggestedWeight,
-            message: `You've finished every set at ${latestWeight} kg — going to ${suggestedWeight} kg today.`,
+            message: `You've finished every set at ${latestWeight}${displayUnit} — going to ${suggestedWeight}${displayUnit} today.`,
           };
         }
         continue;
@@ -571,7 +572,6 @@ router.get('/', (req, res) => {
       if (latestAllBelow && prevAllBelow && latestWeight === prevWeight) {
         const dec = smallestDelta();
         if (isAssist) {
-          // Assistance: regression = need more counterweight (higher number)
           const suggestedWeight = latestWeight + dec;
           loadSuggestions[ex.exercise_id] = {
             type: 'decrease', load_type: 'assistance',
@@ -580,10 +580,11 @@ router.get('/', (req, res) => {
           };
         } else {
           const suggestedWeight = Math.max(0, latestWeight - dec);
+          const displayUnit = isPerSide ? '/side' : ' kg';
           loadSuggestions[ex.exercise_id] = {
             type: 'decrease',
             currentWeight: latestWeight, suggestedWeight,
-            message: `Struggling at ${latestWeight} kg for two sessions — try ${suggestedWeight} kg today.`,
+            message: `Struggling at ${latestWeight}${displayUnit} for two sessions — try ${suggestedWeight}${displayUnit} today.`,
           };
         }
       }
@@ -608,7 +609,8 @@ router.get('/', (req, res) => {
   // ─── Stalled lifts (Train home) ───────────────────────────
   // Any exercise at the same working weight for 3+ consecutive sessions
   const stalledLifts = [];
-  const allTemplateExercises = ROTATION.flatMap(w => w.exercises);
+  const activeRotation = kneeBlockActive ? KB_ROTATION : ROTATION;
+  const allTemplateExercises = activeRotation.flatMap(w => w.exercises);
   const seenExIds = new Set();
   for (const tex of allTemplateExercises) {
     const dbEx = db.prepare('SELECT id, name, load_type FROM exercises WHERE name = ?').get(tex.name);
@@ -673,10 +675,10 @@ router.get('/', (req, res) => {
     ? new Set(req.query.pending_exercises.split(',').map(Number).filter(Boolean))
     : null;
 
-  // Catch-up (equipment-aware, template-coverage-aware, pending-aware)
-  const catchUp = computeCatchUp(db, weekDays, exercises, weekSessionOrdinal, nextWorkout.type, availableEquipment, pendingExerciseIds);
+  // Catch-up (equipment-aware, template-coverage-aware, pending-aware, knee-block-aware)
+  const catchUp = computeCatchUp(db, weekDays, exercises, weekSessionOrdinal, nextWorkout.type, availableEquipment, pendingExerciseIds, kneeBlockActive);
 
-  // Apply substitutions to template (within the 5-slot cap)
+  // Apply substitutions to template (within the 4-slot cap)
   let finalExercises = applySubstitutions(exercises, catchUp.substitutions);
 
   // Equipment filtering: replace unavailable exercises with available substitutes
@@ -789,6 +791,32 @@ router.get('/', (req, res) => {
     nextMonday = m.toISOString().split('T')[0];
   }
 
+  // ─── Knee block prompt (21 days) ────────────────────────────
+  let knee_block_prompt = null;
+  if (kneeBlockActive && goal?.knee_block_start_date) {
+    const kbStart = new Date(goal.knee_block_start_date + 'T12:00:00Z');
+    const nowDate = new Date(today + 'T12:00:00Z');
+    const daysActive = Math.floor((nowDate - kbStart) / (24 * 60 * 60 * 1000));
+    const kbSnoozed = goal.knee_block_snoozed_until && today < goal.knee_block_snoozed_until;
+    if (daysActive >= 21 && !kbSnoozed) {
+      knee_block_prompt = {
+        days_active: daysActive,
+        message: 'Knee block has been on for three weeks. Still needed?',
+        physio_note: 'If the knee is still painful, a sports physio is the next step.',
+      };
+    }
+  }
+
+  // ─── Smith bar weight prompt ─────────────────────────────────
+  const smithBarWeightNeeded = !goal?.smith_bar_weight_kg && db.prepare(
+    "SELECT COUNT(*) as c FROM exercises WHERE load_entry = 'per_side' AND bar_included = 0"
+  ).get().c > 0;
+
+  // ─── Load entry confirmation needed ──────────────────────────
+  const loadEntryConfirmationNeeded = !goal?.load_entry_confirmed && db.prepare(
+    "SELECT COUNT(*) as c FROM exercises WHERE load_entry = 'per_side'"
+  ).get().c > 0;
+
   res.json({
     last_completed: lastCompleted ? { type: lastCompleted.workout_type, date: lastCompleted.date } : null,
     next_workout: { ...nextWorkout, exercises: finalExercises, subtitle, bench_swap_options: nextWorkout.bench_swap_options || null },
@@ -799,7 +827,7 @@ router.get('/', (req, res) => {
     week_gym_sessions: weekGymSessions,
     week_swim_sessions: weekSwimSessions,
     swim_note: swimNote,
-    rotation: ROTATION.map(w => ({ type: w.type, label: w.label, subtitle: w.subtitle })),
+    rotation: activeRotation.map(w => ({ type: w.type, label: w.label, subtitle: w.subtitle })),
     week_strip: weekStrip,
     catch_up: catchUpCount > 0 ? { count: catchUpCount, notes: catchUp.notes, debug: catchUp.debug } : null,
     volume_notes: catchUp.notes,
@@ -810,6 +838,11 @@ router.get('/', (req, res) => {
     gym_equipment_set: !!goal?.gym_equipment_set,
     week_complete: weekComplete,
     next_monday: nextMonday,
+    knee_block_active: kneeBlockActive,
+    knee_block_prompt,
+    kb_excluded_exercises: kneeBlockActive ? KB_EXCLUDED_EXERCISES : null,
+    smith_bar_weight_needed: smithBarWeightNeeded,
+    load_entry_confirmation_needed: loadEntryConfirmationNeeded,
   });
 });
 
@@ -882,17 +915,33 @@ router.post('/sessions/:id/swap', (req, res) => {
   res.json({ ok: true, was_swapped: !!wasSwapped });
 });
 
-// Compute effective load for assistance exercises: bodyweight − assist
-function computeEffectiveLoad(db, exerciseId, assistWeight) {
-  const exInfo = db.prepare('SELECT load_type FROM exercises WHERE id = ?').get(exerciseId);
-  if (exInfo?.load_type !== 'assistance' || assistWeight == null) return null;
-  // 7-day rolling average body weight
-  const avgBw = db.prepare(`
-    SELECT AVG(weight_kg) as avg_bw FROM weight_logs
-    WHERE date >= date('now', '-7 days')
-  `).get()?.avg_bw;
-  if (!avgBw) return null;
-  return Math.round((avgBw - assistWeight) * 10) / 10;
+// Compute effective load for any exercise:
+// - assistance: bodyweight − assist_weight
+// - per_side: weight * 2 + bar_weight (if bar not included)
+// - total (default): weight_kg as-is
+function computeEffectiveLoad(db, exerciseId, weightKg) {
+  const ex = db.prepare('SELECT load_type, load_entry, bar_included, bar_weight_kg FROM exercises WHERE id = ?').get(exerciseId);
+  if (!ex || weightKg == null) return null;
+
+  // Assistance exercises: bodyweight - assist
+  if (ex.load_type === 'assistance') {
+    const avgBw = db.prepare(`
+      SELECT AVG(weight_kg) as avg_bw FROM weight_logs
+      WHERE date >= date('now', '-7 days')
+    `).get()?.avg_bw;
+    if (!avgBw) return null;
+    return Math.round((avgBw - weightKg) * 10) / 10;
+  }
+
+  // Per-side: double the entered weight
+  let effective = (ex.load_entry === 'per_side') ? weightKg * 2 : weightKg;
+
+  // Add bar weight if bar is not included in the entered number
+  if (!ex.bar_included && ex.bar_weight_kg) {
+    effective += ex.bar_weight_kg;
+  }
+
+  return Math.round(effective * 10) / 10;
 }
 
 // POST /api/training/sessions/:id/sets — log a set (idempotent via client_uuid)
@@ -1003,8 +1052,9 @@ router.post('/sessions/:id/complete', (req, res) => {
 
   // Fallback: if no session_exercises rows exist (legacy session), use template matching
   if (slots.length === 0) {
-    const template = getWorkoutByType(session.workout_type);
-    const coreExNames = template.exercises.filter(e => !e.is_bonus).map(e => e.name);
+    const goalLegacy = db.prepare('SELECT knee_block_active FROM goal WHERE id = 1').get();
+    const template = getWorkoutByType(session.workout_type, !!goalLegacy?.knee_block_active);
+    const coreExNames = template.exercises.map(e => e.name);
     const planned = coreExNames.length;
     let completed = 0;
     for (const name of coreExNames) {
@@ -1048,7 +1098,10 @@ function finishCompletion(db, session, sessionId, duration, corePlanned, coreCom
     ).run(session.date, 'Gym', duration || 60, 'moderate', `Gym session: ${session.workout_type} (session:${sessionId})`);
   }
 
-  const nextType = SUCCESSOR_MAP[session.workout_type] || 'upper_a';
+  const goalKB = db.prepare('SELECT knee_block_active FROM goal WHERE id = 1').get();
+  const kbActive = !!goalKB?.knee_block_active;
+  const activeSMap = kbActive ? KB_SUCCESSOR_MAP : SUCCESSOR_MAP;
+  const nextType = activeSMap[session.workout_type] || 'upper_a';
   res.json({
     ok: true, next_type: nextType, exercise_log_action,
     core_planned: corePlanned, core_completed: coreCompleted,
@@ -1093,8 +1146,9 @@ router.get('/exercises/:id/history', (req, res) => {
   const db = getDB();
   const exerciseId = req.params.id;
 
-  const exInfo = db.prepare('SELECT load_type FROM exercises WHERE id = ?').get(exerciseId);
+  const exInfo = db.prepare('SELECT load_type, load_entry, bar_included, bar_weight_kg FROM exercises WHERE id = ?').get(exerciseId);
   const isAssist = exInfo?.load_type === 'assistance';
+  const isPerSide = exInfo?.load_entry === 'per_side';
 
   const sessions = db.prepare(`
     SELECT ws.date, ws.workout_type, wset.set_number, wset.weight_kg, wset.reps, wset.effective_load_kg
@@ -1120,6 +1174,20 @@ router.get('/exercises/:id/history', (req, res) => {
         return {
           date, top_weight: topSet.effective_load_kg, assist_weight: topSet.weight_kg,
           top_reps: topSet.reps, e1rm: null, total_sets: sets.length, load_type: 'assistance',
+        };
+      }
+    }
+    // For per_side exercises, use effective_load_kg for chart (shows real total moved)
+    if (isPerSide) {
+      const withEffective = sets.filter(s => s.effective_load_kg != null);
+      if (withEffective.length > 0) {
+        const topSet = withEffective.reduce((best, s) => (s.effective_load_kg > best.effective_load_kg ? s : best), withEffective[0]);
+        const e1rm = topSet.effective_load_kg && topSet.reps
+          ? Math.round(topSet.effective_load_kg * (1 + topSet.reps / 30) * 10) / 10
+          : null;
+        return {
+          date, top_weight: topSet.effective_load_kg, entry_weight: topSet.weight_kg,
+          top_reps: topSet.reps, e1rm, total_sets: sets.length, load_entry: 'per_side',
         };
       }
     }
@@ -1252,12 +1320,20 @@ router.get('/volume', (req, res) => {
     ...sessionCardio.map(c => ({ date: c.date, type: c.type, duration_min: c.duration_min, in_session: true })),
   ].sort((a, b) => b.date.localeCompare(a.date));
 
+  // Knee block status for volume labels
+  const goalKBVol = db.prepare('SELECT knee_block_active FROM goal WHERE id = 1').get();
+  const kbActiveVol = !!goalKBVol?.knee_block_active;
+
   // Muscle volume readout: per-muscle sets, target bands, 4-week avg
   const muscleVolume = ['chest', 'back', 'shoulders', 'triceps', 'biceps', 'quads', 'hamstrings', 'calves', 'abs', 'lower_back'].map(m => ({
     muscle: m,
     sets: setsPerMuscle[m] || 0,
     avg4w: avgPerMuscle[m] || 0,
     target: TARGET_BANDS[m] || [0, 0],
+    knee_block_note: kbActiveVol ? (
+      m === 'quads' ? 'excluded: knee block' :
+      (m === 'hamstrings' || m === 'calves') ? 'reduced: knee block' : null
+    ) : null,
   }));
 
   res.json({
@@ -1321,6 +1397,65 @@ router.delete('/sessions/:id', (req, res) => {
   res.json({ ok: true, discarded: true });
 });
 
+// ─── Smith bar weight ──────────────────────────────────────
+router.post('/smith-bar-weight', (req, res) => {
+  const db = getDB();
+  const { weight_kg } = req.body;
+  if (weight_kg == null || weight_kg < 0) return res.status(400).json({ error: 'weight_kg required' });
+
+  db.prepare('UPDATE goal SET smith_bar_weight_kg = ? WHERE id = 1').run(weight_kg);
+  // Update all Smith Machine exercises with the bar weight
+  db.prepare("UPDATE exercises SET bar_weight_kg = ? WHERE load_entry = 'per_side' AND bar_included = 0").run(weight_kg);
+  // Re-backfill effective_load_kg for Smith sets
+  const perSideExercises = db.prepare("SELECT id FROM exercises WHERE load_entry = 'per_side'").all();
+  for (const ex of perSideExercises) {
+    db.prepare('UPDATE workout_sets SET effective_load_kg = weight_kg * 2 + ? WHERE exercise_id = ? AND weight_kg IS NOT NULL')
+      .run(weight_kg, ex.id);
+  }
+  res.json({ ok: true });
+});
+
+// ─── Load entry confirmation ───────────────────────────────
+router.post('/load-entry-confirm', (req, res) => {
+  const db = getDB();
+  db.prepare('UPDATE goal SET load_entry_confirmed = 1 WHERE id = 1').run();
+  res.json({ ok: true });
+});
+
+// ─── Knee block ────────────────────────────────────────────
+router.post('/knee-block', (req, res) => {
+  const db = getDB();
+  const { active } = req.body;
+  const today = todayIST();
+
+  if (active) {
+    // Save pre-state for restoration
+    const lastCompleted = db.prepare(
+      'SELECT workout_type FROM workout_sessions WHERE completed = 1 ORDER BY logged_at DESC LIMIT 1'
+    ).get();
+    const preState = JSON.stringify({ last_completed_type: lastCompleted?.workout_type || null });
+    db.prepare(
+      'UPDATE goal SET knee_block_active = 1, knee_block_start_date = ?, knee_block_pre_state = ?, knee_block_snoozed_until = NULL WHERE id = 1'
+    ).run(today, preState);
+  } else {
+    db.prepare(
+      'UPDATE goal SET knee_block_active = 0, knee_block_start_date = NULL, knee_block_pre_state = NULL, knee_block_snoozed_until = NULL WHERE id = 1'
+    ).run();
+  }
+
+  // Invalidate active (incomplete) sessions so next workout picks up new rotation
+  db.prepare('DELETE FROM workout_sessions WHERE completed = 0').run();
+
+  res.json({ ok: true, knee_block_active: !!active });
+});
+
+router.post('/knee-block/snooze', (req, res) => {
+  const db = getDB();
+  const snoozeUntil = new Date(Date.now() + 330 * 60000 + 14 * 86400000).toISOString().split('T')[0]; // +14 days IST
+  db.prepare('UPDATE goal SET knee_block_snoozed_until = ? WHERE id = 1').run(snoozeUntil);
+  res.json({ ok: true, snoozed_until: snoozeUntil });
+});
+
 // ─── Equipment API ──────────────────────────────────────────
 
 // GET /api/training/equipment — get all equipment with availability
@@ -1364,15 +1499,18 @@ router.put('/equipment', (req, res) => {
 // GET /api/training/rotation — deterministic queue state (for Settings debug)
 router.get('/rotation', (req, res) => {
   const db = getDB();
-  const { workout, lastCompleted } = resolveNextWorkout(db);
+  const { workout, lastCompleted, kneeBlockActive } = resolveNextWorkout(db);
+
+  const activeRot = kneeBlockActive ? KB_ROTATION : ROTATION;
+  const activeSMap = kneeBlockActive ? KB_SUCCESSOR_MAP : SUCCESSOR_MAP;
 
   // Build the upcoming queue starting from the resolved next workout
   const queue = [];
   let type = workout.type;
-  for (let i = 0; i < ROTATION.length; i++) {
-    const w = getWorkoutByType(type);
+  for (let i = 0; i < activeRot.length; i++) {
+    const w = getWorkoutByType(type, kneeBlockActive);
     queue.push({ type: w.type, label: w.label, subtitle: w.subtitle });
-    type = SUCCESSOR_MAP[type] || 'upper_a';
+    type = activeSMap[type] || 'upper_a';
   }
 
   res.json({
@@ -1382,6 +1520,7 @@ router.get('/rotation', (req, res) => {
       logged_at: lastCompleted.logged_at,
     } : null,
     next_type: workout.type,
+    knee_block_active: kneeBlockActive,
     queue,
   });
 });
@@ -1389,7 +1528,7 @@ router.get('/rotation', (req, res) => {
 // ─── Startup assertion: muscle mapping coverage ─────────────
 // Every exercise in every template must resolve to a volume group.
 (function assertMuscleMapping() {
-  for (const w of ROTATION) {
+  for (const w of [...ROTATION, ...KB_ROTATION]) {
     for (const ex of w.exercises) {
       const group = MUSCLE_GROUP_MAP[ex.primary_muscle];
       if (!group) {

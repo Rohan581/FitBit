@@ -20,8 +20,10 @@ function seedExercises(db) {
   }
 
   // Ensure load_type column exists
-  const exColsLt = db.prepare("PRAGMA table_info(exercises)").all().map(c => c.name);
-  const hasLoadType = exColsLt.includes('load_type');
+  const hasLoadType = exCols.includes('load_type');
+
+  // Ensure v43 load-entry columns exist
+  const hasLoadEntry = exCols.includes('load_entry');
 
   const insert = db.prepare(`
     INSERT OR IGNORE INTO exercises (name, primary_muscles, secondary_muscles, form_cues, common_mistakes, substitutes, youtube_search_term, equipment_type, required_equipment)
@@ -36,6 +38,10 @@ function seedExercises(db) {
   const updateWithLoadType = hasLoadType ? db.prepare(`
     UPDATE exercises SET primary_muscles = ?, secondary_muscles = ?, form_cues = ?, common_mistakes = ?, substitutes = ?, youtube_search_term = ?, equipment_type = ?, required_equipment = ?, load_type = ?
     WHERE name = ?
+  `) : null;
+
+  const updateLoadEntry = hasLoadEntry ? db.prepare(`
+    UPDATE exercises SET load_entry = ?, bar_included = ? WHERE name = ?
   `) : null;
 
   const tx = db.transaction(() => {
@@ -54,6 +60,10 @@ function seedExercises(db) {
         updateWithLoadType.run(pm, sm, fc, cm, sub, ex.youtube_search_term, eqType, reqEq, ex.load_type, ex.name);
       } else {
         updateBase.run(pm, sm, fc, cm, sub, ex.youtube_search_term, eqType, reqEq, ex.name);
+      }
+      // Sync load-entry fields from seed data
+      if (updateLoadEntry && ex.load_entry) {
+        updateLoadEntry.run(ex.load_entry, ex.bar_included ? 1 : 0, ex.name);
       }
     }
   });

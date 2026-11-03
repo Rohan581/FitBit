@@ -1099,6 +1099,44 @@ function runMigrations(db) {
     console.log(`[v42 migration] Multiple waist rows at 86.5 — not auto-fixing. Dates: ${waistBadRows.map(r => r.date).join(', ')}`);
   }
 
+  // ── v43: load_entry and bar_included on exercises ──────────
+  const exColsV43 = db.prepare("PRAGMA table_info(exercises)").all().map(c => c.name);
+  if (!exColsV43.includes('load_entry')) {
+    db.exec(`ALTER TABLE exercises ADD COLUMN load_entry TEXT NOT NULL DEFAULT 'total'`);
+    db.exec(`ALTER TABLE exercises ADD COLUMN bar_included INTEGER NOT NULL DEFAULT 1`);
+    db.exec(`ALTER TABLE exercises ADD COLUMN bar_weight_kg REAL`);
+    // Mark Smith machines as per_side, bar not included
+    db.prepare("UPDATE exercises SET load_entry = 'per_side', bar_included = 0 WHERE name LIKE 'Smith Machine%'").run();
+  }
+
+  // ── v43: smith_bar_weight_kg + knee block columns on goal ──
+  const goalColsV43 = db.prepare("PRAGMA table_info(goal)").all().map(c => c.name);
+  if (!goalColsV43.includes('smith_bar_weight_kg')) {
+    db.exec(`ALTER TABLE goal ADD COLUMN smith_bar_weight_kg REAL`);
+    db.exec(`ALTER TABLE goal ADD COLUMN load_entry_confirmed INTEGER DEFAULT 0`);
+    db.exec(`ALTER TABLE goal ADD COLUMN knee_block_active INTEGER DEFAULT 0`);
+    db.exec(`ALTER TABLE goal ADD COLUMN knee_block_start_date TEXT`);
+    db.exec(`ALTER TABLE goal ADD COLUMN knee_block_pre_state TEXT`);
+    db.exec(`ALTER TABLE goal ADD COLUMN knee_block_snoozed_until TEXT`);
+  }
+
+  // ── v43: Backfill effective_load_kg for per-side exercises ──
+  // For Smith machines: effective = weight * 2 + bar_weight (bar_weight is 0 until user provides it)
+  const perSideExs = db.prepare("SELECT id, bar_weight_kg FROM exercises WHERE load_entry = 'per_side'").all();
+  for (const ex of perSideExs) {
+    const barW = ex.bar_weight_kg || 0;
+    db.prepare(
+      'UPDATE workout_sets SET effective_load_kg = ROUND(weight_kg * 2 + ?, 1) WHERE exercise_id = ? AND weight_kg IS NOT NULL AND (effective_load_kg IS NULL OR load_entry = ?)'
+    ).run(barW, ex.id, 'per_side');
+  }
+  // For total-load non-assistance exercises: effective = weight_kg
+  db.prepare(`UPDATE workout_sets SET effective_load_kg = weight_kg
+    WHERE effective_load_kg IS NULL AND weight_kg IS NOT NULL
+    AND exercise_id IN (SELECT id FROM exercises WHERE load_entry = 'total' AND (load_type IS NULL OR load_type = 'resistance'))`).run();
+
+  // ── v43: Invalidate cached active sessions → re-materialise from new templates
+  db.prepare("DELETE FROM workout_sessions WHERE completed = 0").run();
+
   // Seed exercises
   seedExercises(db);
 

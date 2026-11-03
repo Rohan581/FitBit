@@ -380,6 +380,8 @@ export default function Settings() {
 
         <TrainingQueueSection />
 
+        <KneeBlockSection />
+
         <EquipmentSection />
 
         <NotificationsSection />
@@ -573,6 +575,67 @@ function TrainingQueueSection() {
           </div>
         ))}
       </div>
+    </div>
+  );
+}
+
+function KneeBlockSection() {
+  const [active, setActive] = useState(null);
+  const [startDate, setStartDate] = useState(null);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    api.getRotation().then(d => {
+      setActive(!!d.knee_block_active);
+    }).catch(() => {});
+    api.getGoal().then(g => {
+      setStartDate(g.knee_block_start_date || null);
+    }).catch(() => {});
+  }, []);
+
+  async function toggle() {
+    setSaving(true);
+    try {
+      const next = !active;
+      await api.setKneeBlock(next);
+      setActive(next);
+      if (next) {
+        setStartDate(new Date().toISOString().split('T')[0]);
+      } else {
+        setStartDate(null);
+      }
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  if (active === null) return null;
+
+  const daysActive = active && startDate
+    ? Math.floor((Date.now() - new Date(startDate + 'T12:00:00Z').getTime()) / 86400000)
+    : 0;
+
+  return (
+    <div className="bg-card rounded-card p-4 space-y-3 stagger-enter">
+      <h2 className="text-sm font-semibold text-tx">Knee block</h2>
+      <p className="text-xs text-tx-3">
+        Pauses all quad-loading exercises for knee recovery. Switches to 3 upper + 1 lower rotation.
+      </p>
+      <div className="flex items-center justify-between">
+        <span className="text-sm text-tx-2">{active ? 'Active' : 'Off'}</span>
+        <button
+          onClick={toggle}
+          disabled={saving}
+          className={`w-10 h-6 rounded-full transition-colors ${active ? 'bg-points' : 'bg-card-2 border border-hair'}`}
+        >
+          <div className={`w-4 h-4 rounded-full bg-white shadow transition-transform mx-1 ${active ? 'translate-x-4' : ''}`} />
+        </button>
+      </div>
+      {active && startDate && (
+        <p className="text-xs text-tx-3">
+          Started {startDate} — {daysActive} day{daysActive !== 1 ? 's' : ''} active
+        </p>
+      )}
     </div>
   );
 }

@@ -1,20 +1,10 @@
 // Fixed 4-day Upper/Lower rotation: Upper A → Lower A → Upper B → Lower B
 // Deterministic successor map — no stored counter. Derives next workout
 // from the last completed session's workout_type.
-// 4 core exercises per session (slot 1–4) + 1 bonus.
+// 4 core exercises per session. No bonus slot.
 // Cardio sits outside the slots.
 
-// Upper A ordering rationale:
-// - Back takes slot 2-3 (two exercises), triceps slot 4. v33 cut back to 2 exercises
-//   which dropped weekly back volume below the 8-12 target band. Restoring Seated
-//   Cable Row gives back 9 sets/week (lat pulldown 3 + cable row 3 + pull-up 3).
-// - Triceps stay in a core slot: pushdown has progressed 15.9 → 18.1 kg and triceps
-//   also get indirect work from bench press and pec deck.
-// - Shoulder Press Machine moves to bonus: it was regressing in slot 4 due to fatigue
-//   (36 kg → 26% volume drop). Front delts get work from bench; side delts from
-//   cable lateral raise in Upper B. Shoulders at 3 core sets/week is a monitored
-//   trade-off — if "Sets this week" shows shoulders below band for 3 consecutive
-//   weeks, revisit.
+// ─── Normal Templates ──────────────────────────────────────
 const UPPER_A = {
   type: 'upper_a',
   label: 'Upper A',
@@ -24,9 +14,7 @@ const UPPER_A = {
     { name: 'Lat Pulldown', sets: 3, reps: '8-10', slot: 2, is_bonus: false, primary_muscle: 'back' },
     { name: 'Seated Cable Row', sets: 3, reps: '10-12', slot: 3, is_bonus: false, primary_muscle: 'back' },
     { name: 'Cable Tricep Pushdown', sets: 3, reps: '10-12', slot: 4, is_bonus: false, primary_muscle: 'triceps' },
-    { name: 'Shoulder Press Machine', sets: 3, reps: '8-10', slot: 5, is_bonus: true, primary_muscle: 'shoulders' },
   ],
-  // Bench-occupied swap: two options for slot 1 when the station is in use
   bench_swap_options: ['Standing Cable Chest Press', 'Pec Fly Machine (Pec Deck)'],
 };
 
@@ -38,8 +26,7 @@ const UPPER_B = {
     { name: 'Pec Fly Machine (Pec Deck)', sets: 4, reps: '10-12', slot: 1, is_bonus: false, primary_muscle: 'chest' },
     { name: 'Assisted Pull-Up Machine', sets: 3, reps: '6-10', slot: 2, is_bonus: false, primary_muscle: 'back' },
     { name: 'Overhead Cable Tricep Extension', sets: 3, reps: '10-12', slot: 3, is_bonus: false, primary_muscle: 'triceps' },
-    { name: 'Cable Lateral Raise', sets: 3, reps: '12-15', slot: 4, is_bonus: false, primary_muscle: 'shoulders' },
-    { name: 'Cable Curl', sets: 3, reps: '10-12', slot: 5, is_bonus: true, primary_muscle: 'biceps' },
+    { name: 'Dumbbell Lateral Raise', sets: 3, reps: '12-15', slot: 4, is_bonus: false, primary_muscle: 'shoulders' },
   ],
 };
 
@@ -50,11 +37,8 @@ const LOWER_A = {
   exercises: [
     { name: 'Smith Machine Squat', sets: 4, reps: '6-8', slot: 1, is_bonus: false, primary_muscle: 'quads' },
     { name: 'Leg Press', sets: 3, reps: '10-12', slot: 2, is_bonus: false, primary_muscle: 'quads' },
-    { name: 'Lying Leg Curl', sets: 3, reps: '10-12', slot: 3, is_bonus: false, primary_muscle: 'hamstrings' },
-    // Abs in core slot so they don't get dropped when session runs short.
-    // Standing calf moves to bonus — seated calf (soleus) in Lower B slot 4 gives weekly calf coverage.
+    { name: 'Seated Leg Curl', sets: 3, reps: '10-12', slot: 3, is_bonus: false, primary_muscle: 'hamstrings' },
     { name: 'Cable Crunch', sets: 3, reps: '12-15', slot: 4, is_bonus: false, primary_muscle: 'abs' },
-    { name: 'Smith Machine Calf Raise', sets: 4, reps: '12-15', slot: 5, is_bonus: true, primary_muscle: 'calves' },
   ],
 };
 
@@ -67,7 +51,6 @@ const LOWER_B = {
     { name: 'Leg Extension', sets: 3, reps: '12-15', slot: 2, is_bonus: false, primary_muscle: 'quads' },
     { name: 'Back Extension', sets: 3, reps: '12-15', slot: 3, is_bonus: false, primary_muscle: 'lower_back' },
     { name: 'Seated Calf Raise', sets: 4, reps: '12-15', slot: 4, is_bonus: false, primary_muscle: 'calves' },
-    { name: 'Lying Leg Raise', sets: 3, reps: '12-15', slot: 5, is_bonus: true, primary_muscle: 'abs' },
   ],
 };
 
@@ -84,22 +67,102 @@ const SUCCESSOR_MAP = {
 const TYPE_MAP = {};
 for (const w of ROTATION) TYPE_MAP[w.type] = w;
 
+// ─── Knee Block Templates (3 upper + 1 lower) ─────────────
+// Active while knee_block_active = 1 in goal table.
+// Quads get nothing — that's the deliberate cost.
+// Weekly upper volume: chest 11, back 9, shoulders 6, triceps 6, biceps 6.
+
+const KB_UPPER_A = {
+  type: 'upper_a',
+  label: 'Upper A',
+  subtitle: 'Heavy bench & pulldown',
+  exercises: [
+    { name: 'Barbell Bench Press', sets: 4, reps: '6-8', slot: 1, is_bonus: false, primary_muscle: 'chest' },
+    { name: 'Lat Pulldown', sets: 3, reps: '8-10', slot: 2, is_bonus: false, primary_muscle: 'back' },
+    { name: 'Shoulder Press Machine', sets: 3, reps: '8-10', slot: 3, is_bonus: false, primary_muscle: 'shoulders' },
+    { name: 'Cable Tricep Pushdown', sets: 3, reps: '10-12', slot: 4, is_bonus: false, primary_muscle: 'triceps' },
+  ],
+  bench_swap_options: ['Standing Cable Chest Press', 'Pec Fly Machine (Pec Deck)'],
+};
+
+const KB_UPPER_B = {
+  type: 'upper_b',
+  label: 'Upper B',
+  subtitle: 'Pec fly & cable row',
+  exercises: [
+    { name: 'Pec Fly Machine (Pec Deck)', sets: 4, reps: '10-12', slot: 1, is_bonus: false, primary_muscle: 'chest' },
+    { name: 'Seated Cable Row', sets: 3, reps: '10-12', slot: 2, is_bonus: false, primary_muscle: 'back' },
+    { name: 'Dumbbell Lateral Raise', sets: 3, reps: '12-15', slot: 3, is_bonus: false, primary_muscle: 'shoulders' },
+    { name: 'Cable Curl', sets: 3, reps: '10-12', slot: 4, is_bonus: false, primary_muscle: 'biceps' },
+  ],
+};
+
+const KB_UPPER_C = {
+  type: 'upper_c',
+  label: 'Upper C',
+  subtitle: 'Volume bench & pull-up',
+  exercises: [
+    { name: 'Barbell Bench Press (Volume)', sets: 3, reps: '8-10', slot: 1, is_bonus: false, primary_muscle: 'chest' },
+    { name: 'Assisted Pull-Up Machine', sets: 3, reps: '6-10', slot: 2, is_bonus: false, primary_muscle: 'back' },
+    { name: 'Overhead Cable Tricep Extension', sets: 3, reps: '10-12', slot: 3, is_bonus: false, primary_muscle: 'triceps' },
+    { name: 'Preacher Curl (EZ Bar)', sets: 3, reps: '10-12', slot: 4, is_bonus: false, primary_muscle: 'biceps' },
+  ],
+};
+
+const KB_LOWER = {
+  type: 'lower',
+  label: 'Lower',
+  subtitle: 'RDL & calves (knee block)',
+  exercises: [
+    { name: 'Smith Machine Romanian Deadlift', sets: 4, reps: '8-10', slot: 1, is_bonus: false, primary_muscle: 'hamstrings' },
+    { name: 'Seated Calf Raise', sets: 4, reps: '12-15', slot: 2, is_bonus: false, primary_muscle: 'calves' },
+    { name: 'Back Extension', sets: 3, reps: '12-15', slot: 3, is_bonus: false, primary_muscle: 'lower_back' },
+    { name: 'Cable Crunch', sets: 3, reps: '10-12', slot: 4, is_bonus: false, primary_muscle: 'abs' },
+  ],
+};
+
+const KB_ROTATION = [KB_UPPER_A, KB_UPPER_B, KB_UPPER_C, KB_LOWER];
+
+// Rotation: A → B → Lower → C (bench days A and C separated by B and Lower)
+const KB_SUCCESSOR_MAP = {
+  upper_a: 'upper_b',
+  upper_b: 'lower',
+  lower: 'upper_c',
+  upper_c: 'upper_a',
+};
+
+const KB_TYPE_MAP = {};
+for (const w of KB_ROTATION) KB_TYPE_MAP[w.type] = w;
+
+// Exercises excluded during knee block, with reasons
+const KB_EXCLUDED_EXERCISES = {
+  'Leg Extension': 'Loads the patellar tendon directly at full knee extension',
+  'Seated Leg Curl': 'User reports anterior knee pain during this movement',
+  'Leg Press': 'Deep knee flexion under load aggravates the knee',
+  'Smith Machine Squat': 'Squatting pattern causes anterior knee pain below kneecap',
+};
+
 // Derive the next workout from the last completed session's type.
-// If no prior session, returns Upper A (the rotation start).
-function getNextWorkoutType(lastCompletedType) {
+// If no prior session, returns upper_a (the rotation start for both modes).
+function getNextWorkoutType(lastCompletedType, kneeBlockActive) {
   if (!lastCompletedType) return 'upper_a';
-  return SUCCESSOR_MAP[lastCompletedType] || 'upper_a';
+  const map = kneeBlockActive ? KB_SUCCESSOR_MAP : SUCCESSOR_MAP;
+  const next = map[lastCompletedType];
+  // If transitioning between modes (e.g., last was lower_a in knee block), restart
+  if (!next) return 'upper_a';
+  return next;
 }
 
-function getWorkoutByType(type) {
+function getWorkoutByType(type, kneeBlockActive) {
+  if (kneeBlockActive) return KB_TYPE_MAP[type] || KB_UPPER_A;
   return TYPE_MAP[type] || UPPER_A;
 }
 
 // Equipment never programmed (banned list)
 const BANNED_EQUIPMENT = new Set([
   'chest_press_machine', 'incline_chest_press_machine', 'hack_squat',
-  'seated_leg_curl', 'standing_calf_raise_machine', 'hip_thrust_machine',
-  'glute_kickback_machine', 'chest_supported_row_machine',
+  'lying_leg_curl',
+  'hip_thrust_machine', 'glute_kickback_machine', 'chest_supported_row_machine',
 ]);
 
 // Substitution rules for missing equipment
@@ -113,6 +176,10 @@ module.exports = {
   UPPER_A, LOWER_A, UPPER_B, LOWER_B,
   ROTATION,
   SUCCESSOR_MAP,
+  KB_UPPER_A, KB_UPPER_B, KB_UPPER_C, KB_LOWER,
+  KB_ROTATION,
+  KB_SUCCESSOR_MAP,
+  KB_EXCLUDED_EXERCISES,
   BANNED_EQUIPMENT,
   EQUIPMENT_SUBSTITUTIONS,
   getNextWorkoutType,

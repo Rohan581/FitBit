@@ -43,6 +43,8 @@ const EXERCISE_DATA = [
     youtube_search_term: 'smith machine squat proper form',
     equipment_type: 'machine',
     required_equipment: ['smith_machine'],
+    load_entry: 'per_side',
+    bar_included: false,
   },
 
   // ── 2. Barbell Bench Press ─────────────────────────────────────────
@@ -737,6 +739,8 @@ const EXERCISE_DATA = [
     youtube_search_term: 'smith machine calf raise standing proper form',
     equipment_type: 'machine',
     required_equipment: ['smith_machine'],
+    load_entry: 'per_side',
+    bar_included: false,
   },
 
   // ── 30c. Lying Leg Raise ─────────────────────────────────────────
@@ -1108,6 +1112,8 @@ const EXERCISE_DATA = [
     youtube_search_term: 'smith machine romanian deadlift form tutorial',
     equipment_type: 'machine',
     required_equipment: ['smith_machine'],
+    load_entry: 'per_side',
+    bar_included: false,
   },
 
   // ── T-Bar Row ────────────────────────────────────────────────────
@@ -1361,6 +1367,31 @@ const EXERCISE_DATA = [
     youtube_search_term: 'cable curl bicep proper form',
     equipment_type: 'cable',
     required_equipment: ['cable_crossover'],
+  },
+
+  // ── Barbell Bench Press (Volume) ───────────────────────────────────
+  // Separate exercise record so the progression engine evaluates 8-10 rep
+  // range (Upper C) independently from the heavy 6-8 rep range (Upper A).
+  {
+    name: 'Barbell Bench Press (Volume)',
+    primary_muscles: ['chest'],
+    secondary_muscles: ['triceps', 'front_delts'],
+    form_cues: [
+      'Same technique as the heavy bench: retract and depress shoulder blades, grip slightly wider than shoulders, unrack with straight arms.',
+      'Lower the bar in a controlled arc to your lower chest, elbows tucked 45-75 degrees.',
+      'This is the lighter, higher-rep session — focus on bar speed and controlled tempo rather than maximum load.',
+      'Press up and slightly back, maintaining arch and foot placement.',
+      'Aim for smooth, consistent reps; save 1-2 reps in reserve rather than grinding to failure.'
+    ],
+    common_mistakes: [
+      'Loading it like the heavy day — this session uses 8-10 reps, so the weight should be noticeably lighter.',
+      'Rushing through reps because the weight feels easy — maintain the same controlled tempo as your heavy day.',
+      'Flaring elbows out to 90 degrees; same shoulder-safety rules apply at lighter weights.'
+    ],
+    substitutes: ['Pec Fly Machine (Pec Deck)', 'Standing Cable Chest Press'],
+    youtube_search_term: 'barbell bench press proper form',
+    equipment_type: 'barbell',
+    required_equipment: ['barbell', 'flat_bench'],
   },
 ];
 
