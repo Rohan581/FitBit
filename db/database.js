@@ -1120,19 +1120,21 @@ function runMigrations(db) {
     db.exec(`ALTER TABLE goal ADD COLUMN knee_block_snoozed_until TEXT`);
   }
 
-  // ── v43: Backfill effective_load_kg for per-side exercises ──
-  // For Smith machines: effective = weight * 2 + bar_weight (bar_weight is 0 until user provides it)
-  const perSideExs = db.prepare("SELECT id, bar_weight_kg FROM exercises WHERE load_entry = 'per_side'").all();
-  for (const ex of perSideExs) {
-    const barW = ex.bar_weight_kg || 0;
-    db.prepare(
-      'UPDATE workout_sets SET effective_load_kg = ROUND(weight_kg * 2 + ?, 1) WHERE exercise_id = ? AND weight_kg IS NOT NULL AND (effective_load_kg IS NULL OR load_entry = ?)'
-    ).run(barW, ex.id, 'per_side');
+  // ── v43: Backfill effective_load_kg for per-side exercises (one-time) ──
+  if (!exColsV43.includes('load_entry')) {
+    // Runs inside the migration guard — only on first upgrade
+    const perSideExs = db.prepare("SELECT id, bar_weight_kg FROM exercises WHERE load_entry = 'per_side'").all();
+    for (const ex of perSideExs) {
+      const barW = ex.bar_weight_kg || 0;
+      db.prepare(
+        'UPDATE workout_sets SET effective_load_kg = ROUND(weight_kg * 2 + ?, 1) WHERE exercise_id = ? AND weight_kg IS NOT NULL AND effective_load_kg IS NULL'
+      ).run(barW, ex.id);
+    }
+    // For total-load non-assistance exercises: effective = weight_kg
+    db.prepare(`UPDATE workout_sets SET effective_load_kg = weight_kg
+      WHERE effective_load_kg IS NULL AND weight_kg IS NOT NULL
+      AND exercise_id IN (SELECT id FROM exercises WHERE load_entry = 'total' AND (load_type IS NULL OR load_type = 'resistance'))`).run();
   }
-  // For total-load non-assistance exercises: effective = weight_kg
-  db.prepare(`UPDATE workout_sets SET effective_load_kg = weight_kg
-    WHERE effective_load_kg IS NULL AND weight_kg IS NOT NULL
-    AND exercise_id IN (SELECT id FROM exercises WHERE load_entry = 'total' AND (load_type IS NULL OR load_type = 'resistance'))`).run();
 
   // ── v43: Invalidate cached active sessions → re-materialise from new templates
   db.prepare("DELETE FROM workout_sessions WHERE completed = 0").run();
