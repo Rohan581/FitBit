@@ -975,21 +975,37 @@ export default function Training() {
                 {next_workout.subtitle}
               </div>
 
-              <div className="flex flex-wrap gap-1.5 mt-3">
-                {next_workout.exercises.map((ex, i) => (
-                  <span
-                    key={i}
-                    className="text-[12.5px] font-semibold text-tx-2 rounded-full px-2.5 py-1"
-                    style={{
-                      background: ex.is_catchup
-                        ? 'color-mix(in oklab, var(--points) 20%, transparent)'
-                        : 'var(--card-2)',
-                      color: ex.is_catchup ? 'var(--points)' : undefined,
-                    }}
-                  >
-                    {ex.name}{ex.is_catchup ? ' ↺' : ''}
-                  </span>
-                ))}
+              <div className={data.is_gap_day ? "flex flex-col gap-1.5 mt-3" : "flex flex-wrap gap-1.5 mt-3"}>
+                {next_workout.exercises.map((ex, i) => {
+                  const gapReason = data.gap_reasons?.[ex.name];
+                  if (data.is_gap_day && gapReason) {
+                    return (
+                      <div key={i} className="flex items-baseline gap-2">
+                        <span
+                          className="text-[12.5px] font-semibold text-tx-2 rounded-full px-2.5 py-1"
+                          style={{ background: 'color-mix(in oklab, var(--points) 15%, transparent)' }}
+                        >
+                          {ex.name}
+                        </span>
+                        <span className="text-[11.5px] font-medium text-tx-3">{gapReason}</span>
+                      </div>
+                    );
+                  }
+                  return (
+                    <span
+                      key={i}
+                      className="text-[12.5px] font-semibold text-tx-2 rounded-full px-2.5 py-1"
+                      style={{
+                        background: ex.is_catchup
+                          ? 'color-mix(in oklab, var(--points) 20%, transparent)'
+                          : 'var(--card-2)',
+                        color: ex.is_catchup ? 'var(--points)' : undefined,
+                      }}
+                    >
+                      {ex.name}{ex.is_catchup ? ' ↺' : ''}
+                    </span>
+                  );
+                })}
               </div>
               <button
                 onClick={handleStartWorkout}
@@ -1260,6 +1276,34 @@ export default function Training() {
                 <span className="w-2 h-2 rounded-full bg-drinks" /> Swim
               </span>
             </div>
+
+            {/* Rotation progress */}
+            {data.rotation_progress && (
+              <div className="mt-4 pt-3.5" style={{ borderTop: '1px solid var(--hair)' }}>
+                <span className="text-[13px] font-bold text-tx-2">Rotation</span>
+                <div className="flex gap-2 mt-2">
+                  {data.rotation_progress.map(slot => (
+                    <div key={slot.type} className="flex items-center gap-1.5">
+                      <span
+                        className="w-[10px] h-[10px] rounded-full"
+                        style={{
+                          background: slot.done ? 'var(--points)' : 'transparent',
+                          border: slot.done ? 'none' : '2px solid var(--text-3)',
+                        }}
+                      />
+                      <span className={`text-[12.5px] font-semibold ${slot.done ? 'text-tx' : 'text-tx-3'}`}>
+                        {slot.label}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+                {data.rotation_progress.filter(s => s.warning).map(s => (
+                  <div key={s.type} className="text-[12.5px] font-medium text-tx-3 mt-2">
+                    {s.warning}
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
 
           {/* Stalled lifts */}
@@ -1310,6 +1354,9 @@ function CollapsedExercise({ ex, allDone, onTap }) {
         </div>
         <span className="text-[13px] text-tx-3 flex-shrink-0 ml-2">{ex.sets}×{ex.reps}</span>
       </div>
+      {ex.gap_reason && (
+        <div className="text-[11.5px] font-medium text-tx-3 mt-1">{ex.gap_reason}</div>
+      )}
     </button>
   );
 }
@@ -1348,6 +1395,13 @@ function ExerciseCard({ ex, sets, last, onSetChange, onCompleteSet, onAddSet, on
           ⇄
         </button>
       </div>
+
+      {/* Gap reason (Upper C gap day) */}
+      {ex.gap_reason && (
+        <div className="mt-1.5 px-3 py-1.5 rounded-[10px] text-[12px] font-medium text-tx-3" style={{ background: 'color-mix(in oklab, var(--points) 8%, var(--card-2))' }}>
+          {ex.gap_reason}
+        </div>
+      )}
 
       {/* Load suggestion */}
       {loadSuggestion && (

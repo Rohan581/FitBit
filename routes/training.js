@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const { getDB } = require('../db/database');
 const { todayIST, daysAgoIST, getMondayIST, getDaysOfWeek } = require('../dateUtils');
-const { getNextWorkoutType, getWorkoutByType, ROTATION, SUCCESSOR_MAP, KB_ROTATION, KB_SUCCESSOR_MAP, KB_EXCLUDED_EXERCISES, BANNED_EQUIPMENT, EQUIPMENT_SUBSTITUTIONS } = require('../db/workoutTemplates');
+const { getNextWorkoutType, getWorkoutByType, ROTATION, SUCCESSOR_MAP, KB_ROTATION, KB_SUCCESSOR_MAP, KB_EXCLUDED_EXERCISES, KB_UPPER_C, BANNED_EQUIPMENT, EQUIPMENT_SUBSTITUTIONS } = require('../db/workoutTemplates');
 const { EQUIPMENT_CATALOG } = require('../db/equipmentData');
 
 // ─── Constants ───────────────────────────────────────────────
@@ -413,6 +413,158 @@ function applySubstitutions(exercises, substitutions) {
   ];
 }
 
+// ─── Upper C gap-fill ───────────────────────────────────────
+// Exercise pools per muscle group for dynamic Upper C.
+// Ordered by preference within each group.
+const UPPER_C_POOLS = {
+  chest:     [
+    { name: 'Barbell Bench Press (Volume)', sets: 3, reps: '8-10' },
+    { name: 'Pec Fly Machine (Pec Deck)', sets: 3, reps: '10-12' },
+  ],
+  back:      [
+    { name: 'Lat Pulldown', sets: 3, reps: '8-10' },
+    { name: 'Seated Cable Row', sets: 3, reps: '10-12' },
+    { name: 'Assisted Pull-Up Machine', sets: 3, reps: '6-10' },
+  ],
+  shoulders: [
+    { name: 'Shoulder Press Machine', sets: 3, reps: '8-10' },
+    { name: 'Dumbbell Lateral Raise', sets: 3, reps: '12-15' },
+  ],
+  triceps:   [
+    { name: 'Cable Tricep Pushdown', sets: 3, reps: '10-12' },
+    { name: 'Overhead Cable Tricep Extension', sets: 3, reps: '10-12' },
+  ],
+  biceps:    [
+    { name: 'Cable Curl', sets: 3, reps: '10-12' },
+    { name: 'Preacher Curl (EZ Bar)', sets: 3, reps: '10-12' },
+  ],
+};
+
+// Weekly set targets for the knee block (3 upper + 1 lower).
+const KB_WEEKLY_TARGETS = {
+  chest: 11, back: 9, shoulders: 6, triceps: 6, biceps: 6,
+};
+
+// Fatigue-cost ordering for slot display: heavier compounds first.
+const UPPER_C_SLOT_ORDER = ['chest', 'back', 'shoulders', 'triceps', 'biceps'];
+
+// Build a dynamic Upper C template based on weekly volume gaps.
+// Returns { exercises, gap_reasons } where exercises is an array of 4 template entries
+// and gap_reasons maps exercise name → "Shoulders — 3 of 6 sets this week."
+function buildGapUpperC(db, weekDays) {
+  // 1. Count sets per coarse muscle group from completed sessions this week
+  const completedSessions = db.prepare(`
+    SELECT ws.id FROM workout_sessions ws
+    WHERE ws.completed = 1 AND ws.date >= ? AND ws.date <= ?
+  `).all(weekDays[0], weekDays[6]);
+
+  const setsPerGroup = {};
+  for (const group of UPPER_C_SLOT_ORDER) setsPerGroup[group] = 0;
+
+  for (const session of completedSessions) {
+    const rows = db.prepare(`
+      SELECT e.primary_muscles, COUNT(*) as cnt
+      FROM workout_sets wset JOIN exercises e ON e.id = wset.exercise_id
+      WHERE wset.session_id = ? GROUP BY wset.exercise_id
+    `).all(session.id);
+    for (const row of rows) {
+      for (const m of JSON.parse(row.primary_muscles)) {
+        const group = MUSCLE_GROUP_MAP[m];
+        if (group && KB_WEEKLY_TARGETS[group] != null) {
+          setsPerGroup[group] = (setsPerGroup[group] || 0) + row.cnt;
+        }
+      }
+    }
+  }
+
+  // 2. Rank by fraction of target completed (ascending = most under-served first)
+  const ranked = UPPER_C_SLOT_ORDER
+    .map(g => ({ group: g, sets: setsPerGroup[g] || 0, target: KB_WEEKLY_TARGETS[g], fraction: (setsPerGroup[g] || 0) / KB_WEEKLY_TARGETS[g] }))
+    .sort((a, b) => a.fraction - b.fraction);
+
+  // 3. If every group is at or above target, return null (use fixed template)
+  const allMet = ranked.every(r => r.fraction >= 1);
+  if (allMet) return null;
+
+  // 4. Take the four most under-served groups
+  const selected = ranked.slice(0, 4);
+
+  // 5. Collect exercises done this week to prefer novel picks
+  const exercisesDoneThisWeek = new Set();
+  const exerciseLastDone = {}; // exercise name → most recent date
+  for (const session of completedSessions) {
+    const sessDate = db.prepare('SELECT date FROM workout_sessions WHERE id = ?').get(session.id)?.date;
+    const exRows = db.prepare(`
+      SELECT DISTINCT e.name FROM workout_sets wset
+      JOIN exercises e ON e.id = wset.exercise_id
+      WHERE wset.session_id = ?
+    `).all(session.id);
+    for (const r of exRows) {
+      exercisesDoneThisWeek.add(r.name);
+      if (!exerciseLastDone[r.name] || sessDate > exerciseLastDone[r.name]) {
+        exerciseLastDone[r.name] = sessDate;
+      }
+    }
+  }
+
+  // 6. For each selected group, pick the best exercise
+  const exercises = [];
+  const gap_reasons = {};
+  const usedNames = new Set();
+
+  // Re-sort selected by fatigue-cost order for slot assignment
+  const slotOrdered = [...selected].sort(
+    (a, b) => UPPER_C_SLOT_ORDER.indexOf(a.group) - UPPER_C_SLOT_ORDER.indexOf(b.group)
+  );
+
+  for (let i = 0; i < slotOrdered.length; i++) {
+    const { group, sets, target } = slotOrdered[i];
+    const pool = UPPER_C_POOLS[group] || [];
+
+    // Prefer exercise not done this week
+    let pick = pool.find(p => !exercisesDoneThisWeek.has(p.name) && !usedNames.has(p.name));
+    if (!pick) {
+      // All done this week — pick least recently performed
+      const candidates = pool.filter(p => !usedNames.has(p.name));
+      candidates.sort((a, b) => (exerciseLastDone[a.name] || '').localeCompare(exerciseLastDone[b.name] || ''));
+      pick = candidates[0] || pool[0];
+    }
+    if (!pick) continue;
+
+    const dbEx = db.prepare('SELECT id, name, primary_muscles, secondary_muscles, rest_seconds, equipment_type, required_equipment, load_type, load_entry, bar_included, bar_weight_kg FROM exercises WHERE name = ?').get(pick.name);
+    if (!dbEx) continue;
+
+    const groupLabel = group.charAt(0).toUpperCase() + group.slice(1);
+    const reason = `${groupLabel} — ${sets} of ${target} sets this week`;
+
+    exercises.push({
+      name: pick.name,
+      sets: pick.sets,
+      reps: pick.reps,
+      slot: i + 1,
+      is_bonus: false,
+      primary_muscle: group,
+      exercise_id: dbEx.id,
+      primary_muscles: JSON.parse(dbEx.primary_muscles),
+      secondary_muscles: JSON.parse(dbEx.secondary_muscles),
+      rest_seconds: dbEx.rest_seconds || 75,
+      required_equipment: JSON.parse(dbEx.required_equipment || '[]'),
+      equipment_type: dbEx.equipment_type || null,
+      load_type: dbEx.load_type || 'resistance',
+      load_entry: dbEx.load_entry || 'total',
+      bar_included: dbEx.bar_included ?? 1,
+      bar_weight_kg: dbEx.bar_weight_kg || null,
+      gap_reason: reason,
+    });
+    gap_reasons[pick.name] = reason;
+    usedNames.add(pick.name);
+  }
+
+  if (exercises.length === 0) return null;
+
+  return { exercises, gap_reasons };
+}
+
 // ─── Variation refresh mappings ──────────────────────────────
 // Machine/cable exercises swap within the same equipment category.
 const VARIATION_MAP = {
@@ -453,23 +605,44 @@ router.get('/', (req, res) => {
   // Get available equipment
   const availableEquipment = getAvailableEquipment(db);
 
-  // Resolve exercise IDs for the template
-  const exercises = nextWorkout.exercises.map(ex => {
-    const dbEx = db.prepare('SELECT id, name, primary_muscles, secondary_muscles, rest_seconds, equipment_type, required_equipment, load_type, load_entry, bar_included, bar_weight_kg FROM exercises WHERE name = ?').get(ex.name);
-    return {
-      ...ex,
-      exercise_id: dbEx?.id || null,
-      primary_muscles: dbEx ? JSON.parse(dbEx.primary_muscles) : [],
-      secondary_muscles: dbEx ? JSON.parse(dbEx.secondary_muscles) : [],
-      rest_seconds: dbEx?.rest_seconds || 75,
-      required_equipment: dbEx ? JSON.parse(dbEx.required_equipment || '[]') : [],
-      equipment_type: dbEx?.equipment_type || null,
-      load_type: dbEx?.load_type || 'resistance',
-      load_entry: dbEx?.load_entry || 'total',
-      bar_included: dbEx?.bar_included ?? 1,
-      bar_weight_kg: dbEx?.bar_weight_kg || null,
-    };
-  });
+  // Compute week boundaries early — needed for Upper C gap-fill
+  const today = todayIST();
+  const monday = getMondayIST(today);
+  const weekDays = getDaysOfWeek(monday);
+
+  // Upper C gap-fill: when knee block is active and next workout is upper_c,
+  // dynamically select exercises based on weekly volume gaps.
+  let gap_reasons = null;
+  let isGapDay = false;
+  let exercises;
+  if (kneeBlockActive && nextWorkout.type === 'upper_c') {
+    const gapResult = buildGapUpperC(db, weekDays);
+    if (gapResult) {
+      exercises = gapResult.exercises;
+      gap_reasons = gapResult.gap_reasons;
+      isGapDay = true;
+    }
+  }
+
+  // Fall back to fixed template if gap-fill didn't apply
+  if (!exercises) {
+    exercises = nextWorkout.exercises.map(ex => {
+      const dbEx = db.prepare('SELECT id, name, primary_muscles, secondary_muscles, rest_seconds, equipment_type, required_equipment, load_type, load_entry, bar_included, bar_weight_kg FROM exercises WHERE name = ?').get(ex.name);
+      return {
+        ...ex,
+        exercise_id: dbEx?.id || null,
+        primary_muscles: dbEx ? JSON.parse(dbEx.primary_muscles) : [],
+        secondary_muscles: dbEx ? JSON.parse(dbEx.secondary_muscles) : [],
+        rest_seconds: dbEx?.rest_seconds || 75,
+        required_equipment: dbEx ? JSON.parse(dbEx.required_equipment || '[]') : [],
+        equipment_type: dbEx?.equipment_type || null,
+        load_type: dbEx?.load_type || 'resistance',
+        load_entry: dbEx?.load_entry || 'total',
+        bar_included: dbEx?.bar_included ?? 1,
+        bar_weight_kg: dbEx?.bar_weight_kg || null,
+      };
+    });
+  }
 
   // Last session numbers for each exercise
   const lastNumbers = {};
@@ -653,10 +826,7 @@ router.get('/', (req, res) => {
     ORDER BY date DESC LIMIT 10
   `).all();
 
-  // This week's stats
-  const today = todayIST();
-  const monday = getMondayIST(today);
-  const weekDays = getDaysOfWeek(monday);
+  // This week's stats (today/monday/weekDays computed above for gap-fill)
   const weekGymSessions = db.prepare(`
     SELECT COUNT(*) as cnt FROM workout_sessions
     WHERE completed = 1 AND date >= ? AND date <= ?
@@ -713,9 +883,14 @@ router.get('/', (req, res) => {
   // Build subtitle
   const catchUpCount = catchUp.substitutions.length;
   const estMin = estimateDuration(finalExercises);
-  const subtitle = catchUpCount > 0
-    ? `${nextWorkout.subtitle} · ${catchUpCount} catch-up · ~${estMin} min`
-    : `${nextWorkout.subtitle} · ~${estMin} min`;
+  let subtitle;
+  if (isGapDay) {
+    subtitle = `Gap day · ~${estMin} min`;
+  } else if (catchUpCount > 0) {
+    subtitle = `${nextWorkout.subtitle} · ${catchUpCount} catch-up · ~${estMin} min`;
+  } else {
+    subtitle = `${nextWorkout.subtitle} · ~${estMin} min`;
+  }
 
   const weekStrip = weekDays.map(day => {
     const gymOnDay = db.prepare('SELECT id, workout_type FROM workout_sessions WHERE completed = 1 AND date = ?').get(day);
@@ -741,10 +916,21 @@ router.get('/', (req, res) => {
     swimNote = 'You had a heavy leg session yesterday — consider keeping today\'s swim easy on the legs, or adjust intensity.';
   }
 
-  // Active (incomplete) session
+  // Active (incomplete) session — skip orphans (no sets + a completed sibling same date/type)
   const activeSession = db.prepare(`
     SELECT id, date, workout_type, logged_at FROM workout_sessions
-    WHERE completed = 0 ORDER BY logged_at DESC LIMIT 1
+    WHERE completed = 0
+      AND NOT (
+        (SELECT COUNT(*) FROM workout_sets WHERE session_id = workout_sessions.id) = 0
+        AND EXISTS (
+          SELECT 1 FROM workout_sessions ws2
+          WHERE ws2.completed = 1
+            AND ws2.date = workout_sessions.date
+            AND ws2.workout_type = workout_sessions.workout_type
+            AND ws2.id != workout_sessions.id
+        )
+      )
+    ORDER BY logged_at DESC LIMIT 1
   `).get();
 
   let activeSessionInfo = null;
@@ -817,6 +1003,27 @@ router.get('/', (req, res) => {
     "SELECT COUNT(*) as c FROM exercises WHERE load_entry = 'per_side'"
   ).get().c > 0;
 
+  // ─── Rotation progress (which session types done this week) ──
+  const completedTypesThisWeek = db.prepare(`
+    SELECT DISTINCT workout_type FROM workout_sessions
+    WHERE completed = 1 AND date >= ? AND date <= ?
+  `).all(weekDays[0], weekDays[6]).map(r => r.workout_type);
+  const completedTypeSet = new Set(completedTypesThisWeek);
+
+  // Days remaining in the week (including today)
+  const todayDate = new Date(today + 'T12:00:00Z');
+  const sundayDate = new Date(weekDays[6] + 'T12:00:00Z');
+  const daysRemaining = Math.floor((sundayDate - todayDate) / (24 * 60 * 60 * 1000)) + 1;
+
+  const rotation_progress = activeRotation.map(w => ({
+    type: w.type,
+    label: w.label,
+    done: completedTypeSet.has(w.type),
+    warning: !completedTypeSet.has(w.type) && daysRemaining <= 2
+      ? `${w.label} not done this week`
+      : null,
+  }));
+
   res.json({
     last_completed: lastCompleted ? { type: lastCompleted.workout_type, date: lastCompleted.date } : null,
     next_workout: { ...nextWorkout, exercises: finalExercises, subtitle, bench_swap_options: nextWorkout.bench_swap_options || null },
@@ -843,6 +1050,9 @@ router.get('/', (req, res) => {
     kb_excluded_exercises: kneeBlockActive ? KB_EXCLUDED_EXERCISES : null,
     smith_bar_weight_needed: smithBarWeightNeeded,
     load_entry_confirmation_needed: loadEntryConfirmationNeeded,
+    is_gap_day: isGapDay,
+    gap_reasons: gap_reasons,
+    rotation_progress,
   });
 });
 
@@ -875,10 +1085,32 @@ router.post('/refresh/snooze', (req, res) => {
 });
 
 // POST /api/training/sessions — start a workout session
+// Idempotency guard: if an uncompleted session already exists for today with the
+// same workout_type, return it instead of creating a duplicate. This prevents
+// double-materialization from double-taps or network retries.
 router.post('/sessions', (req, res) => {
   const db = getDB();
   const today = todayIST();
-  const { workout } = resolveNextWorkout(db);
+  const { workout, kneeBlockActive } = resolveNextWorkout(db);
+
+  // Guard: return existing uncompleted session if one matches
+  const existing = db.prepare(
+    'SELECT id FROM workout_sessions WHERE completed = 0 AND date = ? AND workout_type = ?'
+  ).get(today, workout.type);
+  if (existing) {
+    return res.json({ session_id: existing.id, workout_type: workout.type, date: today });
+  }
+
+  // For Upper C during knee block, use dynamic gap-fill exercises
+  let sessionExercises = workout.exercises;
+  if (kneeBlockActive && workout.type === 'upper_c') {
+    const mondaySess = getMondayIST(today);
+    const weekDaysSess = getDaysOfWeek(mondaySess);
+    const gapResult = buildGapUpperC(db, weekDaysSess);
+    if (gapResult) {
+      sessionExercises = gapResult.exercises;
+    }
+  }
 
   const result = db.prepare(`
     INSERT INTO workout_sessions (date, workout_type, completed) VALUES (?, ?, 0)
@@ -886,13 +1118,13 @@ router.post('/sessions', (req, res) => {
 
   const sessionId = result.lastInsertRowid;
 
-  // Populate session_exercises from template — tracks planned vs actual per slot
+  // Populate session_exercises from template (or gap-fill) — tracks planned vs actual per slot
   const insertSE = db.prepare(
     'INSERT INTO session_exercises (session_id, slot, planned_exercise_id, actual_exercise_id, was_swapped, is_bonus) VALUES (?, ?, ?, ?, 0, ?)'
   );
-  for (const ex of workout.exercises) {
-    const dbEx = db.prepare('SELECT id FROM exercises WHERE name = ?').get(ex.name);
-    if (dbEx) insertSE.run(sessionId, ex.slot, dbEx.id, dbEx.id, ex.is_bonus ? 1 : 0);
+  for (const ex of sessionExercises) {
+    const exId = ex.exercise_id || db.prepare('SELECT id FROM exercises WHERE name = ?').get(ex.name)?.id;
+    if (exId) insertSE.run(sessionId, ex.slot, exId, exId, ex.is_bonus ? 1 : 0);
   }
 
   res.json({ session_id: sessionId, workout_type: workout.type, date: today });
@@ -1536,6 +1768,45 @@ router.get('/rotation', (req, res) => {
       }
     }
   }
+})();
+
+// ─── Startup assertion: rotation closure ────────────────────
+// Every successor map must be a closed cycle — following successors
+// from any member must return to the start without dead-ends.
+(function assertRotationClosure() {
+  function checkMap(map, label) {
+    const types = Object.keys(map);
+    // Every member must have exactly one successor that is also a member
+    for (const t of types) {
+      const next = map[t];
+      if (!next || !map.hasOwnProperty(next)) {
+        throw new Error(`[ROTATION ASSERT] ${label}: "${t}" → "${next}" is a dead-end (successor not in map)`);
+      }
+    }
+    // Following successors from any member must visit all members and return to start
+    for (const start of types) {
+      const visited = new Set();
+      let current = start;
+      for (let i = 0; i < types.length; i++) {
+        current = map[current];
+        if (current === start) break; // completed the cycle
+        if (visited.has(current)) {
+          throw new Error(`[ROTATION ASSERT] ${label}: cycle from "${start}" revisits "${current}" before returning — disconnected sub-cycles`);
+        }
+        visited.add(current);
+      }
+      // After traversing, we must be back at start having visited all other members
+      if (current !== start) {
+        throw new Error(`[ROTATION ASSERT] ${label}: cycle from "${start}" does not return to start (ended at "${current}")`);
+      }
+      if (visited.size !== types.length - 1) {
+        throw new Error(`[ROTATION ASSERT] ${label}: cycle from "${start}" visited ${visited.size + 1} of ${types.length} members — rotation has disconnected sub-cycles`);
+      }
+    }
+    console.log(`[ROTATION OK] ${label}: ${types.join(' → ')} → ${map[types[types.length - 1]]} (closed cycle)`);
+  }
+  checkMap(SUCCESSOR_MAP, 'Normal rotation');
+  checkMap(KB_SUCCESSOR_MAP, 'Knee block rotation');
 })();
 
 module.exports = router;

@@ -1139,6 +1139,29 @@ function runMigrations(db) {
   // ── v43: Invalidate cached active sessions → re-materialise from new templates
   db.prepare("DELETE FROM workout_sessions WHERE completed = 0").run();
 
+  // ── v44: Clean up orphaned sessions ───────────────────────
+  // Any session with completed = 0, no logged sets, and a completed session
+  // of the same type on the same date is a double-materialization orphan.
+  const orphans = db.prepare(`
+    SELECT ws.id, ws.date, ws.workout_type FROM workout_sessions ws
+    WHERE ws.completed = 0
+      AND (SELECT COUNT(*) FROM workout_sets WHERE session_id = ws.id) = 0
+      AND EXISTS (
+        SELECT 1 FROM workout_sessions ws2
+        WHERE ws2.completed = 1
+          AND ws2.date = ws.date
+          AND ws2.workout_type = ws.workout_type
+          AND ws2.id != ws.id
+      )
+  `).all();
+  if (orphans.length > 0) {
+    const delOrphan = db.prepare('DELETE FROM workout_sessions WHERE id = ?');
+    for (const o of orphans) {
+      delOrphan.run(o.id);
+      console.log(`[v44 migration] Deleted orphan session id=${o.id} (${o.workout_type} on ${o.date}, completed=0, no sets)`);
+    }
+  }
+
   // Seed exercises
   seedExercises(db);
 
