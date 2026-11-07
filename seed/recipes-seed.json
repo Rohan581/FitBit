@@ -1,5 +1,5 @@
 {
-  "version": 3,
+  "version": 4,
   "recipes": [
     {
       "seed_key": "korean-chicken-popcorn",
@@ -3726,6 +3726,155 @@
         }
       ],
       "notes": "Batch total: 3,834 kcal · 406 g protein · 380 g carbs · 67 g fat · 26 g fibre. This recipe loses a lot of water: chicken sheds about a quarter of raw weight, onions reduce to roughly half, pasta roughly triples. Weigh the finished dish to get accurate per-gram portions. Below half a batch (under 3 servings), roast the onions in a pan over low heat for 20 minutes instead of the oven.",
+      "pairs_with": []
+    },
+    {
+      "seed_key": "air-fried-soya-chunks",
+      "title": "Air-Fried Soya Chunks",
+      "source": "new",
+      "servings": 1,
+      "portion_mode": "servings",
+      "total_time_min": 30,
+      "tags": ["high-protein", "vegetarian", "air-fryer", "quick"],
+      "per_serving": {
+        "calories": 284,
+        "protein_g": 33,
+        "carbs_g": 24,
+        "fat_g": 6,
+        "fiber_g": 9,
+        "sugar_g": 1
+      },
+      "ingredients": [
+        { "amount": 60, "unit": "g", "name": "soya chunks, dry weight", "main_ingredient": true },
+        { "amount": 2, "unit": "tbsp", "name": "curd" },
+        { "amount": 1, "unit": "tsp", "name": "oil" },
+        { "amount": 0.5, "unit": "tsp", "name": "ginger-garlic paste" },
+        { "amount": 0.5, "unit": "tsp", "name": "Kashmiri chilli powder" },
+        { "amount": 0.25, "unit": "tsp", "name": "turmeric" },
+        { "amount": 0.5, "unit": "tsp", "name": "garam masala" },
+        { "amount": 1, "unit": "pinch", "name": "salt" },
+        { "amount": 0.5, "unit": "count", "name": "lime, juiced" }
+      ],
+      "steps": [
+        {
+          "title": "Soak soya",
+          "text": "Soak the soya chunks in hot water until soft and swollen.",
+          "timer_seconds": 900
+        },
+        {
+          "title": "Squeeze dry",
+          "text": "Drain, then squeeze every drop of water out — one handful at a time, hard, in your fist. They should feel almost dry. Chunks that go into the fryer wet will steam instead of crisping and come out spongy. This single step decides whether the recipe works."
+        },
+        {
+          "title": "Marinate",
+          "text": "Toss with the curd, oil, ginger-garlic paste, spices and salt until evenly coated. Leave to sit if you have time.",
+          "timer_seconds": 600
+        },
+        {
+          "title": "Air fry",
+          "text": "Air fry at 180\u00b0C, shaking the basket once halfway through.",
+          "timer_seconds": 840
+        },
+        {
+          "title": "Finish",
+          "text": "Squeeze lime over while hot."
+        }
+      ],
+      "notes": "Weigh the chunks dry, from the packet. 60 g dry comes out around 160 g after soaking and squeezing \u2014 logging that weight instead would triple the protein credited.\n\nScales to 2 servings: 120 g dry, same temperature, 17 minutes, shake twice.",
+      "pairs_with": []
+    },
+    {
+      "seed_key": "air-fried-paneer-tikka",
+      "title": "Air-Fried Paneer Tikka",
+      "source": "new",
+      "servings": 1,
+      "portion_mode": "servings",
+      "total_time_min": 25,
+      "tags": ["high-protein", "vegetarian", "air-fryer", "quick"],
+      "per_serving": {
+        "calories": 475,
+        "protein_g": 32,
+        "carbs_g": 7,
+        "fat_g": 35,
+        "fiber_g": 1,
+        "sugar_g": 4
+      },
+      "ingredients": [
+        { "amount": 150, "unit": "g", "name": "paneer, cut into 2 cm cubes", "main_ingredient": true },
+        { "amount": 3, "unit": "tbsp", "name": "hung curd" },
+        { "amount": 0.5, "unit": "tsp", "name": "ginger-garlic paste" },
+        { "amount": 0.5, "unit": "tsp", "name": "Kashmiri chilli powder" },
+        { "amount": 0.5, "unit": "tsp", "name": "garam masala" },
+        { "amount": 0.25, "unit": "tsp", "name": "turmeric" },
+        { "amount": 0.25, "unit": "tsp", "name": "chaat masala" },
+        { "amount": 1, "unit": "pinch", "name": "salt" },
+        { "amount": 0.5, "unit": "count", "name": "lime, juiced" }
+      ],
+      "steps": [
+        {
+          "title": "Coat",
+          "text": "Mix the hung curd with all the spices and salt into a thick paste. Fold the paneer cubes through until coated. No oil \u2014 paneer carries about 22 g of fat per 100 g and releases it as it cooks; adding oil makes it greasy rather than crisp."
+        },
+        {
+          "title": "Marinate",
+          "text": "Rest so the marinade grips.",
+          "timer_seconds": 600
+        },
+        {
+          "title": "Air fry",
+          "text": "Air fry at 190\u00b0C, turning once, until the edges catch and brown.",
+          "timer_seconds": 660
+        },
+        {
+          "title": "Finish",
+          "text": "Chaat masala and lime over the top while hot."
+        }
+      ],
+      "notes": "Low-fat paneer variant: drops this to 355 kcal and 15 g fat for the same 32 g of protein. Same method, same timings.",
+      "pairs_with": []
+    },
+    {
+      "seed_key": "crispy-air-fried-tofu",
+      "title": "Crispy Air-Fried Tofu",
+      "source": "new",
+      "servings": 1,
+      "portion_mode": "servings",
+      "total_time_min": 40,
+      "tags": ["high-protein", "vegetarian", "air-fryer"],
+      "per_serving": {
+        "calories": 370,
+        "protein_g": 33,
+        "carbs_g": 14,
+        "fat_g": 21,
+        "fiber_g": 2,
+        "sugar_g": 1
+      },
+      "ingredients": [
+        { "amount": 200, "unit": "g", "name": "firm tofu", "main_ingredient": true },
+        { "amount": 1, "unit": "tbsp", "name": "cornflour" },
+        { "amount": 1, "unit": "tsp", "name": "oil" },
+        { "amount": 1, "unit": "tsp", "name": "dark soy sauce" },
+        { "amount": 0.5, "unit": "tsp", "name": "garlic powder" },
+        { "amount": 0.5, "unit": "tsp", "name": "chilli flakes" },
+        { "amount": 1, "unit": "pinch", "name": "black pepper" }
+      ],
+      "steps": [
+        {
+          "title": "Press tofu",
+          "text": "Press the tofu under something heavy \u2014 a pan with a couple of tins in it \u2014 to drive the water out.",
+          "timer_seconds": 1200
+        },
+        {
+          "title": "Coat",
+          "text": "Cut into 2 cm cubes. Toss with the soy sauce and oil first, then the cornflour and spices last, so the coating sticks rather than clumping. The cornflour is what makes it crisp instead of leathery \u2014 don\u2019t leave it out."
+        },
+        {
+          "title": "Air fry",
+          "text": "Air fry at 190\u00b0C, shaking once halfway.",
+          "timer_seconds": 900
+        }
+      ],
+      "notes": "Tofu macros vary a lot by brand \u2014 check the packet and adjust if it differs much from 145 kcal and 16 g protein per 100 g.",
       "pairs_with": []
     }
   ]

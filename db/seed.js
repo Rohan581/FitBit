@@ -248,6 +248,14 @@ const SEED_FOODS = [
     JSON.stringify([{unit:'1 tbsp (~6g)',multiplier:1},{unit:'2 tbsp',multiplier:2}]), null],
 
   // ── Cook module ingredients (per 100g) ─────────────────────────
+  ['Soya chunks, dry',                       'staple', '100g', 100, 345, 52, 33, 0.5, 13, 0,
+    JSON.stringify([{unit:'100g',multiplier:1},{unit:'50g',multiplier:0.5},{unit:'200g',multiplier:2}]), null],
+  ['Paneer, full fat',                       'staple', '100g', 100, 280, 18, 3, 22, 0, 0,
+    JSON.stringify([{unit:'100g',multiplier:1},{unit:'150g',multiplier:1.5},{unit:'200g',multiplier:2}]), null],
+  ['Hung curd (chakka)',                     'staple', '100g', 100, 95, 9, 5, 4, 0, 4,
+    JSON.stringify([{unit:'100g',multiplier:1},{unit:'50g',multiplier:0.5},{unit:'3 tbsp',multiplier:0.45}]), null],
+  ['Curd / dahi, plain',                     'staple', '100g', 100, 60, 3.5, 4.5, 3.2, 0, 4,
+    JSON.stringify([{unit:'100g',multiplier:1},{unit:'200g',multiplier:2},{unit:'1 cup',multiplier:2.4}]), null],
   ['Chicken breast, raw',                    'staple', '100g', 100, 110, 23, 0, 1.2, 0, 0,
     JSON.stringify([{unit:'100g',multiplier:1},{unit:'200g',multiplier:2},{unit:'500g',multiplier:5},{unit:'1 kg',multiplier:10}]), null],
   ['Spaghetti, dry',                         'staple', '100g', 100, 352, 12.5, 71, 1.5, 3, 2,

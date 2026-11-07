@@ -292,6 +292,8 @@ export default function CookMode() {
 
   /* ── "I cooked this" handler ───────────────────────────── */
 
+  const isServingsMode = recipe?.portion_mode === 'servings';
+
   async function handleCookedThis(estimated) {
     setSaving(true);
     try {
@@ -300,8 +302,8 @@ export default function CookMode() {
         recipe_id: Number(id),
         scale_factor: scaleFactor,
         portions,
-        measured_weight_g: estimated ? defaultW : (measuredWeight ? Number(measuredWeight) : defaultW),
-        weight_estimated: estimated ? 1 : (!measuredWeight ? 1 : 0),
+        measured_weight_g: isServingsMode ? null : (estimated ? defaultW : (measuredWeight ? Number(measuredWeight) : defaultW)),
+        weight_estimated: isServingsMode ? 0 : (estimated ? 1 : (!measuredWeight ? 1 : 0)),
       });
       localStorage.removeItem(`cook_scale_${id}`);
       navigate('/cook/cooked');
@@ -637,22 +639,24 @@ export default function CookMode() {
             onChange={v => setPortions(Math.max(1, v))}
             min={1}
             step={1}
-            label="Split into"
+            label={isServingsMode ? 'Servings' : 'Split into'}
           />
 
-          <div>
-            <label className="text-sm text-tx-2 block mb-1">Weigh the pan contents (minus the pan) so portions log accurately</label>
-            <div className="flex items-center gap-2">
-              <input
-                type="number"
-                value={measuredWeight}
-                onChange={e => setMeasuredWeight(e.target.value)}
-                className="w-28 px-3 py-1.5 rounded-lg bg-card-2 text-tx font-num text-center border border-hair"
-                placeholder="—"
-              />
-              <span className="text-sm text-tx-3">g</span>
+          {!isServingsMode && (
+            <div>
+              <label className="text-sm text-tx-2 block mb-1">Weigh the pan contents (minus the pan) so portions log accurately</label>
+              <div className="flex items-center gap-2">
+                <input
+                  type="number"
+                  value={measuredWeight}
+                  onChange={e => setMeasuredWeight(e.target.value)}
+                  className="w-28 px-3 py-1.5 rounded-lg bg-card-2 text-tx font-num text-center border border-hair"
+                  placeholder="—"
+                />
+                <span className="text-sm text-tx-3">g</span>
+              </div>
             </div>
-          </div>
+          )}
 
           <button
             onClick={() => handleCookedThis(false)}
@@ -660,10 +664,10 @@ export default function CookMode() {
             className="w-full py-3 rounded-xl font-semibold text-sm press-scale disabled:opacity-40"
             style={{ background: 'var(--cook)', color: 'var(--on-accent)' }}
           >
-            {saving ? 'Saving...' : 'Save batch'}
+            {saving ? 'Saving...' : (isServingsMode ? 'Save' : 'Save batch')}
           </button>
 
-          {!measuredWeight && (
+          {!isServingsMode && !measuredWeight && (
             <button
               onClick={() => handleCookedThis(true)}
               disabled={saving}

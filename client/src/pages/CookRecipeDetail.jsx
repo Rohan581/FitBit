@@ -343,6 +343,7 @@ function ICookedThisSheet({ open, onClose, recipe, scaleFactor, people, onSaved 
 
   if (!recipe) return null;
 
+  const isServingsMode = recipe.portion_mode === 'servings';
   const ps = recipe.per_serving || {};
   const totalBatch = {};
   MACROS.forEach(m => { totalBatch[m.key] = (ps[m.key] || 0) * (recipe.servings || 1) * scaleFactor; });
@@ -359,8 +360,8 @@ function ICookedThisSheet({ open, onClose, recipe, scaleFactor, people, onSaved 
         recipe_id: recipe.id,
         scale_factor: scaleFactor,
         portions,
-        measured_weight_g: estimated ? defaultWeight : weight,
-        weight_estimated: estimated ? 1 : 0,
+        measured_weight_g: isServingsMode ? null : (estimated ? defaultWeight : weight),
+        weight_estimated: isServingsMode ? 0 : (estimated ? 1 : 0),
       });
       onSaved?.();
       onClose();
@@ -372,23 +373,25 @@ function ICookedThisSheet({ open, onClose, recipe, scaleFactor, people, onSaved 
   return (
     <Sheet open={open} onClose={onClose} title="I cooked this" height="tall">
       <div className="px-5 pb-4 space-y-5">
-        <Stepper value={portions} onChange={v => setPortions(Math.max(1, v))} min={1} step={1} label="Split the batch into" />
+        <Stepper value={portions} onChange={v => setPortions(Math.max(1, v))} min={1} step={1} label={isServingsMode ? 'Servings' : 'Split the batch into'} />
 
-        <div>
-          <label className="text-sm text-tx-2 block mb-1">Weigh the pan contents (minus the pan) so portions log accurately</label>
-          <div className="flex items-center gap-2">
-            <input
-              type="number"
-              value={weight}
-              onChange={e => { setWeight(Math.max(0, +e.target.value)); setWeighed(true); }}
-              className="w-28 px-3 py-1.5 rounded-lg bg-card-2 text-tx font-num text-center border border-hair"
-            />
-            <span className="text-sm text-tx-3">g</span>
+        {!isServingsMode && (
+          <div>
+            <label className="text-sm text-tx-2 block mb-1">Weigh the pan contents (minus the pan) so portions log accurately</label>
+            <div className="flex items-center gap-2">
+              <input
+                type="number"
+                value={weight}
+                onChange={e => { setWeight(Math.max(0, +e.target.value)); setWeighed(true); }}
+                className="w-28 px-3 py-1.5 rounded-lg bg-card-2 text-tx font-num text-center border border-hair"
+              />
+              <span className="text-sm text-tx-3">g</span>
+            </div>
           </div>
-        </div>
+        )}
 
         <div>
-          <p className="text-xs text-tx-3 mb-2">Per portion</p>
+          <p className="text-xs text-tx-3 mb-2">Per {isServingsMode ? 'serving' : 'portion'}</p>
           <MacroGrid macros={perPortion} />
         </div>
 
@@ -401,7 +404,7 @@ function ICookedThisSheet({ open, onClose, recipe, scaleFactor, people, onSaved 
           {saving ? 'Saving...' : 'Save'}
         </button>
 
-        {!weighed && (
+        {!isServingsMode && !weighed && (
           <button
             onClick={() => handleSave(true)}
             disabled={saving}

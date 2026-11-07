@@ -382,6 +382,7 @@ function initDB() {
       steps TEXT NOT NULL DEFAULT '[]',
       notes TEXT,
       my_notes TEXT,
+      portion_mode TEXT NOT NULL DEFAULT 'grams',
       pairs_with TEXT DEFAULT '[]',
       pairs_with_keys TEXT DEFAULT '[]',
       is_favourite INTEGER DEFAULT 0,
@@ -1160,6 +1161,13 @@ function runMigrations(db) {
       delOrphan.run(o.id);
       console.log(`[v44 migration] Deleted orphan session id=${o.id} (${o.workout_type} on ${o.date}, completed=0, no sets)`);
     }
+  }
+
+  // ── v45: portion_mode on recipes ──────────────────────────
+  const recipeCols = db.prepare("PRAGMA table_info(recipes)").all().map(c => c.name);
+  if (!recipeCols.includes('portion_mode')) {
+    db.exec(`ALTER TABLE recipes ADD COLUMN portion_mode TEXT NOT NULL DEFAULT 'grams'`);
+    console.log('[v45 migration] Added portion_mode column to recipes');
   }
 
   // Seed exercises

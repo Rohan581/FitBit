@@ -122,14 +122,16 @@ function LogPortionSheet({ open, onClose, batch, onLogged }) {
 
   if (!batch) return null;
 
+  const isServingsMode = batch.portion_mode === 'servings';
   const ps = batch.per_serving || {};
   const totalBatch = {};
   MACROS.forEach(m => {
     totalBatch[m.key] = (ps[m.key] || 0) * (batch.recipe_servings || 1) * (batch.scale_factor || 1);
   });
 
+  const effectiveMode = isServingsMode ? 'servings' : mode;
   const portionMacros = {};
-  if (mode === 'servings') {
+  if (effectiveMode === 'servings') {
     const portions = batch.portions || 1;
     MACROS.forEach(m => { portionMacros[m.key] = (totalBatch[m.key] / portions) * servingsVal; });
   } else {
@@ -144,10 +146,10 @@ function LogPortionSheet({ open, onClose, batch, onLogged }) {
         recipe_id: batch.recipe_id,
         batch_id: batch.id,
         meal_type: mealType,
-        ...(mode === 'servings' ? { servings: servingsVal } : { grams: gramsVal }),
+        ...(effectiveMode === 'servings' ? { servings: servingsVal } : { grams: gramsVal }),
       };
       await api.logPortion(body);
-      const amountLabel = mode === 'grams'
+      const amountLabel = effectiveMode === 'grams'
         ? `Logged ${Math.round(gramsVal)} g of ${batch.recipe_title || 'recipe'}`
         : `Added to ${MEAL_LABELS[mealType]}`;
       const msg = `${amountLabel} \u00B7 ${Math.round(portionMacros.calories)} kcal \u00B7 ${Math.round(portionMacros.protein_g)}g protein`;
@@ -166,20 +168,22 @@ function LogPortionSheet({ open, onClose, batch, onLogged }) {
   return (
     <Sheet open={open} onClose={onClose} title="Log a portion" height="tall">
       <div className="px-5 pb-4 space-y-5">
-        {/* Mode toggle */}
-        <div className="flex gap-2">
-          {['servings', 'grams'].map(m => (
-            <button
-              key={m}
-              onClick={() => setMode(m)}
-              className={`px-4 py-1.5 rounded-full text-sm font-medium transition-colors ${mode === m ? 'bg-card-2 text-tx' : 'text-tx-3'}`}
-            >
-              {m === 'servings' ? 'Servings' : 'Grams'}
-            </button>
-          ))}
-        </div>
+        {/* Mode toggle — hidden for servings-only recipes */}
+        {!isServingsMode && (
+          <div className="flex gap-2">
+            {['servings', 'grams'].map(m => (
+              <button
+                key={m}
+                onClick={() => setMode(m)}
+                className={`px-4 py-1.5 rounded-full text-sm font-medium transition-colors ${mode === m ? 'bg-card-2 text-tx' : 'text-tx-3'}`}
+              >
+                {m === 'servings' ? 'Servings' : 'Grams'}
+              </button>
+            ))}
+          </div>
+        )}
 
-        {mode === 'servings' ? (
+        {effectiveMode === 'servings' ? (
           <Stepper value={servingsVal} onChange={setServingsVal} min={0.5} step={0.5} label="Servings" />
         ) : (
           <div className="flex items-center gap-2">

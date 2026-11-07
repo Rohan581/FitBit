@@ -33,6 +33,9 @@ const ICON_MAP = {
   'air-fryer-egg-muffins': '🥚',
   'protein-pancakes': '🥞',
   'caramelised-onion-chicken-pasta': '🍝',
+  'air-fried-soya-chunks': '🫘',
+  'air-fried-paneer-tikka': '🧀',
+  'crispy-air-fried-tofu': '🍢',
 };
 
 function seedRecipes(db) {
@@ -45,8 +48,8 @@ function seedRecipes(db) {
   const insert = db.prepare(`
     INSERT OR IGNORE INTO recipes
       (seed_key, title, source, icon, servings, cooked_yield_g, total_time_min,
-       tags, per_serving, ingredients, steps, notes, pairs_with_keys)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+       tags, per_serving, ingredients, steps, notes, pairs_with_keys, portion_mode)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `);
 
   const tx = db.transaction(() => {
@@ -64,7 +67,8 @@ function seedRecipes(db) {
         JSON.stringify(r.ingredients || []),
         JSON.stringify(r.steps || []),
         r.notes || null,
-        JSON.stringify(r.pairs_with || [])
+        JSON.stringify(r.pairs_with || []),
+        r.portion_mode || 'grams'
       );
     }
   });

@@ -228,7 +228,7 @@ router.get('/batches/all', (req, res) => {
   const db = getDB();
   const rows = db.prepare(`
     SELECT rb.*, r.title, r.icon, r.per_serving, r.cooked_yield_g as recipe_yield_g,
-           r.servings as recipe_servings
+           r.servings as recipe_servings, r.portion_mode
     FROM recipe_batches rb
     JOIN recipes r ON r.id = rb.recipe_id
     ORDER BY rb.cooked_on DESC
