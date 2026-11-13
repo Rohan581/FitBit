@@ -63,10 +63,11 @@ export default function Dashboard({ onOpenSidebar }) {
   if (!data) return <ErrorState onRetry={load} />;
 
   const { food_totals, goal, daily_points, weekly_points, threshold, rolling_avg_weight, notifications, rest_day,
-    steps, step_target, in_maintenance, maintenance_tdee, post_maintenance_note } = data;
+    steps, step_target, in_maintenance, maintenance_tdee, maintenance_tdee_source, maintenance_tdee_formula,
+    maintenance_tdee_observed, post_maintenance_note } = data;
 
   const isRestDay = !!rest_day?.is_rest_day;
-  // During maintenance, calorie target is the observed TDEE (no deficit)
+  // During maintenance, calorie target is the active TDEE (no deficit), respecting source preference
   const calTarget = in_maintenance && maintenance_tdee
     ? Math.round(maintenance_tdee)
     : (isRestDay ? rest_day.calorie_target : (goal?.current_calorie_target || 2240));
@@ -208,7 +209,16 @@ export default function Dashboard({ onOpenSidebar }) {
       {/* Maintenance banner */}
       {in_maintenance && (
         <div className="mb-3 px-4 py-3 rounded-card tint-points border border-points/20 stagger-enter">
-          <p className="text-sm text-tx-2">Maintenance week — target is {calTarget.toLocaleString()}. Holding, not losing.</p>
+          <p className="text-sm font-semibold text-tx">Maintenance: {calTarget.toLocaleString()} kcal — {maintenance_tdee_source === 'observed' ? 'measured' : 'formula'}</p>
+          {maintenance_tdee_source === 'observed' && maintenance_tdee_formula && (
+            <p className="text-xs text-tx-3 mt-1">Formula estimate: {Math.round(maintenance_tdee_formula).toLocaleString()}. Change which is used in Settings.</p>
+          )}
+          {maintenance_tdee_source === 'formula' && maintenance_tdee_observed && (
+            <p className="text-xs text-tx-3 mt-1">Measured: {Math.round(maintenance_tdee_observed).toLocaleString()}. Change which is used in Settings.</p>
+          )}
+          {maintenance_tdee_source === 'formula' && !maintenance_tdee_observed && (
+            <p className="text-xs text-tx-3 mt-1">No measured TDEE available yet. Holding at formula estimate, not losing.</p>
+          )}
         </div>
       )}
 

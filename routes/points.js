@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const { getDB } = require('../db/database');
 const { todayIST, getMondayIST, getDaysOfWeek } = require('../dateUtils');
+const { getTDEE } = require('./goal');
 
 function getRestDayTargets(db, date, goal) {
   const isRestDay = !!db.prepare('SELECT id FROM rest_days WHERE date = ?').get(date);
@@ -48,9 +49,9 @@ function calculateDailyPoints(db, date) {
   // Slightly over (within 100/200 kcal): partial credit.
   if (foodLogs.length > 0) {
     const totalCal = foodLogs.reduce((s, f) => s + f.calories, 0);
-    // During maintenance, target is the observed TDEE (no deficit)
-    const target = inMaintenance && goal?.observed_tdee
-      ? Math.round(goal.observed_tdee)
+    // During maintenance, target is the active TDEE (no deficit), respecting source preference
+    const target = inMaintenance
+      ? Math.round(getTDEE(db, goal).tdee)
       : (restDayTargets?.calorie_target || goal?.current_calorie_target || 2240);
     const floor = target * 0.6;
     const diff = totalCal - target; // positive = over, negative = under

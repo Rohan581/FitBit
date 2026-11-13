@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const { getDB } = require('../db/database');
 const { calculateDailyPoints, getRestDayTargets } = require('./points');
-const { weeklyTDEERecompute } = require('./goal');
+const { weeklyTDEERecompute, getTDEE } = require('./goal');
 const { reconcileMissingCredits } = require('./bank');
 const { todayIST, getMondayIST, getDaysOfWeek } = require('../dateUtils');
 
@@ -41,9 +41,9 @@ router.get('/', (req, res) => {
     ? (goal?.step_target_weekend || 10000)
     : (goal?.step_target_weekday || 12000);
 
-  // Maintenance mode
+  // Maintenance mode — use getTDEE() so the user's source preference is respected
   const inMaintenance = isMaintenanceDate(goal, today);
-  const maintenanceTDEE = goal?.observed_tdee || null;
+  const tdeeResult = inMaintenance ? getTDEE(db, goal) : null;
 
   // Food totals
   const foodTotals = foodLogs.reduce((acc, l) => ({
@@ -220,7 +220,11 @@ router.get('/', (req, res) => {
     steps: stepLog?.steps || 0,
     step_target: stepTarget,
     in_maintenance: inMaintenance,
-    maintenance_tdee: inMaintenance ? maintenanceTDEE : null,
+    maintenance_tdee: tdeeResult?.tdee || null,
+    maintenance_tdee_source: tdeeResult?.source || null,
+    maintenance_tdee_formula: tdeeResult?.formula_tdee || null,
+    maintenance_tdee_observed: tdeeResult?.observed_tdee || null,
+    maintenance_tdee_preference: tdeeResult?.preference || null,
     post_maintenance_note: postMaintenanceNote,
   });
 });

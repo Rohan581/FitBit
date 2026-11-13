@@ -302,3 +302,43 @@ describe('Export covers all tables (v47)', () => {
     }
   });
 });
+
+describe('TDEE single-source enforcement (v48)', () => {
+  // Allowed files: routes/goal.js (the canonical source), db/ (schema/migrations),
+  // tests/ (test fixtures), seed.js (initial data).
+  const ALLOWED_FILES = /\/(routes\/goal\.js|db\/|tests\/|seed\.js)$/;
+
+  // Patterns that indicate direct TDEE column access outside the canonical path
+  const FORBIDDEN_PATTERNS = [
+    { pattern: /goal\s*[\.\?]+\s*observed_tdee/, label: 'goal.observed_tdee' },
+    { pattern: /goal\s*[\.\?]+\s*tdee_source(?!_preference)/, label: 'goal.tdee_source (not preference)' },
+    { pattern: /goal\s*[\.\?]+\s*activity_multiplier/, label: 'goal.activity_multiplier' },
+    { pattern: /10\s*\*\s*weight.*6\.25|6\.25\s*\*\s*height.*10\s*\*/, label: 'inline Mifflin-St Jeor' },
+  ];
+
+  it('no server file outside goal.js reads TDEE columns directly or computes Mifflin-St Jeor inline', () => {
+    const routesDir = path.join(__dirname, '..', 'routes');
+    const serverFiles = fs.readdirSync(routesDir)
+      .filter(f => f.endsWith('.js'))
+      .map(f => ({ name: f, fullPath: path.join(routesDir, f) }));
+
+    const violations = [];
+
+    for (const { name, fullPath } of serverFiles) {
+      if (ALLOWED_FILES.test(fullPath)) continue;
+      const content = fs.readFileSync(fullPath, 'utf8');
+      const lines = content.split('\n');
+
+      for (const { pattern, label } of FORBIDDEN_PATTERNS) {
+        for (let i = 0; i < lines.length; i++) {
+          if (pattern.test(lines[i])) {
+            violations.push(`routes/${name}:${i + 1} — ${label}: ${lines[i].trim()}`);
+          }
+        }
+      }
+    }
+
+    assert.deepStrictEqual(violations, [],
+      `Direct TDEE column access found outside routes/goal.js. Use getTDEE() or computeFormulaTDEE() instead:\n${violations.join('\n')}`);
+  });
+});
