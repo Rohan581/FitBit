@@ -58,6 +58,7 @@ export default function Settings() {
         maintenance_end: g.maintenance_end || '',
         step_target_weekday: g.step_target_weekday || 12000,
         step_target_weekend: g.step_target_weekend || 10000,
+        tdee_source_preference: g.tdee_source_preference || 'auto',
       });
     });
   }, []);
@@ -111,6 +112,7 @@ export default function Settings() {
         maintenance_end: form.maintenance_end || null,
         step_target_weekday: parseInt(form.step_target_weekday) || 12000,
         step_target_weekend: parseInt(form.step_target_weekend) || 10000,
+        tdee_source_preference: form.tdee_source_preference || 'auto',
       });
       setGoal(updated);
       setSaved(true);
@@ -201,27 +203,72 @@ export default function Settings() {
       {rolling_avg_weight && (
         <div className="mb-4 tint-points border border-points/20 rounded-card p-4 stagger-enter">
           <p className="text-sm text-tx">Current 7-day average: <span className="font-num font-semibold">{rolling_avg_weight} kg</span></p>
-          {/* Observed vs formula TDEE */}
-          {goal.tdee_info?.source === 'observed' ? (
-            <div className="mt-2 space-y-1">
-              <p className="text-sm text-tx">
-                <span className="font-semibold">Maintenance: <span className="font-num">{goal.tdee_info.observed_tdee}</span> kcal</span>
-                <span className="text-tx-3"> — measured from your last {goal.tdee_info.window_days} days</span>
+
+          {/* Both TDEE numbers side by side */}
+          <div className="mt-3 grid grid-cols-2 gap-2">
+            <div className={`rounded-lg p-2.5 border ${computed_targets?.source === 'observed' ? 'border-points/40 bg-points/5' : 'border-hair bg-card-2'}`}>
+              <p className="text-[11px] font-semibold text-tx-3 uppercase tracking-wider">Measured</p>
+              <p className="font-num text-lg font-bold text-tx">
+                {goal.tdee_info?.source === 'observed' ? goal.tdee_info.observed_tdee : (goal.tdee_info?.raw_observed || '—')}
               </p>
-              <p className="text-xs text-tx-3">
-                Formula estimate: <span className="font-num">{goal.tdee_info.formula_tdee}</span>.
-                {computed_targets?.source === 'observed'
-                  ? ' Target derives from your measured data.'
-                  : ' Target derives from the formula estimate.'}
-              </p>
+              {goal.tdee_info?.source === 'observed' && <p className="text-[10px] text-tx-3">from last {goal.tdee_info.window_days} days</p>}
+              {goal.tdee_info?.was_clamped && <p className="text-[10px] text-amber-500">rejected</p>}
+              {goal.tdee_info?.source === 'formula' && !goal.tdee_info?.raw_observed && <p className="text-[10px] text-tx-3">insufficient data</p>}
             </div>
-          ) : (
-            <div className="mt-2">
-              <p className="text-xs text-tx-3">
-                Using the formula estimate{computed_targets ? ` (${computed_targets.tdee} kcal)` : ''} — {goal.tdee_info?.reason || 'not enough logged days in the last 28 to measure it.'}
-              </p>
+            <div className={`rounded-lg p-2.5 border ${computed_targets?.source === 'formula' ? 'border-points/40 bg-points/5' : 'border-hair bg-card-2'}`}>
+              <p className="text-[11px] font-semibold text-tx-3 uppercase tracking-wider">Formula</p>
+              <p className="font-num text-lg font-bold text-tx">{goal.tdee_info?.formula_tdee || computed_targets?.formula_tdee || '—'}</p>
+              <p className="text-[10px] text-tx-3">× {form.activity_multiplier}</p>
             </div>
+          </div>
+
+          {/* Active source indicator */}
+          <p className="mt-2 text-xs text-tx-2">
+            Using <span className="font-semibold">{computed_targets?.source === 'observed' ? 'measured' : 'formula'}</span>
+            {computed_targets ? ` (${computed_targets.tdee} kcal)` : ''} for your target.
+          </p>
+
+          {/* Rejection message for clamped TDEE */}
+          {goal.tdee_info?.was_clamped && (
+            <p className="mt-1 text-xs text-amber-500">
+              Measurement rejected — logged intake implies maintenance of {goal.tdee_info.raw_observed}, outside the plausible range ({goal.tdee_info.sanity_lo}–{goal.tdee_info.sanity_hi}). This usually means intake is being under-logged.
+            </p>
           )}
+
+          {/* Floor binding message */}
+          {computed_targets?.floored && (
+            <p className="mt-1 text-xs text-amber-500">
+              Target raised to the {computed_targets.floor.toLocaleString()} safety minimum — your deficit would otherwise put it at {computed_targets.unfloored_target.toLocaleString()}.
+            </p>
+          )}
+
+          {/* Source preference selector */}
+          <div className="mt-3">
+            <p className="text-[11px] font-semibold text-tx-3 uppercase tracking-wider mb-1.5">TDEE source</p>
+            <div className="flex gap-1.5">
+              {[['auto', 'Auto'], ['measured', 'Measured'], ['formula', 'Formula']].map(([key, label]) => (
+                <button
+                  key={key}
+                  onClick={() => set('tdee_source_preference', key)}
+                  className="px-3 py-1.5 rounded-full text-[12px] font-medium transition-colors press-scale"
+                  style={(form.tdee_source_preference || 'auto') === key ? {
+                    background: 'var(--points)',
+                    color: 'var(--on-accent)',
+                  } : {
+                    border: '1px solid var(--hair)',
+                  }}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+            <p className="text-[10px] text-tx-3 mt-1">
+              {(form.tdee_source_preference || 'auto') === 'auto' && 'Uses measured when valid, otherwise formula.'}
+              {form.tdee_source_preference === 'measured' && 'Always uses measured TDEE when available.'}
+              {form.tdee_source_preference === 'formula' && 'Always uses the formula estimate.'}
+            </p>
+          </div>
+
           <button
             onClick={handleRecalculate}
             disabled={recalculating}
@@ -328,7 +375,7 @@ export default function Settings() {
             </div>
             <p className="text-xs text-tx-3 px-1">Target = TDEE × (1 − deficit%). Capped at 25% to preserve muscle.</p>
             {computed_targets?.floored && (
-              <p className="text-xs text-amber-500 px-1">Target was floored to the safety minimum (max of 1,600 or 22 × bodyweight) to prevent going below safe intake.</p>
+              <p className="text-xs text-amber-500 px-1">Target raised to the {computed_targets.floor?.toLocaleString()} safety minimum — your deficit would otherwise put it at {computed_targets.unfloored_target?.toLocaleString()}.</p>
             )}
           </div>
         </Section>

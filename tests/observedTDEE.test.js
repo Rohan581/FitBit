@@ -6,7 +6,7 @@ const fs = require('fs');
 const TEST_DB_PATH = path.join(__dirname, '..', 'data', 'test-tdee.db');
 
 let db;
-let computeObservedTDEE, deriveMacrosFromTDEE;
+let computeObservedTDEE, deriveMacrosFromTDEE, weeklyTDEERecompute;
 
 before(() => {
   try { fs.unlinkSync(TEST_DB_PATH); } catch {}
@@ -25,6 +25,7 @@ before(() => {
   const goal = require('../routes/goal');
   computeObservedTDEE = goal.computeObservedTDEE;
   deriveMacrosFromTDEE = goal.deriveMacrosFromTDEE;
+  weeklyTDEERecompute = goal.weeklyTDEERecompute;
 });
 
 after(() => {
@@ -149,31 +150,155 @@ describe('computeObservedTDEE', () => {
 });
 
 describe('deriveMacrosFromTDEE safety floor', () => {
-  it('applies max(1600, 22 × bodyweight) floor', () => {
-    // 87 kg person: floor = max(1600, 22 * 87) = max(1600, 1914) = 1914
+  it('applies max(1500, 20 × bodyweight) floor', () => {
+    // 87 kg person: floor = max(1500, 20 * 87) = max(1500, 1740) = 1740
     const result = deriveMacrosFromTDEE(1800, 0.25, 87);
-    // Without floor: 1800 * 0.75 = 1350 → below 1914
-    assert.equal(result.calorie_target, 1914, 'should be floored to 22 × 87 = 1914');
+    // Without floor: 1800 * 0.75 = 1350 → below 1740
+    assert.equal(result.calorie_target, 1740, 'should be floored to 20 × 87 = 1740');
     assert.equal(result.floored, true, 'should flag as floored');
+    assert.equal(result.floor, 1740, 'floor value should be 1740');
+    assert.equal(result.unfloored_target, 1350, 'unfloored target should be 1350');
   });
 
   it('does not floor when target is above minimum', () => {
     const result = deriveMacrosFromTDEE(2700, 0.21, 87);
-    // 2700 * 0.79 = 2133 > 1914
+    // 2700 * 0.79 = 2133 > 1740
     assert.equal(result.calorie_target, 2133, 'should not be floored');
     assert.equal(result.floored, false, 'should not flag as floored');
   });
 
-  it('uses 1600 floor for lightweight users', () => {
-    // 60 kg person: floor = max(1600, 22 * 60) = max(1600, 1320) = 1600
+  it('uses 1500 floor for lightweight users', () => {
+    // 60 kg person: floor = max(1500, 20 * 60) = max(1500, 1200) = 1500
     const result = deriveMacrosFromTDEE(1800, 0.25, 60);
-    // Without floor: 1800 * 0.75 = 1350 → below 1600
-    assert.equal(result.calorie_target, 1600, 'should be floored to 1600');
+    // Without floor: 1800 * 0.75 = 1350 → below 1500
+    assert.equal(result.calorie_target, 1500, 'should be floored to 1500');
     assert.equal(result.floored, true, 'should flag as floored');
+    assert.equal(result.floor, 1500, 'floor value should be 1500');
   });
 
   it('protein is always at least max(160, 2 × bodyweight)', () => {
     const result = deriveMacrosFromTDEE(2700, 0.21, 87);
     assert.ok(result.protein_target >= 174, `protein ${result.protein_target} should be >= 2×87=174`);
+  });
+
+  // Regression test from v47 spec: at 84.15 kg with formula source and 21% deficit, target is ~2136 and floor doesn't bind
+  it('at 84.15 kg formula TDEE with 21% deficit yields correct target and floor does not bind', () => {
+    // Use the same computation path as the app:
+    // BMR = 10*84.15 + 6.25*183 - 5*25 + 5 = 1865.25, rounds to 1865
+    // TDEE = 1865 * 1.45 = 2704.25, rounds to 2704
+    const { computeFormulaTDEE } = require('../routes/goal');
+    const { tdee: formulaTDEE } = computeFormulaTDEE(84.15, 183, 25, 1.45);
+    const result = deriveMacrosFromTDEE(formulaTDEE, 0.21, 84.15);
+
+    // formulaTDEE * 0.79, rounded
+    const expectedTarget = Math.round(formulaTDEE * 0.79);
+    assert.equal(result.calorie_target, expectedTarget, `target should be ${expectedTarget}, got ${result.calorie_target}`);
+    assert.equal(result.floored, false, 'floor should not bind at this weight/deficit');
+
+    // floor = max(1500, 20 * 84.15) = max(1500, 1683) = 1683
+    assert.equal(result.floor, 1683, 'floor should be 1683');
+    assert.ok(result.calorie_target > result.floor, `target ${result.calorie_target} should be above floor ${result.floor}`);
+  });
+});
+
+describe('TDEE clamping rejection (v47)', () => {
+  it('sub-band observed TDEE is rejected — tdee_source stays formula', () => {
+    // Clear previous data
+    db.prepare('DELETE FROM weight_logs').run();
+    db.prepare('DELETE FROM food_logs').run();
+    db.prepare('DELETE FROM tdee_history').run();
+    db.prepare(`UPDATE goal SET observed_tdee = NULL, tdee_source = 'formula', last_tdee_compute_date = NULL WHERE id = 1`).run();
+
+    const today = new Date(Date.now() + 330 * 60000).toISOString().split('T')[0];
+    const todayDate = new Date(today + 'T12:00:00Z');
+
+    // Seed at 84.15 kg stable weight (no change) with very low intake (1200 kcal/day)
+    // This will produce observedTDEE ≈ 1200, well below 0.75 * formulaTDEE (≈ 2028)
+    for (let i = 28; i >= 0; i--) {
+      const d = new Date(todayDate);
+      d.setUTCDate(d.getUTCDate() - i);
+      const dateStr = d.toISOString().split('T')[0];
+      db.prepare('INSERT INTO weight_logs (date, weight_kg) VALUES (?, ?)').run(dateStr, 84.15);
+    }
+
+    for (let i = 27; i >= 0; i--) {
+      const d = new Date(todayDate);
+      d.setUTCDate(d.getUTCDate() - i);
+      const dateStr = d.toISOString().split('T')[0];
+      db.prepare(`
+        INSERT INTO food_logs (date, meal_type, food_name, quantity, calories, protein_g, carbs_g, fat_g)
+        VALUES (?, 'lunch', 'Low cal meal', 1, 1200, 50, 100, 30)
+      `).run(dateStr);
+    }
+
+    const goal = db.prepare('SELECT * FROM goal WHERE id = 1').get();
+    const result = computeObservedTDEE(db, goal);
+
+    // The raw observed TDEE should be ~1200 (stable weight, 1200 kcal intake)
+    assert.ok(result.raw_observed < 1400, `raw_observed ${result.raw_observed} should be low (around 1200)`);
+
+    // The source should be 'formula' because it was clamped/rejected
+    assert.equal(result.source, 'formula', 'source should be formula when measurement is rejected');
+    assert.equal(result.was_clamped, true, 'was_clamped should be true');
+
+    // The result should NOT have observed_tdee (that field only exists when source = 'observed')
+    assert.equal(result.observed_tdee, undefined, 'observed_tdee should not be set on a rejected result');
+
+    // Now run weeklyTDEERecompute and verify goal stays on formula
+    weeklyTDEERecompute(db);
+    const updatedGoal = db.prepare('SELECT * FROM goal WHERE id = 1').get();
+
+    assert.equal(updatedGoal.tdee_source, 'formula', 'goal.tdee_source must stay formula after rejected observation');
+    assert.equal(updatedGoal.observed_tdee, null, 'goal.observed_tdee must not be overwritten with clamped value');
+
+    // tdee_history should record the rejection
+    const historyRow = db.prepare('SELECT * FROM tdee_history ORDER BY id DESC LIMIT 1').get();
+    assert.equal(historyRow.was_clamped, 1, 'tdee_history should record was_clamped = 1');
+    assert.equal(historyRow.source_used, 'formula', 'tdee_history source_used should be formula');
+    assert.ok(historyRow.raw_observed != null, 'tdee_history should record raw_observed');
+    assert.equal(historyRow.observed_tdee, null, 'tdee_history observed_tdee should be null for rejected');
+  });
+});
+
+describe('Export covers all tables (v47)', () => {
+  it('every table in sqlite_master is either exported or explicitly excluded', () => {
+    const { getExportTables, EXCLUDED_TABLES } = require('../routes/export');
+    const allDbTables = db.prepare(
+      "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'"
+    ).all().map(t => t.name);
+
+    const exportedTables = getExportTables(db);
+    const exportedSet = new Set(exportedTables);
+
+    for (const table of allDbTables) {
+      const isExported = exportedSet.has(table);
+      const isExcluded = EXCLUDED_TABLES.has(table);
+      assert.ok(isExported || isExcluded,
+        `Table '${table}' is neither exported nor in the exclusion list`);
+    }
+  });
+
+  it('step_logs, tdee_history and goal are all exported', () => {
+    const { getExportTables } = require('../routes/export');
+    const tables = getExportTables(db);
+    assert.ok(tables.includes('step_logs'), 'step_logs must be in export');
+    assert.ok(tables.includes('tdee_history'), 'tdee_history must be in export');
+    assert.ok(tables.includes('goal'), 'goal must be in export');
+  });
+
+  it('legacy nine tables are in original order', () => {
+    const { getExportTables } = require('../routes/export');
+    const tables = getExportTables(db);
+    const legacyOrder = [
+      'food_logs', 'exercise_logs', 'workout_sessions', 'workout_sets',
+      'weight_logs', 'sleep_logs', 'measurement_logs', 'weekly_summary',
+      'reward_bank_ledger',
+    ];
+    let lastIndex = -1;
+    for (const t of legacyOrder) {
+      const idx = tables.indexOf(t);
+      assert.ok(idx > lastIndex, `${t} should come after previous legacy table (index ${idx} > ${lastIndex})`);
+      lastIndex = idx;
+    }
   });
 });

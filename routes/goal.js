@@ -25,17 +25,17 @@ function computeMacros(weight_kg, height_cm, age, activity_multiplier, deficit_p
 // ── Derive macros from a given TDEE and deficit ──────────────
 function deriveMacrosFromTDEE(tdee, deficit_pct, weight_kg) {
   const defPct = typeof deficit_pct === 'number' ? deficit_pct : 0.25;
-  let calorie_target = Math.round(tdee * (1 - defPct));
+  const unfloored_target = Math.round(tdee * (1 - defPct));
 
-  // Safety floor: max(1600, 22 × bodyweight_kg)
-  const floor = Math.max(1600, Math.round(22 * weight_kg));
-  const floored = calorie_target < floor;
-  if (floored) calorie_target = floor;
+  // Safety floor: max(1500, 20 × bodyweight_kg) — v39 Part 3 spec
+  const floor = Math.max(1500, Math.round(20 * weight_kg));
+  const floored = unfloored_target < floor;
+  const calorie_target = floored ? floor : unfloored_target;
 
   const protein_target = Math.max(160, Math.round(2 * weight_kg));
   const fat_target = Math.round((calorie_target * 0.26) / 9);
   const carb_target = Math.round((calorie_target - protein_target * 4 - fat_target * 9) / 4);
-  return { calorie_target, protein_target, fat_target, carb_target, floored };
+  return { calorie_target, protein_target, fat_target, carb_target, floored, floor, unfloored_target };
 }
 
 function get7DayRollingAvg(db) {
@@ -45,16 +45,27 @@ function get7DayRollingAvg(db) {
 }
 
 // ── Single TDEE source of truth ─────────────────────────────
-// Returns the best available TDEE: observed if stored, else formula.
+// Returns the best available TDEE, respecting the user's source preference.
+// Preference: 'auto' (default) = use observed when valid, else formula.
+//             'formula' = always use formula.
+//             'measured' = use observed if available, else formula.
 function getTDEE(db, goal) {
   const rollingAvg = get7DayRollingAvg(db);
   const weight = rollingAvg || goal.start_weight_kg;
   const { bmr, tdee: formulaTDEE } = computeFormulaTDEE(weight, goal.height_cm, goal.age, goal.activity_multiplier);
 
-  if (goal.observed_tdee && goal.tdee_source === 'observed') {
-    return { tdee: goal.observed_tdee, source: 'observed', bmr, formula_tdee: formulaTDEE };
+  const pref = goal.tdee_source_preference || 'auto';
+
+  if (pref === 'formula') {
+    return { tdee: formulaTDEE, source: 'formula', bmr, formula_tdee: formulaTDEE, observed_tdee: goal.observed_tdee, preference: pref };
   }
-  return { tdee: formulaTDEE, source: 'formula', bmr, formula_tdee: formulaTDEE };
+
+  // 'auto' or 'measured': use observed if valid and stored
+  if (goal.observed_tdee && goal.tdee_source === 'observed') {
+    return { tdee: goal.observed_tdee, source: 'observed', bmr, formula_tdee: formulaTDEE, observed_tdee: goal.observed_tdee, preference: pref };
+  }
+
+  return { tdee: formulaTDEE, source: 'formula', bmr, formula_tdee: formulaTDEE, observed_tdee: goal.observed_tdee, preference: pref };
 }
 
 // ── Observed TDEE computation ────────────────────────────────
@@ -144,11 +155,9 @@ function computeObservedTDEE(db, goal) {
   );
   const lo = formulaTDEE * 0.75;
   const hi = formulaTDEE * 1.25;
-  const clampedTDEE = Math.round(Math.max(lo, Math.min(hi, observedTDEE)));
+  const was_clamped = observedTDEE < lo || observedTDEE > hi;
 
-  return {
-    source: 'observed',
-    observed_tdee: clampedTDEE,
+  const shared = {
     formula_tdee: formulaTDEE,
     window_start: cutoffStr,
     window_end: today,
@@ -161,7 +170,24 @@ function computeObservedTDEE(db, goal) {
     weight_change_kg: Math.round(weightChangeKg * 100) / 100,
     energy_from_tissue: Math.round(energyFromTissue),
     raw_observed: Math.round(observedTDEE),
-    was_clamped: observedTDEE < lo || observedTDEE > hi,
+    was_clamped,
+    sanity_lo: Math.round(lo),
+    sanity_hi: Math.round(hi),
+  };
+
+  // A clamped computation is not an observation — reject and fall back to formula
+  if (was_clamped) {
+    return {
+      source: 'formula',
+      reason: `Measurement rejected — logged intake implies maintenance of ${Math.round(observedTDEE)}, outside the plausible range (${Math.round(lo)}–${Math.round(hi)}) for your size and activity. Using formula estimate of ${formulaTDEE}. This usually means intake is being under-logged.`,
+      ...shared,
+    };
+  }
+
+  return {
+    source: 'observed',
+    observed_tdee: Math.round(observedTDEE),
+    ...shared,
   };
 }
 
@@ -188,26 +214,51 @@ function weeklyTDEERecompute(db) {
 
   let activeTDEE;
 
+  // Has full window data (observation succeeded or was rejected by sanity band)
+  const hasWindowData = result.window_start != null;
+
   if (result.source === 'observed') {
+    // Valid observation — within sanity band
     db.prepare(`
       INSERT INTO tdee_history (date, observed_tdee, formula_tdee, window_start, window_end,
         days_elapsed, days_logged, coverage_pct, mean_intake,
-        rolling_weight_start, rolling_weight_end, weight_delta_kg, energy_from_tissue, source_used)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'observed')
+        rolling_weight_start, rolling_weight_end, weight_delta_kg, energy_from_tissue,
+        source_used, was_clamped, raw_observed)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'observed', 0, ?)
     `).run(today, result.observed_tdee, result.formula_tdee, result.window_start, result.window_end,
       result.window_days, result.days_logged, result.coverage_pct, result.mean_intake,
       result.rolling_weight_start, result.rolling_weight_end,
-      result.weight_change_kg, result.energy_from_tissue);
+      result.weight_change_kg, result.energy_from_tissue, result.raw_observed);
 
     db.prepare(`
       UPDATE goal SET observed_tdee = ?, tdee_source = 'observed', last_tdee_compute_date = ? WHERE id = 1
     `).run(result.observed_tdee, today);
 
     activeTDEE = result.observed_tdee;
-  } else {
+  } else if (hasWindowData && result.was_clamped) {
+    // Rejected observation — outside sanity band. Record the raw value but use formula.
     db.prepare(`
-      INSERT INTO tdee_history (date, formula_tdee, coverage_pct, source_used)
-      VALUES (?, ?, ?, 'formula')
+      INSERT INTO tdee_history (date, observed_tdee, formula_tdee, window_start, window_end,
+        days_elapsed, days_logged, coverage_pct, mean_intake,
+        rolling_weight_start, rolling_weight_end, weight_delta_kg, energy_from_tissue,
+        source_used, was_clamped, raw_observed)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'formula', 1, ?)
+    `).run(today, null, result.formula_tdee, result.window_start, result.window_end,
+      result.window_days, result.days_logged, result.coverage_pct, result.mean_intake,
+      result.rolling_weight_start, result.rolling_weight_end,
+      result.weight_change_kg, result.energy_from_tissue, result.raw_observed);
+
+    // Do NOT write the clamped value as observed_tdee. Fall back to formula.
+    db.prepare(`
+      UPDATE goal SET tdee_source = 'formula', last_tdee_compute_date = ? WHERE id = 1
+    `).run(today);
+
+    activeTDEE = formulaTDEE;
+  } else {
+    // Insufficient data — no observation possible
+    db.prepare(`
+      INSERT INTO tdee_history (date, formula_tdee, coverage_pct, source_used, was_clamped, raw_observed)
+      VALUES (?, ?, ?, 'formula', 0, NULL)
     `).run(today, formulaTDEE, result.coverage_pct || null);
 
     activeTDEE = goal.observed_tdee || formulaTDEE;
@@ -275,7 +326,11 @@ router.get('/', (req, res) => {
   let computed = null;
   if (rollingAvg) {
     const macros = deriveMacrosFromTDEE(tdeeResult.tdee, deficit, rollingAvg);
-    computed = { ...macros, bmr: tdeeResult.bmr, tdee: tdeeResult.tdee, source: tdeeResult.source, formula_tdee: tdeeResult.formula_tdee };
+    computed = {
+      ...macros, bmr: tdeeResult.bmr, tdee: tdeeResult.tdee,
+      source: tdeeResult.source, formula_tdee: tdeeResult.formula_tdee,
+      observed_tdee: tdeeResult.observed_tdee, preference: tdeeResult.preference,
+    };
   }
 
   // Observed TDEE info for display
@@ -313,7 +368,8 @@ router.put('/', (req, res) => {
       rest_day_reduction=?, reward_credit_amount=?,
       maintenance_start=?, maintenance_end=?,
       goal_date=?, waist_goal_cm=?,
-      step_target_weekday=?, step_target_weekend=?
+      step_target_weekday=?, step_target_weekend=?,
+      tdee_source_preference=?
     WHERE id=1
   `).run(
     updates.start_weight_kg, updates.goal_weight_kg, updates.start_date, updates.target_date,
@@ -331,6 +387,7 @@ router.put('/', (req, res) => {
     updates.goal_date || null, updates.waist_goal_cm || null,
     parseInt(updates.step_target_weekday) || 12000,
     parseInt(updates.step_target_weekend) || 10000,
+    updates.tdee_source_preference || 'auto',
   );
 
   res.json(db.prepare('SELECT * FROM goal WHERE id = 1').get());
@@ -422,3 +479,4 @@ module.exports.getTDEE = getTDEE;
 module.exports.computeObservedTDEE = computeObservedTDEE;
 module.exports.weeklyTDEERecompute = weeklyTDEERecompute;
 module.exports.deriveMacrosFromTDEE = deriveMacrosFromTDEE;
+module.exports.computeFormulaTDEE = computeFormulaTDEE;

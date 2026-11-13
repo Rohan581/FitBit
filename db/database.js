@@ -1170,6 +1170,20 @@ function runMigrations(db) {
     console.log('[v45 migration] Added portion_mode column to recipes');
   }
 
+  // ── v47: TDEE source preference + tdee_history columns ──────
+  const goalColsV47 = db.prepare("PRAGMA table_info(goal)").all().map(c => c.name);
+  if (!goalColsV47.includes('tdee_source_preference')) {
+    db.exec(`ALTER TABLE goal ADD COLUMN tdee_source_preference TEXT DEFAULT 'auto'`);
+    console.log('[v47 migration] Added tdee_source_preference to goal');
+  }
+
+  const tdeeHistCols = db.prepare("PRAGMA table_info(tdee_history)").all().map(c => c.name);
+  if (!tdeeHistCols.includes('was_clamped')) {
+    db.exec(`ALTER TABLE tdee_history ADD COLUMN was_clamped INTEGER DEFAULT 0`);
+    db.exec(`ALTER TABLE tdee_history ADD COLUMN raw_observed REAL`);
+    console.log('[v47 migration] Added was_clamped, raw_observed to tdee_history');
+  }
+
   // Seed exercises
   seedExercises(db);
 
