@@ -357,6 +357,70 @@ function initDB() {
     );
   `);
 
+  // ── Money module (auto-filled from bank alert emails) ──────
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS money_tx (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      source_id TEXT NOT NULL UNIQUE,
+      source TEXT NOT NULL,
+      bank TEXT NOT NULL,
+      instrument TEXT NOT NULL,
+      last4 TEXT,
+      direction TEXT NOT NULL,
+      amount REAL NOT NULL,
+      payee_raw TEXT,
+      payee TEXT NOT NULL,
+      date TEXT NOT NULL,
+      time TEXT,
+      channel TEXT,
+      hint TEXT,
+      type TEXT NOT NULL DEFAULT 'spend',
+      fund TEXT,
+      category TEXT,
+      created_at TEXT DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_money_tx_date ON money_tx(date);
+
+    CREATE TABLE IF NOT EXISTS money_hints (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      source_id TEXT NOT NULL UNIQUE,
+      kind TEXT NOT NULL,
+      amount REAL NOT NULL,
+      date TEXT NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS money_rules (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      pattern TEXT NOT NULL UNIQUE,
+      category TEXT NOT NULL,
+      is_default INTEGER NOT NULL DEFAULT 0
+    );
+
+    CREATE TABLE IF NOT EXISTS money_unparsed (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      source_id TEXT NOT NULL UNIQUE,
+      source TEXT,
+      subject TEXT,
+      snippet TEXT,
+      date TEXT
+    );
+
+    CREATE TABLE IF NOT EXISTS money_source_seen (
+      source TEXT PRIMARY KEY,
+      last_seen TEXT NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS money_settings (
+      key TEXT PRIMARY KEY,
+      value TEXT NOT NULL
+    );
+  `);
+  {
+    const { DEFAULT_RULES } = require('../money/classify');
+    const addRule = db.prepare('INSERT OR IGNORE INTO money_rules (pattern, category, is_default) VALUES (?, ?, 1)');
+    for (const [pattern, category] of DEFAULT_RULES) addRule.run(pattern, category);
+  }
+
   // Gym equipment inventory
   db.exec(`
     CREATE TABLE IF NOT EXISTS gym_equipment (

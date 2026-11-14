@@ -14,6 +14,10 @@ import CookRecipes from './pages/CookRecipes';
 import CookRecipeDetail from './pages/CookRecipeDetail';
 import CookMode from './pages/CookMode';
 import CookCooked from './pages/CookCooked';
+import MoneyNav from './components/MoneyNav';
+import Login from './pages/Login';
+import { MoneyMonth, MoneyActivity, MoneyReview, MoneyRecurring, MoneySavings, MoneySettings } from './pages/Money';
+import { api } from './api';
 import { initThemeListener } from './theme';
 
 function UpdateToast() {
@@ -51,6 +55,7 @@ function AppShell() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const location = useLocation();
   const isCook = location.pathname.startsWith('/cook');
+  const isMoney = location.pathname.startsWith('/money');
 
   const openSidebar = () => setSidebarOpen(true);
 
@@ -78,10 +83,18 @@ function AppShell() {
             <Route path="/cook/cooked" element={<CookCooked onOpenSidebar={openSidebar} />} />
             <Route path="/cook" element={<Navigate to="/cook/recipes" replace />} />
 
+            {/* Money routes */}
+            <Route path="/money" element={<MoneyMonth onOpenSidebar={openSidebar} />} />
+            <Route path="/money/activity" element={<MoneyActivity />} />
+            <Route path="/money/review" element={<MoneyReview />} />
+            <Route path="/money/recurring" element={<MoneyRecurring />} />
+            <Route path="/money/savings" element={<MoneySavings />} />
+            <Route path="/money/settings" element={<MoneySettings />} />
+
             <Route path="*" element={<DefaultRedirect />} />
           </Routes>
         </div>
-        {isCook ? <CookNav /> : <BottomNav />}
+        {isCook ? <CookNav /> : isMoney ? <MoneyNav /> : <BottomNav />}
       </div>
       <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
     </>
@@ -90,11 +103,23 @@ function AppShell() {
 
 function DefaultRedirect() {
   const lastModule = localStorage.getItem('earned_module');
-  return <Navigate to={lastModule === 'cook' ? '/cook/recipes' : '/'} replace />;
+  return <Navigate to={lastModule === 'cook' ? '/cook/recipes' : lastModule === 'money' ? '/money' : '/'} replace />;
 }
 
 export default function App() {
   useEffect(() => initThemeListener(), []);
+  // null = checking, true = show the app, false = show the login screen
+  const [authed, setAuthed] = useState(null);
+
+  useEffect(() => {
+    api.authStatus().then(a => setAuthed(!a.enabled || a.authed)).catch(() => setAuthed(true));
+    const lock = () => setAuthed(false);
+    window.addEventListener('auth-required', lock);
+    return () => window.removeEventListener('auth-required', lock);
+  }, []);
+
+  if (authed === null) return <div className="h-full bg-page" />;
+  if (!authed) return <Login onDone={() => setAuthed(true)} />;
 
   return (
     <BrowserRouter>

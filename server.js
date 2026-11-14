@@ -4,6 +4,7 @@ const cors = require('cors');
 const fs = require('fs');
 const { execSync } = require('child_process');
 const { initDB } = require('./db/database');
+const { mountAuth, requireAuth, authEnabled } = require('./auth');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -26,14 +27,20 @@ fs.mkdirSync(dataDir, { recursive: true });
 // Initialize database
 initDB();
 
+app.set('trust proxy', 1);
 app.use(cors());
-app.use(express.json());
+app.use(express.json({ limit: '1mb' }));
 
 // Version endpoint — must never be cached
 app.get('/api/version', (req, res) => {
   res.set('Cache-Control', 'no-store');
   res.json({ sha: BUILD_SHA, builtAt: BUILD_TIME, startedAt: SERVER_STARTED_AT });
 });
+
+// Login. With APP_PASSWORD set, every /api route below needs a session cookie.
+mountAuth(app);
+app.use(requireAuth);
+if (!authEnabled()) console.warn('[AUTH] APP_PASSWORD is not set: the API is open and Money is disabled.');
 
 // API routes — safe loader so a broken module degrades instead of crash-looping
 function useRoute(path, mod) {
@@ -66,6 +73,7 @@ useRoute('/api/bank', './routes/bank');
 useRoute('/api/export', './routes/export');
 useRoute('/api/recipes', './routes/recipes');
 useRoute('/api/steps', './routes/steps');
+useRoute('/api/money', './routes/money');
 
 // Serve React app in production
 if (process.env.NODE_ENV === 'production') {
