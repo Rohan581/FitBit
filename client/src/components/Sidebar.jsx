@@ -17,7 +17,20 @@ const MODULES = [
     icon: '🍳',
     path: '/cook/recipes',
   },
+  {
+    key: 'money',
+    name: 'Money',
+    subtitle: 'Fills itself from bank emails',
+    icon: '💳',
+    path: '/money',
+  },
 ];
+
+const MODULE_STYLE = {
+  fitness: { border: 'var(--points)', bg: 'var(--accent-surface)' },
+  cook: { border: 'var(--cook)', bg: 'var(--cook-dim)' },
+  money: { border: 'var(--money)', bg: 'var(--money-dim)' },
+};
 
 function getWeekStart() {
   const ist = new Date(Date.now() + 330 * 60000);
@@ -31,13 +44,16 @@ export default function Sidebar({ open, onClose }) {
   const navigate = useNavigate();
   const location = useLocation();
   const [points, setPoints] = useState(null);
+  const [authOn, setAuthOn] = useState(false);
 
   const isCook = location.pathname.startsWith('/cook');
-  const activeModule = isCook ? 'cook' : 'fitness';
+  const isMoney = location.pathname.startsWith('/money');
+  const activeModule = isCook ? 'cook' : isMoney ? 'money' : 'fitness';
 
   useEffect(() => {
     if (open) {
       api.getWeeklyPoints(getWeekStart()).then(w => setPoints(w.total || 0)).catch(() => {});
+      api.authStatus().then(a => setAuthOn(!!a.enabled)).catch(() => {});
       document.body.style.overflow = 'hidden';
     } else {
       document.body.style.overflow = '';
@@ -81,10 +97,8 @@ export default function Sidebar({ open, onClose }) {
                   onClick={() => switchModule(mod)}
                   className="flex items-center gap-3.5 p-3.5 rounded-[14px] border text-left press-scale transition-colors"
                   style={{
-                    borderColor: isActive ? 'var(--cook)' : 'var(--hair)',
-                    background: isActive
-                      ? (mod.key === 'cook' ? 'var(--cook-dim)' : 'var(--accent-surface)')
-                      : 'var(--card)',
+                    borderColor: isActive ? MODULE_STYLE[mod.key].border : 'var(--hair)',
+                    background: isActive ? MODULE_STYLE[mod.key].bg : 'var(--card)',
                   }}
                 >
                   <span className="text-[24px] leading-none">{mod.icon}</span>
@@ -116,6 +130,18 @@ export default function Sidebar({ open, onClose }) {
             </svg>
             Settings
           </button>
+          {authOn && (
+            <button
+              onClick={async () => { await api.logout().catch(() => {}); window.location.reload(); }}
+              className="flex items-center gap-3 px-3.5 py-3 text-[14px] text-tx-2 press-scale w-full"
+            >
+              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.6}>
+                <rect x="5" y="11" width="14" height="9" rx="2" />
+                <path strokeLinecap="round" strokeLinejoin="round" d="M8 11V8a4 4 0 018 0v3" />
+              </svg>
+              Lock app
+            </button>
+          )}
         </div>
       </div>
     </div>

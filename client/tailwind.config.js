@@ -28,6 +28,10 @@ export default {
         star: 'var(--star)',
         cook: 'var(--cook)',
         'cook-dim': 'var(--cook-dim)',
+        money: 'var(--money)',
+        'money-soft': 'var(--money-soft)',
+        'money-dim': 'var(--money-dim)',
+        'money-ink': 'var(--money-ink)',
         'on-accent': 'var(--on-accent)',
       },
       fontFamily: {

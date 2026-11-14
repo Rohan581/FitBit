@@ -7,6 +7,9 @@ async function req(method, path, body) {
     headers: body ? { 'Content-Type': 'application/json' } : {},
     body: body ? JSON.stringify(body) : undefined,
   });
+  if (res.status === 401 && !path.startsWith('/auth/')) {
+    window.dispatchEvent(new CustomEvent('auth-required'));
+  }
   if (!res.ok) {
     const err = await res.json().catch(() => ({ error: res.statusText }));
     throw new Error(err.error || 'Request failed');
@@ -15,6 +18,21 @@ async function req(method, path, body) {
 }
 
 export const api = {
+  // Auth
+  authStatus: () => req('GET', '/auth/status'),
+  login: (password) => req('POST', '/auth/login', { password }),
+  logout: () => req('POST', '/auth/logout', {}),
+
+  // Money
+  moneyMonth: (month) => req('GET', `/money/month${month ? `?month=${month}` : ''}`),
+  moneyTransactions: (month) => req('GET', `/money/transactions${month ? `?month=${month}` : ''}`),
+  moneyReview: () => req('GET', '/money/review'),
+  moneyCategorise: (id, category) => req('POST', `/money/review/${id}/category`, { category }),
+  moneyRecurring: () => req('GET', '/money/recurring'),
+  moneySavings: (month) => req('GET', `/money/savings${month ? `?month=${month}` : ''}`),
+  moneySettings: () => req('GET', '/money/settings'),
+  saveMoneySettings: (s) => req('PUT', '/money/settings', s),
+
   // Dashboard
   getDashboard: () => req('GET', '/dashboard'),
 
