@@ -101,16 +101,27 @@ function post_(emails) {
   var url = (p.getProperty('APP_URL') || '').replace(/\/+$/, '');
   var key = p.getProperty('INGEST_KEY') || '';
   if (!url || !key) throw new Error('Set APP_URL and INGEST_KEY in Script properties.');
-  var res = UrlFetchApp.fetch(url + '/api/money/ingest', {
-    method: 'post',
-    contentType: 'application/json',
-    headers: { 'x-ingest-key': key },
-    payload: JSON.stringify({ emails: emails }),
-    muteHttpExceptions: true
-  });
-  var code = res.getResponseCode();
-  Logger.log('Posted ' + emails.length + ' emails: ' + code + ' ' + res.getContentText().slice(0, 200));
-  return code === 200;
+  // A network blip ("Address unavailable", timeouts) throws instead of returning a status.
+  // Retry a few times; if it still fails, report failure so the caller saves its place.
+  for (var attempt = 1; attempt <= 3; attempt++) {
+    try {
+      var res = UrlFetchApp.fetch(url + '/api/money/ingest', {
+        method: 'post',
+        contentType: 'application/json',
+        headers: { 'x-ingest-key': key },
+        payload: JSON.stringify({ emails: emails }),
+        muteHttpExceptions: true
+      });
+      var code = res.getResponseCode();
+      Logger.log('Posted ' + emails.length + ' emails: ' + code + ' ' + res.getContentText().slice(0, 200));
+      if (code === 200) return true;
+      if (code < 500) return false; // bad key or bad request: retrying will not help
+    } catch (e) {
+      Logger.log('Attempt ' + attempt + ' could not reach the server: ' + e);
+    }
+    Utilities.sleep(attempt * 5000);
+  }
+  return false;
 }
 
 /** HTML email body -> plain text the server can pattern-match. */
