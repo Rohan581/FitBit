@@ -7,7 +7,9 @@ const { CATEGORIES, classify, findDuplicates } = require('../money/classify');
 const { safeEqual } = require('../auth');
 
 const COUNTED_SOURCES = ['HDFC', 'ICICI', 'Axis'];
-const DEFAULTS = { cap: 0, rent: 0, salary: 0, salary_day: 1, own_names: [], spend_fund_last4: '', untracked_cards: [] };
+const DEFAULTS = { cap: 0, rent: 0, salary: 0, salary_day: 1, own_names: [], spend_fund_last4: '', untracked_cards: [], usd_rate: 90 };
+// Only currencies with a rate in settings can be converted.
+const fxRate = (s, cur) => (cur === 'USD' ? Number(s.usd_rate) || 0 : 0);
 const round = n => Math.round(n * 100) / 100;
 
 function getSettings(db) {
@@ -44,6 +46,13 @@ function reclassifyAll(db) {
   const rules = db.prepare('SELECT pattern, category FROM money_rules').all();
   const rows = db.prepare('SELECT * FROM money_tx ORDER BY date, time, id').all();
   const upd = db.prepare('UPDATE money_tx SET type = ?, fund = ?, category = ? WHERE id = ?');
+  // Re-price foreign charges first, so a changed rate flows through every total.
+  const reprice = db.prepare('UPDATE money_tx SET amount = ? WHERE id = ?');
+  for (const r of rows) {
+    if (!r.currency || r.currency === 'INR' || r.amount_orig == null) continue;
+    const inr = round(r.amount_orig * fxRate(s, r.currency));
+    if (inr > 0 && inr !== r.amount) { reprice.run(inr, r.id); r.amount = inr; }
+  }
   const dupes = findDuplicates(rows);
   const state = new Map();
   for (const r of rows) {
@@ -90,8 +99,9 @@ router.post('/ingest', (req, res) => {
   const emails = Array.isArray(req.body && req.body.emails) ? req.body.emails.slice(0, 200) : [];
   const db = getDB();
   const insTx = db.prepare(`INSERT OR IGNORE INTO money_tx
-    (source_id, source, bank, instrument, last4, direction, amount, payee_raw, payee, date, time, channel, hint)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`);
+    (source_id, source, bank, instrument, last4, direction, amount, payee_raw, payee, date, time, channel, hint, currency, amount_orig)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`);
+  const settings = getSettings(db);
   const insHint = db.prepare('INSERT OR IGNORE INTO money_hints (source_id, kind, amount, date) VALUES (?, ?, ?, ?)');
   const insUnparsed = db.prepare('INSERT OR IGNORE INTO money_unparsed (source_id, source, subject, snippet, date) VALUES (?, ?, ?, ?, ?)');
   const seen = db.prepare('INSERT INTO money_source_seen (source, last_seen) VALUES (?, ?) ON CONFLICT(source) DO UPDATE SET last_seen = MAX(last_seen, excluded.last_seen)');
@@ -101,9 +111,14 @@ router.post('/ingest', (req, res) => {
       if (!mail || !mail.id) continue;
       const p = parseEmail(mail);
       const sid = String(mail.id);
-      if (p.kind === 'tx') {
+      if (p.kind === 'tx' && p.currency && !(fxRate(settings, p.currency) > 0)) {
+        // A currency with no rate in settings cannot be counted; surface it instead of guessing.
+        insUnparsed.run(sid, p.source, `${p.currency} ${p.amount_orig} at ${p.payee}: no exchange rate set`, '', p.date);
+        counts.unparsed++;
+      } else if (p.kind === 'tx') {
         const r = insTx.run(sid, p.source, p.bank, p.instrument, p.last4, p.direction, p.amount,
-          String(p.payee_raw).slice(0, 120), p.payee.slice(0, 120), p.date, p.time, p.channel, p.hint);
+          String(p.payee_raw).slice(0, 120), p.payee.slice(0, 120), p.date, p.time, p.channel, p.hint,
+          p.currency || null, p.currency ? p.amount_orig : null);
         if (r.changes) counts.added++; else counts.already++;
         seen.run(p.source, p.date);
       } else if (p.kind === 'hint') {
@@ -173,7 +188,7 @@ router.get('/month', (req, res) => {
 router.get('/transactions', (req, res) => {
   const db = getDB();
   const { start, end } = monthRange(validMonth(req.query.month));
-  const rows = db.prepare(`SELECT id, date, time, amount, direction, bank, instrument, last4, channel, payee, type, fund, category
+  const rows = db.prepare(`SELECT id, date, time, amount, direction, bank, instrument, last4, channel, payee, type, fund, category, currency, amount_orig
     FROM money_tx WHERE date >= ? AND date < ? AND type != 'duplicate' ORDER BY date DESC, time DESC, id DESC`).all(start, end);
   res.json({ transactions: rows });
 });
@@ -279,6 +294,7 @@ router.put('/settings', (req, res) => {
     salary_day: Math.min(31, Math.max(1, Math.round(num(b.salary_day, 31)) || 1)),
     own_names: list(b.own_names), untracked_cards: list(b.untracked_cards),
     spend_fund_last4: /^\d{4}$/.test(String(b.spend_fund_last4 || '')) ? String(b.spend_fund_last4) : '',
+    usd_rate: num(b.usd_rate, 1000) || DEFAULTS.usd_rate,
   };
   const db = getDB();
   setKV(db, 'settings', JSON.stringify(next));

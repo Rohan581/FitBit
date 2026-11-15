@@ -15,6 +15,7 @@ var SENDERS = [
   'alerts@hdfcbank.bank.in', 'alerts@hdfcbank.net',
   'credit_cards@icici.bank.in', 'cards@icici.bank.in', 'credit_cards@icicibank.com',
   'alerts@axis.bank.in', 'alerts@axisbank.com',
+  'donotreply@communication.americanexpress.co.in',
   'hello@splitwise.com'
 ];
 var BATCH = 40;            // emails per request to the server
@@ -118,6 +119,7 @@ function stripHtml_(html) {
     .replace(/<(style|script|head|title)[\s\S]*?<\/\1>/gi, ' ')
     .replace(/<!--[\s\S]*?-->/g, ' ')
     .replace(/<[^>]+>/g, ' ')
+    .replace(/[\u034f\u00ad\u200b-\u200d\ufeff]/g, '')
     .replace(/&nbsp;/gi, ' ').replace(/&amp;/gi, '&').replace(/&#39;|&rsquo;/gi, "'")
     .replace(/&lt;/gi, '<').replace(/&gt;/gi, '>').replace(/&quot;/gi, '"')
     .replace(/\s+/g, ' ')

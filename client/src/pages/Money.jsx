@@ -229,7 +229,7 @@ export function MoneyActivity() {
                   <Row key={t.id} last={i === day.rows.length - 1}>
                     <div className="min-w-0">
                       <p className="text-[14.5px] font-medium text-tx truncate">{t.payee}</p>
-                      <p className="text-[12.5px] text-tx-2 truncate">{[t.category, instrument(t)].filter(Boolean).join(' · ')}</p>
+                      <p className="text-[12.5px] text-tx-2 truncate">{[t.category, instrument(t), t.currency ? `estimated from ${t.currency} ${t.amount_orig}` : null].filter(Boolean).join(' · ')}</p>
                     </div>
                     <div className="flex flex-col items-end gap-1 flex-shrink-0">
                       <Num className="text-[15px]" ><span style={{ color: incoming ? 'var(--points)' : quiet ? 'var(--text-2)' : 'var(--text)' }}>{incoming ? '+' : ''}{inr(t.amount)}</span></Num>
@@ -430,6 +430,7 @@ const FIELDS = [
   ['salary_day', 'Salary credit day', 'Day of the month, 1 to 31.', 'number'],
   ['own_names', 'Your name as banks print it', 'Comma separated, for example the first 8 to 10 letters. Transfers to or from these names count as moving your own money.', 'text'],
   ['spend_fund_last4', 'Spend-fund account, last 4 digits', 'Payments from this account sit outside the cap.', 'text'],
+  ['usd_rate', 'Rupees per US dollar', 'Used to estimate dollar charges, which arrive without a rupee amount. Include your card\'s forex markup.', 'number'],
   ['untracked_cards', 'Cards that send no email alerts', 'Comma separated. Shown as not tracked so totals are never silently wrong.', 'text'],
 ];
 
