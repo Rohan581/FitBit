@@ -7,7 +7,8 @@ const { CATEGORIES, classify, findDuplicates } = require('../money/classify');
 const { safeEqual } = require('../auth');
 
 const COUNTED_SOURCES = ['HDFC', 'ICICI', 'Axis'];
-const DEFAULTS = { cap: 0, rent: 0, salary: 0, salary_day: 1, own_names: [], spend_fund_last4: '', untracked_cards: [], usd_rate: 90 };
+const DEFAULTS = { cap: 0, rent: 0, salary: 0, salary_day: 1, own_names: [], spend_fund_last4: '', untracked_cards: [], usd_rate: 90,
+  emergency_opening: 0, trip_opening: 0, spend_opening: 0, balances_as_of: '' };
 // Only currencies with a rate in settings can be converted.
 const fxRate = (s, cur) => (cur === 'USD' ? Number(s.usd_rate) || 0 : 0);
 const round = n => Math.round(n * 100) / 100;
@@ -271,6 +272,23 @@ router.get('/savings', (req, res) => {
   };
   const t = totals(month);
   const put = round(t.emergency + t.trip + t.spend + t.invested);
+
+  // Estimated balances: opening balance from settings plus every movement seen in bank
+  // emails after the as-of date. With no as-of date, everything tracked counts.
+  const asOf = s.balances_as_of || '0000-00-00';
+  const one = (sql, ...args) => db.prepare(sql).get(...args).v || 0;
+  const putIn = fund => one("SELECT SUM(amount) v FROM money_tx WHERE type = 'saved' AND fund = ?", fund);
+  const putInSince = fund => one("SELECT SUM(amount) v FROM money_tx WHERE type = 'saved' AND fund = ? AND date > ?", fund, asOf);
+  // The spend-fund account emails every credit and debit, so its balance uses the account's own rows.
+  const acct = dir => s.spend_fund_last4
+    ? one("SELECT SUM(amount) v FROM money_tx WHERE instrument = 'account' AND last4 = ? AND direction = ? AND type != 'duplicate' AND date > ?", s.spend_fund_last4, dir, asOf)
+    : 0;
+  const balances = {
+    emergency: { estimate: round((s.emergency_opening || 0) + putInSince('emergency')), put_in: round(putIn('emergency')), sees_withdrawals: false },
+    trip: { estimate: round((s.trip_opening || 0) + putInSince('trip')), put_in: round(putIn('trip')), sees_withdrawals: false },
+    spend: { estimate: round((s.spend_opening || 0) + acct('in') - acct('out')), put_in: round(putIn('spend')), sees_withdrawals: !!s.spend_fund_last4 },
+  };
+  const first = db.prepare("SELECT MIN(date) d FROM money_tx").get().d;
   const history = [5, 4, 3, 2, 1, 0].map(i => {
     const m = shiftMonth(month, -i); const x = totals(m);
     return { month: m, saved: round(x.emergency + x.trip + x.spend + x.invested) };
@@ -280,6 +298,8 @@ router.get('/savings', (req, res) => {
     share_of_salary: s.salary > 0 ? Math.round(put / s.salary * 100) : null,
     free_to_put_away: s.salary > 0 && s.cap > 0 ? round(Math.max(0, s.salary - s.cap - put)) : null,
     cap: s.cap || 0, history,
+    balances, balances_as_of: s.balances_as_of || null, tracked_since: first || null,
+    invested_total: round(one("SELECT SUM(amount) v FROM money_tx WHERE type = 'invested'")),
   });
 });
 
@@ -295,7 +315,11 @@ router.put('/settings', (req, res) => {
     own_names: list(b.own_names), untracked_cards: list(b.untracked_cards),
     spend_fund_last4: /^\d{4}$/.test(String(b.spend_fund_last4 || '')) ? String(b.spend_fund_last4) : '',
     usd_rate: num(b.usd_rate, 1000) || DEFAULTS.usd_rate,
+    emergency_opening: num(b.emergency_opening, 1e9), trip_opening: num(b.trip_opening, 1e9), spend_opening: num(b.spend_opening, 1e9),
+    balances_as_of: /^\d{4}-\d{2}-\d{2}$/.test(String(b.balances_as_of || '')) ? String(b.balances_as_of) : '',
   };
+  // An opening balance needs a date, or older transfers would be added on top of it.
+  if (!next.balances_as_of && (next.emergency_opening || next.trip_opening || next.spend_opening)) next.balances_as_of = todayIST();
   const db = getDB();
   setKV(db, 'settings', JSON.stringify(next));
   reclassifyAll(db);

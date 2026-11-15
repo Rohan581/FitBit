@@ -58,7 +58,11 @@ function classify(t, s, rules) {
   if (t.instrument === 'card') {
     out.type = t.direction === 'out' ? 'spend' : 'refund';
   } else if (t.direction === 'out') {
-    if (matchesOwnName(t.payee, s.own_names)) return Object.assign(out, { type: 'saved', fund: 'trip' });
+    if (matchesOwnName(t.payee, s.own_names)) {
+      // Money leaving the spend-fund account for another of your accounts is not new saving.
+      if (s.spend_fund_last4 && t.last4 === s.spend_fund_last4) return Object.assign(out, { type: 'transfer' });
+      return Object.assign(out, { type: 'saved', fund: 'trip' });
+    }
     if (BROKERS.test(t.payee)) return Object.assign(out, { type: 'invested' });
     if (CARD_BILL.test(t.payee)) return Object.assign(out, { type: 'card_payment' });
     if (s.rent > 0 && Math.abs(t.amount - s.rent) < 1) return Object.assign(out, { type: 'rent_payment' });

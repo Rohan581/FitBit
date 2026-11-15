@@ -25,6 +25,10 @@ test('money that is not spending', () => {
   assert.equal(classify(t({ amount: 20000, payee: 'Landlord' }), S, RULES).type, 'rent_payment');
 });
 
+test('moving money out of the spend-fund account to yourself is a transfer, not saving', () => {
+  assert.equal(classify(t({ last4: '4444', payee: 'Sample Person' }), S, RULES).type, 'transfer');
+});
+
 test('spend-fund account spends sit outside the cap', () => {
   assert.equal(classify(t({ last4: '4444', payee: 'Some Shop' }), S, RULES).type, 'spend_fund');
   assert.equal(classify(t({ last4: '2222', payee: 'Some Shop' }), S, RULES).type, 'spend');
