@@ -73,6 +73,18 @@ function reclassifyAll(db) {
     }
   }
 
+  // Money arriving in the main account from yourself came out of one of your funds. If it
+  // pairs with a debit on the spend-fund account it came from there; otherwise it is treated
+  // as a trip-fund withdrawal, since that account sends no emails of its own.
+  {
+    const usedOut = new Set();
+    for (const cr of live.filter(r => r.type === 'transfer' && r.direction === 'in' && r.last4 !== s.spend_fund_last4)) {
+      const fromSpend = s.spend_fund_last4 && live.find(r => r.type === 'transfer' && r.direction === 'out' && r.last4 === s.spend_fund_last4 &&
+        !usedOut.has(r.id) && Math.abs(r.amount - cr.amount) < 1 && r.date >= addDays(cr.date, -1) && r.date <= addDays(cr.date, 1));
+      if (fromSpend) usedOut.add(fromSpend.id); else cr.fund = 'trip';
+    }
+  }
+
   // Splitwise settlements: find bank credits around the settlement date that add up to it.
   const hints = db.prepare("SELECT * FROM money_hints WHERE kind = 'splitwise' ORDER BY date, id").all();
   const taken = new Set();
@@ -283,9 +295,13 @@ router.get('/savings', (req, res) => {
   const acct = dir => s.spend_fund_last4
     ? one("SELECT SUM(amount) v FROM money_tx WHERE instrument = 'account' AND last4 = ? AND direction = ? AND type != 'duplicate' AND date > ?", s.spend_fund_last4, dir, asOf)
     : 0;
+  const tripOut = one("SELECT SUM(amount) v FROM money_tx WHERE type = 'transfer' AND fund = 'trip' AND direction = 'in' AND date > ?", asOf);
   const balances = {
     emergency: { estimate: round((s.emergency_opening || 0) + putInSince('emergency')), put_in: round(putIn('emergency')), sees_withdrawals: false },
-    trip: { estimate: round((s.trip_opening || 0) + putInSince('trip')), put_in: round(putIn('trip')), sees_withdrawals: false },
+    trip: {
+      estimate: round(Math.max(0, (s.trip_opening || 0) + putInSince('trip') - tripOut)),
+      put_in: round(putIn('trip')), withdrawn: round(tripOut), sees_withdrawals: 'partial',
+    },
     spend: { estimate: round((s.spend_opening || 0) + acct('in') - acct('out')), put_in: round(putIn('spend')), sees_withdrawals: !!s.spend_fund_last4 },
   };
   const first = db.prepare("SELECT MIN(date) d FROM money_tx").get().d;

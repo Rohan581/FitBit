@@ -222,7 +222,7 @@ export function MoneyActivity() {
             <Card className="px-4 py-1">
               {day.rows.map((t, i) => {
                 const needs = (t.type === 'spend' || t.type === 'spend_fund') && !t.category;
-                const tag = needs ? ['Name this', 'review'] : TAGS[t.type];
+                const tag = needs ? ['Name this', 'review'] : t.type === 'transfer' && t.fund === 'trip' ? ['From trip fund', 'muted'] : TAGS[t.type];
                 const incoming = ['refund', 'reimbursement', 'money_in', 'salary_credit'].includes(t.type);
                 const quiet = !incoming && t.type !== 'spend';
                 return (
@@ -405,7 +405,7 @@ export function MoneySavings() {
             <Row key={name} last={i === 2}>
               <div>
                 <p className="text-[14.5px] font-medium text-tx">{name}</p>
-                <p className="text-[12.5px] text-tx-2">{inr(b.put_in)} put in{d.tracked_since ? ` since ${shortDate(d.tracked_since)}` : ''}{b.sees_withdrawals ? '' : ' · withdrawals not seen'}</p>
+                <p className="text-[12.5px] text-tx-2">{inr(b.put_in)} put in{d.tracked_since ? ` since ${shortDate(d.tracked_since)}` : ''}{b.sees_withdrawals === 'partial' ? (b.withdrawn > 0 ? ` · ${inr(b.withdrawn)} moved back to your main account` : ' · only withdrawals to your main account are seen') : b.sees_withdrawals ? '' : ' · withdrawals not seen'}</p>
               </div>
               <Num className="text-[15px] text-tx">{inr(b.estimate)}</Num>
             </Row>
@@ -434,7 +434,7 @@ export function MoneySavings() {
           ))}
         </div>
       </Card>
-      <Note>Balances are estimates built from bank emails on top of the opening balance in settings. They leave out interest, and for funds marked "withdrawals not seen" they only ever go up, so check them against the bank now and then.</Note>
+      <Note>Balances are estimates built from bank emails on top of the opening balance in settings. They leave out interest. The trip fund only sees money moved back to your main account, not anything spent straight from it, so check it against the bank now and then.</Note>
     </Page>
   );
 }
