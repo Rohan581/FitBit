@@ -222,14 +222,14 @@ export function MoneyActivity() {
             <Card className="px-4 py-1">
               {day.rows.map((t, i) => {
                 const needs = (t.type === 'spend' || t.type === 'spend_fund') && !t.category;
-                const tag = needs ? ['Name this', 'review'] : TAGS[t.type];
+                const tag = needs ? ['Name this', 'review'] : t.type === 'transfer' && t.fund === 'trip' ? ['From trip fund', 'muted'] : TAGS[t.type];
                 const incoming = ['refund', 'reimbursement', 'money_in', 'salary_credit'].includes(t.type);
                 const quiet = !incoming && t.type !== 'spend';
                 return (
                   <Row key={t.id} last={i === day.rows.length - 1}>
                     <div className="min-w-0">
                       <p className="text-[14.5px] font-medium text-tx truncate">{t.payee}</p>
-                      <p className="text-[12.5px] text-tx-2 truncate">{[t.category, instrument(t)].filter(Boolean).join(' · ')}</p>
+                      <p className="text-[12.5px] text-tx-2 truncate">{[t.category, instrument(t), t.currency ? `estimated from ${t.currency} ${t.amount_orig}` : null].filter(Boolean).join(' · ')}</p>
                     </div>
                     <div className="flex flex-col items-end gap-1 flex-shrink-0">
                       <Num className="text-[15px]" ><span style={{ color: incoming ? 'var(--points)' : quiet ? 'var(--text-2)' : 'var(--text)' }}>{incoming ? '+' : ''}{inr(t.amount)}</span></Num>
@@ -395,6 +395,24 @@ export function MoneySavings() {
           </Row>
         ))}
       </Card>
+      <div className="flex flex-col gap-1.5">
+        <div className="flex justify-between text-[12.5px] text-tx-2 px-1">
+          <span>Estimated balances</span>
+          <span>{d.balances_as_of ? `opening balance as of ${shortDate(d.balances_as_of)}` : d.tracked_since ? `tracked since ${shortDate(d.tracked_since)}` : ''}</span>
+        </div>
+        <Card className="px-4 py-1">
+          {[['Emergency fund', d.balances.emergency], ['Trip fund', d.balances.trip], ['Spend fund', d.balances.spend]].map(([name, b], i) => (
+            <Row key={name} last={i === 2}>
+              <div>
+                <p className="text-[14.5px] font-medium text-tx">{name}</p>
+                <p className="text-[12.5px] text-tx-2">{inr(b.put_in)} put in{d.tracked_since ? ` since ${shortDate(d.tracked_since)}` : ''}{b.sees_withdrawals === 'partial' ? (b.withdrawn > 0 ? ` · ${inr(b.withdrawn)} moved back to your main account` : ' · only withdrawals to your main account are seen') : b.sees_withdrawals ? '' : ' · withdrawals not seen'}</p>
+              </div>
+              <Num className="text-[15px] text-tx">{inr(b.estimate)}</Num>
+            </Row>
+          ))}
+        </Card>
+        {d.invested_total > 0 && <Note>{inr(d.invested_total)} sent to brokers in total. Market value is not tracked.</Note>}
+      </div>
       {d.funds.from_spend_fund > 0 && (
         <Card className="px-4 py-2.5 flex items-center justify-between min-h-[48px]">
           <span className="text-[13.5px] text-tx">Paid out of the spend fund this month</span>
@@ -416,7 +434,7 @@ export function MoneySavings() {
           ))}
         </div>
       </Card>
-      <Note>Counts money moved into each fund, read from bank emails. Balances are not shown: an account that sends no transaction emails cannot be read.</Note>
+      <Note>Balances are estimates built from bank emails on top of the opening balance in settings. They leave out interest. The trip fund only sees money moved back to your main account, not anything spent straight from it, so check it against the bank now and then.</Note>
     </Page>
   );
 }
@@ -430,6 +448,11 @@ const FIELDS = [
   ['salary_day', 'Salary credit day', 'Day of the month, 1 to 31.', 'number'],
   ['own_names', 'Your name as banks print it', 'Comma separated, for example the first 8 to 10 letters. Transfers to or from these names count as moving your own money.', 'text'],
   ['spend_fund_last4', 'Spend-fund account, last 4 digits', 'Payments from this account sit outside the cap.', 'text'],
+  ['usd_rate', 'Rupees per US dollar', 'Used to estimate dollar charges, which arrive without a rupee amount. Include your card\'s forex markup.', 'number'],
+  ['emergency_opening', 'Emergency fund opening balance (₹)', 'What the recurring deposit holds on the date below. Leave 0 to count only what Money has seen.', 'number'],
+  ['trip_opening', 'Trip fund opening balance (₹)', 'Balance of the trip-fund account on the date below.', 'number'],
+  ['spend_opening', 'Spend fund opening balance (₹)', 'Balance of the spend-fund account on the date below. Leave 0 if Money has seen the account since it was opened.', 'number'],
+  ['balances_as_of', 'Opening balances as of', 'Only transfers after this date are added on top. Set to today when you first enter balances.', 'date'],
   ['untracked_cards', 'Cards that send no email alerts', 'Comma separated. Shown as not tracked so totals are never silently wrong.', 'text'],
 ];
 

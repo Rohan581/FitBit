@@ -74,6 +74,16 @@ test('Splitwise settlement becomes a hint dated in IST', () => {
   assert.deepEqual([p.kind, p.hint, p.amount, p.date], ['hint', 'splitwise', 3026.71, '2026-02-01']);
 });
 
+test('Amex: dollar charge keeps its currency, rupee charge does not, OTPs are ignored', () => {
+  const from = 'donotreply@communication.americanexpress.co.in';
+  const usd = parseEmail(mail(from, "A transaction has been initiated on your Card. \u034f \u00ad Dear Card Member, We're reaching out to notify you about a recent transaction that has been initiated on your American Express® Card ending in 9999. You can find the details below. | Date: | | 15-01-2026 | | Merchant: | | =SOFTWARE CO | | Amount: | | USD 23.60 | If you do not recognize"));
+  assert.deepEqual([usd.kind, usd.bank, usd.last4, usd.date, usd.payee, usd.currency, usd.amount_orig], ['tx', 'Amex', '9999', '2026-01-15', 'Software Co', 'USD', 23.6]);
+  const inr = parseEmail(mail(from, 'a recent transaction that has been initiated on your American Express® Card ending in 9999. Date: 16-01-2026 Merchant: CORNER SHOP Amount: INR 1,250.00 If you'));
+  assert.deepEqual([inr.amount, inr.currency, inr.payee], [1250, undefined, 'Corner Shop']);
+  assert.equal(parseEmail(mail('Donotreply@welcome.americanexpress.co.in', 'Your One-Time Password for INR 500.00 at Shop is: 123456')).kind, 'ignore');
+  assert.equal(parseEmail(mail(from, 'A transaction has been initiated on your Card. Brand new layout nobody has seen')).kind, 'unparsed');
+});
+
 test('unknown senders are ignored', () => {
   assert.equal(parseEmail(mail('news@example.com', 'Rs. 500 debited')).kind, 'ignore');
 });

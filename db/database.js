@@ -416,6 +416,12 @@ function initDB() {
     );
   `);
   {
+    // Foreign-currency charges keep their original amount; `amount` holds the rupee estimate.
+    const cols = db.prepare("PRAGMA table_info(money_tx)").all().map(c => c.name);
+    if (!cols.includes('currency')) db.exec("ALTER TABLE money_tx ADD COLUMN currency TEXT");
+    if (!cols.includes('amount_orig')) db.exec("ALTER TABLE money_tx ADD COLUMN amount_orig REAL");
+  }
+  {
     const { DEFAULT_RULES } = require('../money/classify');
     const addRule = db.prepare('INSERT OR IGNORE INTO money_rules (pattern, category, is_default) VALUES (?, ?, 1)');
     for (const [pattern, category] of DEFAULT_RULES) addRule.run(pattern, category);

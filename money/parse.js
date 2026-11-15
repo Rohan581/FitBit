@@ -4,7 +4,7 @@
 const MONTHS = { jan: 1, feb: 2, mar: 3, apr: 4, may: 5, jun: 6, jul: 7, aug: 8, sep: 9, oct: 10, nov: 11, dec: 12 };
 const pad = n => String(n).padStart(2, '0');
 const amt = s => Number(String(s).replace(/,/g, ''));
-const norm = s => String(s || '').replace(/&amp;/g, '&').replace(/&#39;/g, "'").replace(/&nbsp;/g, ' ').replace(/\s+/g, ' ').trim();
+const norm = s => String(s || '').replace(/[\u034f\u00ad\u200b-\u200d\ufeff]/g, '').replace(/&amp;/g, '&').replace(/&#39;/g, "'").replace(/&nbsp;/g, ' ').replace(/\s+/g, ' ').trim();
 
 function year4(y) { y = Number(y); return y < 100 ? 2000 + y : y; }
 // "13 Nov, 2026" | "Nov 14, 2026" | "12-11-26" | "14/11/2026" | "01-NOV-2026"  ->  "2026-11-13"
@@ -87,6 +87,21 @@ function parseAxis(text, mail) {
   return { kind: 'ignore' };
 }
 
+// Amex sends one "transaction initiated" email per charge. Foreign charges carry only the
+// foreign amount; the server converts them at the rate in Money settings and marks them estimated.
+function parseAmex(text, mail) {
+  const t = text.replace(/\|/g, ' ').replace(/\s+/g, ' ');
+  const m = t.match(/transaction that has been initiated on your American Express.{0,3} Card ending in (\d{4,5})\b.*?Date:\s*(\d{2}-\d{2}-\d{4})\s*Merchant:\s*=?\s*(.+?)\s*Amount:\s*([A-Z]{3})\s*([\d,]+\.?\d*)/i);
+  if (m) {
+    const cur = m[4].toUpperCase();
+    const out = tx({ bank: 'Amex', instrument: 'card', last4: m[1].slice(-4), direction: 'out', amount: amt(m[5]), payee_raw: m[3], date: parseDate(m[2]), channel: 'card' });
+    if (cur !== 'INR') { out.currency = cur; out.amount_orig = out.amount; }
+    return out;
+  }
+  if (/transaction has been initiated on your Card/i.test(t)) return { kind: 'unparsed' };
+  return { kind: 'ignore' };
+}
+
 function parseSplitwise(text, mail) {
   const m = norm(mail.subject).match(/paid you ₹\s*([\d,]+\.?\d*) on Splitwise/i);
   if (m) return { kind: 'hint', hint: 'splitwise', amount: amt(m[1]) };
@@ -101,6 +116,7 @@ function parseEmail(mail) {
   if (from.includes('hdfcbank') || from.includes('hdfc.bank')) out = parseHDFC(text, mail);
   else if (from.includes('icici')) out = parseICICI(text, mail);
   else if (from.includes('axis')) out = parseAxis(text, mail);
+  else if (from.includes('americanexpress')) out = parseAmex(text, mail);
   else if (from.includes('splitwise')) out = parseSplitwise(text, mail);
   else out = { kind: 'ignore' };
 
@@ -117,6 +133,7 @@ function sourceOf(from) {
   if (from.includes('hdfc')) return 'HDFC';
   if (from.includes('icici')) return 'ICICI';
   if (from.includes('axis')) return 'Axis';
+  if (from.includes('americanexpress')) return 'Amex';
   if (from.includes('splitwise')) return 'Splitwise';
   return 'Other';
 }
