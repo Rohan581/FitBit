@@ -3,9 +3,19 @@ import react from '@vitejs/plugin-react';
 import { execSync } from 'child_process';
 import fs from 'fs';
 import path from 'path';
+import { fileURLToPath } from 'url';
 
-// Resolve SHA: Railway env → generic env → git → 'dev'
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+
+// Resolve SHA: build-info.json (written by scripts/write-build-info.js at the
+// start of `npm run build`) → env → git → 'dev'. Reading the same file the
+// server reads guarantees the client and server SHAs match, which is the whole
+// point of the stale-bundle warning.
 function resolveSha() {
+  try {
+    const info = JSON.parse(fs.readFileSync(path.resolve(__dirname, '..', 'build-info.json'), 'utf8'));
+    if (info.sha && info.sha !== 'dev') return info.sha;
+  } catch {}
   if (process.env.RAILWAY_GIT_COMMIT_SHA) return process.env.RAILWAY_GIT_COMMIT_SHA.slice(0, 7);
   if (process.env.GIT_COMMIT_SHA) return process.env.GIT_COMMIT_SHA.slice(0, 7);
   try { return execSync('git rev-parse --short HEAD').toString().trim(); } catch {}

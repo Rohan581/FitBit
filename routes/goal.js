@@ -125,12 +125,17 @@ function computeObservedTDEE(db, goal) {
   ).get(cutoffStr, today);
 
   const elapsedDays = windowDays;
-  const coveragePct = (foodDays.cnt / elapsedDays) * 100;
+  // The query range [cutoff, today] is inclusive at both ends, so it spans
+  // windowDays + 1 calendar days. Dividing by windowDays produced coverage
+  // above 100% (the 7 Nov row read 104% on 29 logged days). The energy term
+  // below still divides by elapsedDays, which is the true span of the delta.
+  const calendarDays = windowDays + 1;
+  const coveragePct = Math.min(100, (foodDays.cnt / calendarDays) * 100);
 
   if (coveragePct < 80) {
     return {
       source: 'formula',
-      reason: `food logged on ${foodDays.cnt} of ${elapsedDays} days (${Math.round(coveragePct)}%) — need 80%`,
+      reason: `food logged on ${foodDays.cnt} of ${calendarDays} days (${Math.round(coveragePct)}%) — need 80%`,
       coverage_pct: Math.round(coveragePct),
     };
   }
@@ -206,6 +211,17 @@ function weeklyTDEERecompute(db) {
     if (daysSince < 7) return;
   }
 
+  // Claim today's slot BEFORE computing. /api/dashboard and /api/goal both call
+  // this and the client loads them in parallel, so two callers could previously
+  // pass the date check together and each insert a tdee_history row — which is
+  // exactly what produced the duplicate rows dated 7, 13 and 14 November.
+  // tdee_history.date carries a UNIQUE index, so the inserts below are
+  // INSERT OR IGNORE as a second line of defence.
+  const claimed = db.prepare(
+    "UPDATE goal SET last_tdee_compute_date = ? WHERE id = 1 AND (last_tdee_compute_date IS NULL OR last_tdee_compute_date != ?)"
+  ).run(today, today);
+  if (claimed.changes === 0) return;
+
   const result = computeObservedTDEE(db, goal);
   const rollingAvg = get7DayRollingAvg(db);
   const { tdee: formulaTDEE } = computeFormulaTDEE(
@@ -220,7 +236,7 @@ function weeklyTDEERecompute(db) {
   if (result.source === 'observed') {
     // Valid observation — within sanity band
     db.prepare(`
-      INSERT INTO tdee_history (date, observed_tdee, formula_tdee, window_start, window_end,
+      INSERT OR IGNORE INTO tdee_history (date, observed_tdee, formula_tdee, window_start, window_end,
         days_elapsed, days_logged, coverage_pct, mean_intake,
         rolling_weight_start, rolling_weight_end, weight_delta_kg, energy_from_tissue,
         source_used, was_clamped, raw_observed)
@@ -238,7 +254,7 @@ function weeklyTDEERecompute(db) {
   } else if (hasWindowData && result.was_clamped) {
     // Rejected observation — outside sanity band. Record the raw value but use formula.
     db.prepare(`
-      INSERT INTO tdee_history (date, observed_tdee, formula_tdee, window_start, window_end,
+      INSERT OR IGNORE INTO tdee_history (date, observed_tdee, formula_tdee, window_start, window_end,
         days_elapsed, days_logged, coverage_pct, mean_intake,
         rolling_weight_start, rolling_weight_end, weight_delta_kg, energy_from_tissue,
         source_used, was_clamped, raw_observed)
@@ -257,7 +273,7 @@ function weeklyTDEERecompute(db) {
   } else {
     // Insufficient data — no observation possible
     db.prepare(`
-      INSERT INTO tdee_history (date, formula_tdee, coverage_pct, source_used, was_clamped, raw_observed)
+      INSERT OR IGNORE INTO tdee_history (date, formula_tdee, coverage_pct, source_used, was_clamped, raw_observed)
       VALUES (?, ?, ?, 'formula', 0, NULL)
     `).run(today, formulaTDEE, result.coverage_pct || null);
 

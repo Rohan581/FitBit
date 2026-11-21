@@ -1254,6 +1254,53 @@ function runMigrations(db) {
     console.log('[v47 migration] Added was_clamped, raw_observed to tdee_history');
   }
 
+  // ── v49: dedupe tdee_history, exit knee block, re-materialise ──
+  // 1) tdee_history had duplicate rows for 7, 13 and 14 Nov because
+  //    /api/dashboard and /api/goal both call weeklyTDEERecompute and the
+  //    client loads them in parallel. Collapse the duplicates and add the
+  //    UNIQUE index that makes a repeat impossible.
+  try {
+    const dupes = db.prepare(
+      'SELECT COUNT(*) AS n FROM tdee_history WHERE id NOT IN (SELECT MIN(id) FROM tdee_history GROUP BY date)'
+    ).get();
+    if (dupes && dupes.n > 0) {
+      db.prepare(
+        'DELETE FROM tdee_history WHERE id NOT IN (SELECT MIN(id) FROM tdee_history GROUP BY date)'
+      ).run();
+      console.log(`[v49 migration] Removed ${dupes.n} duplicate tdee_history row(s)`);
+    }
+    db.exec('CREATE UNIQUE INDEX IF NOT EXISTS idx_tdee_history_date ON tdee_history(date)');
+  } catch (e) {
+    console.error('[v49 migration] tdee_history dedupe failed:', e.message);
+  }
+
+  // 2) The knee block is superseded: the main rotation is now knee-aware
+  //    (Bulgarian split squat as a pain-guided quad slot, leg extension in the
+  //    optional bonus). Turn the block off so the user is on the new rotation,
+  //    and clear its state. The toggle remains for a future flare-up.
+  try {
+    const kb = db.prepare('SELECT knee_block_active FROM goal WHERE id = 1').get();
+    if (kb && kb.knee_block_active) {
+      db.prepare(
+        "UPDATE goal SET knee_block_active = 0, knee_block_start_date = NULL, knee_block_pre_state = NULL, knee_block_snoozed_until = NULL WHERE id = 1"
+      ).run();
+      console.log('[v49 migration] Knee block exited — new rotation is knee-aware');
+    }
+  } catch (e) {
+    console.error('[v49 migration] knee block exit failed:', e.message);
+  }
+
+  // 3) Drop any incomplete session so the next one materialises from the new
+  //    templates rather than serving a cached pre-v49 workout.
+  try {
+    const dropped = db.prepare('DELETE FROM workout_sessions WHERE completed = 0').run();
+    if (dropped.changes > 0) {
+      console.log(`[v49 migration] Dropped ${dropped.changes} incomplete session(s) to re-materialise`);
+    }
+  } catch (e) {
+    console.error('[v49 migration] session re-materialise failed:', e.message);
+  }
+
   // Seed exercises
   seedExercises(db);
 

@@ -10,15 +10,23 @@ const app = express();
 const PORT = process.env.PORT || 3001;
 const SERVER_STARTED_AT = new Date().toISOString();
 
-// Resolve SHA: Railway env → generic env → git → 'dev'
-function resolveSha() {
-  if (process.env.RAILWAY_GIT_COMMIT_SHA) return process.env.RAILWAY_GIT_COMMIT_SHA.slice(0, 7);
-  if (process.env.GIT_COMMIT_SHA) return process.env.GIT_COMMIT_SHA.slice(0, 7);
-  try { return execSync('git rev-parse --short HEAD').toString().trim(); } catch {}
-  return 'dev';
+// Resolve SHA: build-info.json (written at build time) → env → git → 'dev'.
+// build-info.json is the one that actually works on Railway: the runtime
+// process does not see RAILWAY_GIT_COMMIT_SHA and the deploy image has no
+// .git directory, which is why every build since v40 reported 'dev'.
+function resolveBuild() {
+  try {
+    const info = JSON.parse(fs.readFileSync(path.join(__dirname, 'build-info.json'), 'utf8'));
+    if (info.sha && info.sha !== 'dev') return { sha: info.sha, builtAt: info.builtAt, from: info.resolvedFrom || 'build-info' };
+  } catch {}
+  if (process.env.RAILWAY_GIT_COMMIT_SHA) return { sha: process.env.RAILWAY_GIT_COMMIT_SHA.slice(0, 7), from: 'env' };
+  if (process.env.GIT_COMMIT_SHA) return { sha: process.env.GIT_COMMIT_SHA.slice(0, 7), from: 'env' };
+  try { return { sha: execSync('git rev-parse --short HEAD').toString().trim(), from: 'git' }; } catch {}
+  return { sha: 'dev', from: 'fallback' };
 }
-const BUILD_SHA = resolveSha();
-const BUILD_TIME = process.env.BUILD_TIME || new Date().toISOString();
+const BUILD_INFO = resolveBuild();
+const BUILD_SHA = BUILD_INFO.sha;
+const BUILD_TIME = BUILD_INFO.builtAt || process.env.BUILD_TIME || new Date().toISOString();
 
 // Ensure data directory exists
 const dataDir = path.dirname(process.env.DATABASE_PATH || './data/earned.db');
@@ -93,5 +101,5 @@ if (process.env.NODE_ENV === 'production') {
 }
 
 app.listen(PORT, () => {
-  console.log(`Earned server up — sha=${BUILD_SHA} builtAt=${BUILD_TIME} port=${PORT}`);
+  console.log(`Earned server up — sha=${BUILD_SHA} (from ${BUILD_INFO.from}) builtAt=${BUILD_TIME} port=${PORT}`);
 });

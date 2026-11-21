@@ -418,20 +418,20 @@ function applySubstitutions(exercises, substitutions) {
 // Ordered by preference within each group.
 const UPPER_C_POOLS = {
   chest:     [
+    { name: 'Pec Fly Machine (Pec Deck)', sets: 4, reps: '10-12' },
     { name: 'Barbell Bench Press (Volume)', sets: 3, reps: '8-10' },
-    { name: 'Pec Fly Machine (Pec Deck)', sets: 3, reps: '10-12' },
+    { name: 'Incline Dumbbell Press', sets: 3, reps: '8-10' },
   ],
   back:      [
+    { name: 'Assisted Pull-Up Machine', sets: 3, reps: '6-10' },
     { name: 'Lat Pulldown', sets: 3, reps: '8-10' },
     { name: 'Seated Cable Row', sets: 3, reps: '10-12' },
-    { name: 'Assisted Pull-Up Machine', sets: 3, reps: '6-10' },
   ],
   shoulders: [
-    { name: 'Shoulder Press Machine', sets: 3, reps: '8-10' },
     { name: 'Dumbbell Lateral Raise', sets: 3, reps: '12-15' },
+    { name: 'Reverse Pec Deck', sets: 3, reps: '12-15' },
   ],
   triceps:   [
-    { name: 'Cable Tricep Pushdown', sets: 3, reps: '10-12' },
     { name: 'Overhead Cable Tricep Extension', sets: 3, reps: '10-12' },
   ],
   biceps:    [
@@ -440,7 +440,8 @@ const UPPER_C_POOLS = {
   ],
 };
 
-// Weekly set targets for the knee block (3 upper + 1 lower).
+// Weekly upper-body set targets for the 3-upper / 1-lower rotation.
+// Used by the Upper C gap-fill in BOTH normal and knee-block modes.
 const KB_WEEKLY_TARGETS = {
   chest: 11, back: 9, shoulders: 6, triceps: 6, biceps: 6,
 };
@@ -610,12 +611,14 @@ router.get('/', (req, res) => {
   const monday = getMondayIST(today);
   const weekDays = getDaysOfWeek(monday);
 
-  // Upper C gap-fill: when knee block is active and next workout is upper_c,
-  // dynamically select exercises based on weekly volume gaps.
+  // Upper C gap-fill: whenever the next workout is upper_c, pick its four
+  // slots from the most under-served muscle groups this week. Applies in both
+  // normal and knee-block mode — it was previously gated on the knee block,
+  // so turning the block off silently disabled it.
   let gap_reasons = null;
   let isGapDay = false;
   let exercises;
-  if (kneeBlockActive && nextWorkout.type === 'upper_c') {
+  if (nextWorkout.type === 'upper_c') {
     const gapResult = buildGapUpperC(db, weekDays);
     if (gapResult) {
       exercises = gapResult.exercises;
@@ -1101,9 +1104,9 @@ router.post('/sessions', (req, res) => {
     return res.json({ session_id: existing.id, workout_type: workout.type, date: today });
   }
 
-  // For Upper C during knee block, use dynamic gap-fill exercises
+  // Upper C uses dynamic gap-fill in both modes (see /next above).
   let sessionExercises = workout.exercises;
-  if (kneeBlockActive && workout.type === 'upper_c') {
+  if (workout.type === 'upper_c') {
     const mondaySess = getMondayIST(today);
     const weekDaysSess = getDaysOfWeek(mondaySess);
     const gapResult = buildGapUpperC(db, weekDaysSess);

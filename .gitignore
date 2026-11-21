@@ -5,3 +5,4 @@ client/dist/
 *.db
 .env
 .DS_Store
+build-info.json
