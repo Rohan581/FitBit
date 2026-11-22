@@ -46,11 +46,36 @@ function seedRecipes(db) {
   const data = JSON.parse(fs.readFileSync(seedPath, 'utf8'));
   if (!data.recipes || !Array.isArray(data.recipes)) return;
 
+  // Upsert rather than INSERT OR IGNORE. Previously a seeded recipe was frozen
+  // at whatever shipped first: fixing a macro error or a bad instruction in this
+  // file never reached a database that had already seeded it. Now a corrected
+  // recipe propagates on the next boot.
+  //
+  // The DO UPDATE is guarded on user_edited = 0, which routes/recipes.js sets to
+  // 1 on any PUT. So a recipe edited in the app is never overwritten — the
+  // conflict is swallowed and the row left alone. my_notes, is_favourite and
+  // is_hidden are user state and are not in the update list either, so they
+  // survive a content refresh.
   const insert = db.prepare(`
-    INSERT OR IGNORE INTO recipes
+    INSERT INTO recipes
       (seed_key, title, source, icon, servings, cooked_yield_g, total_time_min,
        tags, per_serving, ingredients, steps, notes, pairs_with_keys, portion_mode)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    ON CONFLICT(seed_key) DO UPDATE SET
+      title            = excluded.title,
+      icon             = excluded.icon,
+      servings         = excluded.servings,
+      cooked_yield_g   = excluded.cooked_yield_g,
+      total_time_min   = excluded.total_time_min,
+      tags             = excluded.tags,
+      per_serving      = excluded.per_serving,
+      ingredients      = excluded.ingredients,
+      steps            = excluded.steps,
+      notes            = excluded.notes,
+      pairs_with_keys  = excluded.pairs_with_keys,
+      portion_mode     = excluded.portion_mode,
+      updated_at       = datetime('now')
+    WHERE recipes.user_edited = 0
   `);
 
   const tx = db.transaction(() => {

@@ -3883,33 +3883,42 @@
       "source": "new",
       "servings": 4,
       "portion_mode": "servings",
-      "total_time_min": 25,
-      "tags": ["high-protein", "air-fryer", "quick", "snack"],
+      "total_time_min": 50,
+      "tags": ["high-protein", "air-fryer", "snack"],
       "per_serving": {
-        "calories": 205,
+        "calories": 240,
         "protein_g": 30,
-        "carbs_g": 12,
-        "fat_g": 4.5,
-        "fiber_g": 1,
-        "sugar_g": 0
+        "carbs_g": 13,
+        "fat_g": 8,
+        "fiber_g": 1.5,
+        "sugar_g": 1
       },
       "ingredients": [
         { "amount": 500, "unit": "g", "name": "chicken breast mince", "main_ingredient": true },
         { "amount": 4, "unit": "count", "name": "rice paper sheets, 22 cm" },
-        { "amount": 1, "unit": "tbsp", "name": "garlic powder" },
-        { "amount": 1, "unit": "tbsp", "name": "paprika" },
-        { "amount": 1, "unit": "tsp", "name": "salt" },
+        { "amount": 1, "unit": "tbsp", "name": "oil, into the mince" },
+        { "amount": 1, "unit": "tbsp", "name": "light soy sauce" },
+        { "amount": 5, "unit": "count", "name": "garlic cloves, grated" },
+        { "amount": 1, "unit": "tbsp", "name": "ginger, grated" },
+        { "amount": 2, "unit": "count", "name": "green chillies, finely chopped" },
+        { "amount": 3, "unit": "count", "name": "spring onions, finely sliced" },
+        { "amount": 2, "unit": "tsp", "name": "smoked paprika" },
+        { "amount": 1, "unit": "tsp", "name": "cumin, toasted and ground" },
+        { "amount": 1, "unit": "tsp", "name": "black pepper, coarsely ground" },
+        { "amount": 0.5, "unit": "tsp", "name": "salt" },
         { "amount": 0.5, "unit": "cup", "name": "coriander leaves, chopped" },
-        { "amount": 1, "unit": "tsp", "name": "oil, for the basket and the rolls" }
+        { "amount": 1, "unit": "count", "name": "lime, for squeezing" },
+        { "amount": 1, "unit": "tsp", "name": "oil, for the basket" }
       ],
       "steps": [
         {
-          "title": "Season the mince",
-          "text": "Mix the mince with the garlic powder, paprika, salt and coriander until the colour is even all the way through. Divide it into four by eye before you wet any rice paper \u2014 once a sheet softens you have about a minute to work with it."
+          "title": "Season and rest",
+          "text": "Mix the mince with the oil, soy sauce, garlic, ginger, chillies, spring onions, smoked paprika, cumin, pepper, salt and coriander until the colour is even all the way through. Leave it to sit. The rest is not optional \u2014 salt needs time to get through mince, and it also draws out the proteins that make the rolls bind instead of crumbling when you cut them.",
+          "timer_seconds": 1800
         },
         {
           "title": "Soften a sheet",
-          "text": "Dip one rice paper sheet in room-temperature water until it just turns pliable. Pull it out while it still feels slightly firm; it carries on softening on the board, and a sheet left in until it is fully floppy will tear as you roll.",
+          "text": "Divide the mince into four by eye. Dip one rice paper sheet in room-temperature water until it just turns pliable. Pull it out while it still feels slightly firm \u2014 it carries on softening on the board, and a sheet left in until it is fully floppy will tear as you roll.",
           "timer_seconds": 10
         },
         {
@@ -3922,11 +3931,11 @@
           "timer_seconds": 900
         },
         {
-          "title": "Check it through",
-          "text": "Cut into the thickest piece before eating. The mince is spread thin so 15 minutes is usually enough, but it is raw chicken \u2014 it should be opaque all the way through with no pink."
+          "title": "Check and finish",
+          "text": "Cut into the thickest piece \u2014 the mince is spread thin so 15 minutes is usually enough, but it is raw chicken and should be opaque throughout with no pink. Squeeze lime over while hot and serve with a dip; the wrapper is deliberately neutral and these are built to be dipped."
         }
       ],
-      "notes": "Macros are built from the ingredients, not from the version going round Instagram. That one claims 200 kcal and 22 g protein per roll, which is exactly P\u00d74 + C\u00d74 + F\u00d79 \u2014 the calories were back-calculated from the macros rather than measured, and the macros themselves describe a mince that does not exist (17.6 g protein with 6.4 g fat per 100 g). With real breast mince you get more protein than they claim at roughly the same calories.\n\nWith regular chicken keema instead of breast mince: 235 kcal, 26 g protein, 12 g carbs, 9 g fat per roll.\n\nWeigh the rice paper sheets once. A 16 cm sheet and a 22 cm sheet differ by about double, and the sheet is the entire carb number \u2014 22 cm sheets run about 12 g each.\n\nThe salt works out to roughly 575 mg sodium per roll before any dipping sauce. Fine for fat loss, but eat the whole batch and the next morning's weigh-in will be water noise.",
+      "notes": "Seasoning is deliberately heavier than the version going round Instagram, which comes out bland for three reasons: breast mince at 2.6% fat has nothing for the spices to dissolve into, sweet paprika is a colouring spice with almost no flavour, and there is no umami or acid anywhere in it. The tablespoon of oil going into the mince matters more than any spice here.\n\nFor more flavour again, grind 400 g breast with 100 g thigh. It barely moves the macros and makes a bigger difference than anything else on this list.\n\nMacros are built from the ingredients. The source post claims 200 kcal and 22 g protein per roll, which is exactly P\u00d74 + C\u00d74 + F\u00d79 \u2014 the calories were back-calculated from the macros rather than measured, and the macros themselves describe a mince that does not exist (17.6 g protein with 6.4 g fat per 100 g).\n\nWith regular chicken keema instead of breast mince: 270 kcal, 26 g protein, 13 g carbs, 13 g fat per roll.\n\nGrinding it yourself: cube the breast, half-freeze it for 20\u201330 minutes, then pulse 150\u2013200 g at a time in the mixer. Running it continuously turns breast into paste in about eight seconds.\n\nWeigh the rice paper sheets once. A 16 cm sheet and a 22 cm sheet differ by about double, and the sheet is the entire carb number \u2014 22 cm sheets run about 12 g each.\n\nSalt plus soy works out to roughly 525 mg sodium per roll before any dip. Fine for fat loss, but eat the whole batch and the next morning's weigh-in will be water noise.",
       "pairs_with": ["garlic-yogurt-dip", "mint-curd-chutney", "kachumber-salad"]
     }
   ]
