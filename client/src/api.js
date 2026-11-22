@@ -27,6 +27,7 @@ export const api = {
   moneyMonth: (month) => req('GET', `/money/month${month ? `?month=${month}` : ''}`),
   moneyTransactions: (month) => req('GET', `/money/transactions${month ? `?month=${month}` : ''}`),
   moneyReview: () => req('GET', '/money/review'),
+  moneyPassedOn: (id, passed_on) => req('POST', `/money/transactions/${id}/passed-on`, { passed_on }),
   moneyCategorise: (id, category) => req('POST', `/money/review/${id}/category`, { category }),
   moneyRecurring: () => req('GET', '/money/recurring'),
   moneySavings: (month) => req('GET', `/money/savings${month ? `?month=${month}` : ''}`),

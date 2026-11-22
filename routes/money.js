@@ -57,7 +57,9 @@ function reclassifyAll(db) {
   const dupes = findDuplicates(rows);
   const state = new Map();
   for (const r of rows) {
-    const c = dupes.has(r.id) ? { type: 'duplicate', fund: null, category: null } : classify(r, s, rules);
+    // Marked by hand as money that only passed through (received for someone else and sent on).
+    const c = dupes.has(r.id) ? { type: 'duplicate', fund: null, category: null }
+      : r.passed_on ? { type: 'passed_on', fund: null, category: null } : classify(r, s, rules);
     state.set(r.id, Object.assign({}, r, c));
   }
   const live = [...state.values()].filter(r => r.type !== 'duplicate');
@@ -204,6 +206,17 @@ router.get('/transactions', (req, res) => {
   const rows = db.prepare(`SELECT id, date, time, amount, direction, bank, instrument, last4, channel, payee, type, fund, category, currency, amount_orig
     FROM money_tx WHERE date >= ? AND date < ? AND type != 'duplicate' ORDER BY date DESC, time DESC, id DESC`).all(start, end);
   res.json({ transactions: rows });
+});
+
+// Toggle "passed on": the row stops counting as spending or money in.
+router.post('/transactions/:id/passed-on', (req, res) => {
+  const db = getDB();
+  const id = Number(req.params.id);
+  const row = db.prepare('SELECT id FROM money_tx WHERE id = ?').get(id);
+  if (!row) return res.status(404).json({ error: 'Not found' });
+  db.prepare('UPDATE money_tx SET passed_on = ? WHERE id = ?').run(req.body && req.body.passed_on ? 1 : 0, id);
+  reclassifyAll(db);
+  res.json({ ok: true });
 });
 
 router.get('/review', (req, res) => {
