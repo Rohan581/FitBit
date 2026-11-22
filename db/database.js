@@ -420,6 +420,7 @@ function initDB() {
     const cols = db.prepare("PRAGMA table_info(money_tx)").all().map(c => c.name);
     if (!cols.includes('currency')) db.exec("ALTER TABLE money_tx ADD COLUMN currency TEXT");
     if (!cols.includes('amount_orig')) db.exec("ALTER TABLE money_tx ADD COLUMN amount_orig REAL");
+    if (!cols.includes('passed_on')) db.exec("ALTER TABLE money_tx ADD COLUMN passed_on INTEGER NOT NULL DEFAULT 0");
   }
   {
     const { DEFAULT_RULES } = require('../money/classify');

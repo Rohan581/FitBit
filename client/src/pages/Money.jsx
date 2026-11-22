@@ -178,6 +178,7 @@ const TAGS = {
   refund: ['Refund', 'good'], reimbursement: ['Reimbursed', 'good'], money_in: ['Money in', 'good'],
   saved: ['Saved', 'muted'], invested: ['Invested', 'muted'], spend_fund: ['Spend fund', 'muted'],
   transfer: ['Own transfer', 'muted'], card_payment: ['Card bill', 'muted'], rent_payment: ['Rent', 'muted'], salary_credit: ['Salary', 'muted'],
+  passed_on: ['Passed on', 'muted'],
 };
 const TAG_STYLE = {
   good: { background: 'color-mix(in oklab, var(--points) 14%, transparent)', color: 'var(--points)' },
@@ -188,12 +189,18 @@ const FILTERS = [
   ['all', 'All', () => true],
   ['spend', 'Spend', t => ['spend', 'refund', 'reimbursement'].includes(t.type)],
   ['in', 'Money in', t => ['money_in', 'salary_credit', 'reimbursement', 'refund'].includes(t.type)],
-  ['other', 'Not spend', t => ['saved', 'invested', 'transfer', 'card_payment', 'rent_payment', 'spend_fund'].includes(t.type)],
+  ['other', 'Not spend', t => ['saved', 'invested', 'transfer', 'card_payment', 'rent_payment', 'spend_fund', 'passed_on'].includes(t.type)],
 ];
 
 export function MoneyActivity() {
-  const { data, error } = useLoad(() => api.moneyTransactions());
+  const { data, error, reload } = useLoad(() => api.moneyTransactions());
   const [filter, setFilter] = useState('all');
+  const [open, setOpen] = useState(null);
+  const [busy, setBusy] = useState(false);
+  async function togglePassedOn(t) {
+    setBusy(true);
+    try { await api.moneyPassedOn(t.id, t.type !== 'passed_on'); setOpen(null); reload(); } finally { setBusy(false); }
+  }
   const match = FILTERS.find(f => f[0] === filter)[2];
   const days = [];
   for (const t of (data?.transactions || []).filter(match)) {
@@ -225,8 +232,12 @@ export function MoneyActivity() {
                 const tag = needs ? ['Name this', 'review'] : t.type === 'transfer' && t.fund === 'trip' ? ['From trip fund', 'muted'] : TAGS[t.type];
                 const incoming = ['refund', 'reimbursement', 'money_in', 'salary_credit'].includes(t.type);
                 const quiet = !incoming && t.type !== 'spend';
+                const canPass = ['spend', 'money_in', 'passed_on', 'transfer'].includes(t.type);
                 return (
-                  <Row key={t.id} last={i === day.rows.length - 1}>
+                  <div key={t.id}>
+                  <button type="button" className="w-full text-left" disabled={!canPass}
+                    onClick={() => setOpen(open === t.id ? null : t.id)} aria-expanded={open === t.id}>
+                  <Row last={i === day.rows.length - 1 && open !== t.id}>
                     <div className="min-w-0">
                       <p className="text-[14.5px] font-medium text-tx truncate">{t.payee}</p>
                       <p className="text-[12.5px] text-tx-2 truncate">{[t.category, instrument(t), t.currency ? `estimated from ${t.currency} ${t.amount_orig}` : null].filter(Boolean).join(' · ')}</p>
@@ -236,6 +247,21 @@ export function MoneyActivity() {
                       {tag && <span className="text-[11.5px] font-semibold px-2 py-0.5 rounded-full" style={TAG_STYLE[tag[1]]}>{tag[0]}</span>}
                     </div>
                   </Row>
+                  </button>
+                  {open === t.id && (
+                    <div className={`pb-3 flex flex-col gap-2 ${i === day.rows.length - 1 ? '' : 'border-b border-hair'}`}>
+                      <p className="text-[12.5px] text-tx-2">
+                        {t.type === 'passed_on'
+                          ? 'Left out of your spending and money in.'
+                          : 'Money you received for someone else and sent on? Mark both the payment in and the payment out, and neither counts.'}
+                      </p>
+                      <button type="button" disabled={busy} onClick={() => togglePassedOn(t)}
+                        className="h-9 px-3.5 self-start rounded-full text-[13px] font-semibold bg-tx text-page press-scale disabled:opacity-50">
+                        {t.type === 'passed_on' ? 'Count it again' : 'Passed on, not mine'}
+                      </button>
+                    </div>
+                  )}
+                  </div>
                 );
               })}
             </Card>
