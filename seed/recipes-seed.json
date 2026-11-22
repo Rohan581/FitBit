@@ -3876,6 +3876,58 @@
       ],
       "notes": "Tofu macros vary a lot by brand \u2014 check the packet and adjust if it differs much from 145 kcal and 16 g protein per 100 g.",
       "pairs_with": []
+    },
+    {
+      "seed_key": "rice-paper-chicken-bites",
+      "title": "Rice Paper Chicken Bites",
+      "source": "new",
+      "servings": 4,
+      "portion_mode": "servings",
+      "total_time_min": 25,
+      "tags": ["high-protein", "air-fryer", "quick", "snack"],
+      "per_serving": {
+        "calories": 205,
+        "protein_g": 30,
+        "carbs_g": 12,
+        "fat_g": 4.5,
+        "fiber_g": 1,
+        "sugar_g": 0
+      },
+      "ingredients": [
+        { "amount": 500, "unit": "g", "name": "chicken breast mince", "main_ingredient": true },
+        { "amount": 4, "unit": "count", "name": "rice paper sheets, 22 cm" },
+        { "amount": 1, "unit": "tbsp", "name": "garlic powder" },
+        { "amount": 1, "unit": "tbsp", "name": "paprika" },
+        { "amount": 1, "unit": "tsp", "name": "salt" },
+        { "amount": 0.5, "unit": "cup", "name": "coriander leaves, chopped" },
+        { "amount": 1, "unit": "tsp", "name": "oil, for the basket and the rolls" }
+      ],
+      "steps": [
+        {
+          "title": "Season the mince",
+          "text": "Mix the mince with the garlic powder, paprika, salt and coriander until the colour is even all the way through. Divide it into four by eye before you wet any rice paper \u2014 once a sheet softens you have about a minute to work with it."
+        },
+        {
+          "title": "Soften a sheet",
+          "text": "Dip one rice paper sheet in room-temperature water until it just turns pliable. Pull it out while it still feels slightly firm; it carries on softening on the board, and a sheet left in until it is fully floppy will tear as you roll.",
+          "timer_seconds": 10
+        },
+        {
+          "title": "Spread and roll",
+          "text": "Spread one quarter of the mince in a thin even layer across the sheet, leaving a finger's width clear at the far edge. Roll it up tight \u2014 air pockets puff and split in the fryer. Cut the roll into 6 pieces; the exposed ends crisp up and are the best part."
+        },
+        {
+          "title": "Air fry",
+          "text": "Repeat for all four sheets. Oil the basket and the tops of the rolls, then air fry at 200\u00b0C, flipping halfway. Rice paper welds itself to a dry basket, so do not skip the oil.",
+          "timer_seconds": 900
+        },
+        {
+          "title": "Check it through",
+          "text": "Cut into the thickest piece before eating. The mince is spread thin so 15 minutes is usually enough, but it is raw chicken \u2014 it should be opaque all the way through with no pink."
+        }
+      ],
+      "notes": "Macros are built from the ingredients, not from the version going round Instagram. That one claims 200 kcal and 22 g protein per roll, which is exactly P\u00d74 + C\u00d74 + F\u00d79 \u2014 the calories were back-calculated from the macros rather than measured, and the macros themselves describe a mince that does not exist (17.6 g protein with 6.4 g fat per 100 g). With real breast mince you get more protein than they claim at roughly the same calories.\n\nWith regular chicken keema instead of breast mince: 235 kcal, 26 g protein, 12 g carbs, 9 g fat per roll.\n\nWeigh the rice paper sheets once. A 16 cm sheet and a 22 cm sheet differ by about double, and the sheet is the entire carb number \u2014 22 cm sheets run about 12 g each.\n\nThe salt works out to roughly 575 mg sodium per roll before any dipping sauce. Fine for fat loss, but eat the whole batch and the next morning's weigh-in will be water noise.",
+      "pairs_with": ["garlic-yogurt-dip", "mint-curd-chutney", "kachumber-salad"]
     }
   ]
 }
