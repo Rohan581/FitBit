@@ -3944,53 +3944,58 @@
       "source": "new",
       "servings": 2,
       "portion_mode": "servings",
-      "total_time_min": 30,
+      "total_time_min": 35,
       "tags": ["high-protein", "air-fryer", "quick"],
       "per_serving": {
-        "calories": 460,
-        "protein_g": 46,
-        "carbs_g": 50,
-        "fat_g": 7.5,
+        "calories": 465,
+        "protein_g": 47,
+        "carbs_g": 46,
+        "fat_g": 8.5,
         "fiber_g": 1,
         "sugar_g": 14
       },
       "ingredients": [
         { "group": "Tenders" },
         { "amount": 300, "unit": "g", "name": "chicken tenderloins, about 6", "main_ingredient": true },
-        { "amount": 50, "unit": "g", "name": "cornflakes, crushed" },
+        { "amount": 50, "unit": "g", "name": "panko breadcrumbs" },
         { "amount": 30, "unit": "g", "name": "plain flour" },
         { "amount": 1, "unit": "count", "name": "egg, whisked" },
         { "amount": 1, "unit": "tsp", "name": "garlic powder" },
         { "amount": 1, "unit": "tsp", "name": "onion powder" },
         { "amount": 0.5, "unit": "tsp", "name": "salt" },
         { "amount": 0.5, "unit": "tsp", "name": "black pepper" },
-        { "amount": 1, "unit": "tsp", "name": "oil, sprayed" },
+        { "amount": 2, "unit": "tsp", "name": "oil, for toasting the panko and spraying" },
         { "group": "Bang bang sauce" },
-        { "amount": 100, "unit": "g", "name": "hung curd or 0% Greek yoghurt" },
+        { "amount": 100, "unit": "g", "name": "0% Greek yoghurt or hung curd" },
         { "amount": 2, "unit": "tbsp", "name": "sweet chilli sauce" },
         { "amount": 1, "unit": "tsp", "name": "sriracha" },
         { "amount": 10, "unit": "g", "name": "honey" }
       ],
       "steps": [
         {
+          "title": "Toast the panko first",
+          "text": "Dry pan on medium, 1 tsp oil, panko in, stirring constantly until it is an even golden brown. This is the step that decides the recipe. Panko is raw bread, and an air fryer blows dry air rather than frying, so untoasted panko comes out pale and powdery no matter how long you run it. Toasting it first means the coating is already the colour and crunch you want before the chicken goes in.",
+          "timer_seconds": 240
+        },
+        {
           "title": "Season and set up",
-          "text": "Toss the tenderloins with the salt, pepper, garlic powder and onion powder. Set out three bowls: flour in one, whisked egg in the second, crushed cornflakes in the third. Crush the cornflakes to coarse crumbs, not dust \u2014 dust goes pasty and you lose the crunch that is the whole point."
+          "text": "Toss the tenderloins with the salt, pepper, garlic powder and onion powder. Set out three bowls: flour in one, whisked egg in the second, the toasted panko in the third."
         },
         {
           "title": "Bread each tender",
-          "text": "Flour first, then egg, then cornflakes, pressing the crumb on. Keep one hand for the dry bowls and one for the egg, or your fingers turn into breaded batons and the coating stops sticking."
+          "text": "Flour first, then egg, then panko, pressing the crumb on firmly. Keep one hand for the dry bowls and one for the egg, or your fingers turn into breaded batons and the coating stops sticking."
         },
         {
           "title": "Air fry",
-          "text": "Lay them out without touching, spray the tops with oil, and air fry at 190\u00b0C, flipping and spraying again halfway. Check at 12 minutes \u2014 cornflakes carry their own sugar and go from golden to burnt fast, which is why this runs cooler than the 200\u00b0C the original calls for.",
-          "timer_seconds": 840
+          "text": "Lay them out without touching, spray the tops with the remaining oil, and air fry at 200\u00b0C, flipping and spraying again halfway. The crumb is already browned, so you are only cooking the chicken through \u2014 check at 12 minutes and pull them as soon as the thickest tender runs clear.",
+          "timer_seconds": 900
         },
         {
           "title": "Make the sauce",
-          "text": "While they cook, stir the curd, sweet chilli, sriracha and honey together until smooth. Serve as a dip rather than coating the tenders \u2014 sauce poured over hot crumb goes soggy within a minute."
+          "text": "While they cook, stir the yoghurt, sweet chilli, sriracha and honey together until smooth. Serve as a dip rather than coating the tenders \u2014 sauce poured over hot crumb goes soggy within a minute."
         }
       ],
-      "notes": "Sauce is cut down from the original, which called for 20 g honey plus 30 g sweet chilli plus another 5 g smeared on every tender. That came to roughly 50 g of sugar across the batch \u2014 25 g a serving, half a day's limit, on a dish whose entire selling point is being lean. Halving the honey and dropping the per-tender smear keeps the sweetness and takes the sugar to 14 g a serving.\n\nSource macros claim 477 kcal and 50 g protein per 3 fillets. Honest figure is about 507 / 46 / 62 / 8 for the original, so unusually close \u2014 the protein is ~10% optimistic because they costed 300 g of cooked chicken rather than 300 g raw, and the fat ignores the spray oil.\n\nCornflake crumb gives genuine fried-chicken crunch for almost no fat, which is what makes this worth making over a panko version. Chicken tenderloin can be swapped for breast cut into finger-width strips.\n\nThe carbs are mostly coating and sauce, so this sits better on a training day than a rest day.",
+      "notes": "Panko rather than the cornflakes the original calls for. Macros are near identical (panko is slightly higher protein, slightly lower carb) but panko must be toasted in a pan before breading or it will not colour in an air fryer. Cornflakes come pre-toasted, which is the only reason that version works without this step.\n\nSauce is cut down from the original, which called for 20 g honey plus 30 g sweet chilli plus another 5 g smeared on every tender. That came to roughly 50 g of sugar across the batch \u2014 25 g a serving, half a day's limit, on a dish whose entire selling point is being lean. Halving the honey and dropping the per-tender smear takes it to 14 g a serving.\n\nSource macros claim 477 kcal and 50 g protein per 3 fillets. Honest figure for the original is about 507 / 46 / 62 / 8 \u2014 unusually close for an Instagram recipe. Their protein is ~10% optimistic because they costed 300 g of cooked chicken rather than 300 g raw, and the fat ignores the spray oil.\n\nChicken tenderloin can be swapped for breast cut into finger-width strips. Hung curd in place of 0% Greek yoghurt adds about 20 kcal and 2 g fat a serving.\n\nThe carbs are mostly coating and sauce, so this sits better on a training day than a rest day.",
       "pairs_with": ["kachumber-salad", "garlic-herb-wedges"]
     }
   ]
