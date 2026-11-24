@@ -3937,6 +3937,61 @@
       ],
       "notes": "Seasoning is deliberately heavier than the version going round Instagram, which comes out bland for three reasons: breast mince at 2.6% fat has nothing for the spices to dissolve into, sweet paprika is a colouring spice with almost no flavour, and there is no umami or acid anywhere in it. The tablespoon of oil going into the mince matters more than any spice here.\n\nFor more flavour again, grind 400 g breast with 100 g thigh. It barely moves the macros and makes a bigger difference than anything else on this list.\n\nMacros are built from the ingredients. The source post claims 200 kcal and 22 g protein per roll, which is exactly P\u00d74 + C\u00d74 + F\u00d79 \u2014 the calories were back-calculated from the macros rather than measured, and the macros themselves describe a mince that does not exist (17.6 g protein with 6.4 g fat per 100 g).\n\nWith regular chicken keema instead of breast mince: 270 kcal, 26 g protein, 13 g carbs, 13 g fat per roll.\n\nGrinding it yourself: cube the breast, half-freeze it for 20\u201330 minutes, then pulse 150\u2013200 g at a time in the mixer. Running it continuously turns breast into paste in about eight seconds.\n\nWeigh the rice paper sheets once. A 16 cm sheet and a 22 cm sheet differ by about double, and the sheet is the entire carb number \u2014 22 cm sheets run about 12 g each.\n\nSalt plus soy works out to roughly 525 mg sodium per roll before any dip. Fine for fat loss, but eat the whole batch and the next morning's weigh-in will be water noise.",
       "pairs_with": ["garlic-yogurt-dip", "mint-curd-chutney", "kachumber-salad"]
+    },
+    {
+      "seed_key": "bang-bang-chicken-tenders",
+      "title": "Bang Bang Chicken Tenders",
+      "source": "new",
+      "servings": 2,
+      "portion_mode": "servings",
+      "total_time_min": 30,
+      "tags": ["high-protein", "air-fryer", "quick"],
+      "per_serving": {
+        "calories": 460,
+        "protein_g": 46,
+        "carbs_g": 50,
+        "fat_g": 7.5,
+        "fiber_g": 1,
+        "sugar_g": 14
+      },
+      "ingredients": [
+        { "group": "Tenders" },
+        { "amount": 300, "unit": "g", "name": "chicken tenderloins, about 6", "main_ingredient": true },
+        { "amount": 50, "unit": "g", "name": "cornflakes, crushed" },
+        { "amount": 30, "unit": "g", "name": "plain flour" },
+        { "amount": 1, "unit": "count", "name": "egg, whisked" },
+        { "amount": 1, "unit": "tsp", "name": "garlic powder" },
+        { "amount": 1, "unit": "tsp", "name": "onion powder" },
+        { "amount": 0.5, "unit": "tsp", "name": "salt" },
+        { "amount": 0.5, "unit": "tsp", "name": "black pepper" },
+        { "amount": 1, "unit": "tsp", "name": "oil, sprayed" },
+        { "group": "Bang bang sauce" },
+        { "amount": 100, "unit": "g", "name": "hung curd or 0% Greek yoghurt" },
+        { "amount": 2, "unit": "tbsp", "name": "sweet chilli sauce" },
+        { "amount": 1, "unit": "tsp", "name": "sriracha" },
+        { "amount": 10, "unit": "g", "name": "honey" }
+      ],
+      "steps": [
+        {
+          "title": "Season and set up",
+          "text": "Toss the tenderloins with the salt, pepper, garlic powder and onion powder. Set out three bowls: flour in one, whisked egg in the second, crushed cornflakes in the third. Crush the cornflakes to coarse crumbs, not dust \u2014 dust goes pasty and you lose the crunch that is the whole point."
+        },
+        {
+          "title": "Bread each tender",
+          "text": "Flour first, then egg, then cornflakes, pressing the crumb on. Keep one hand for the dry bowls and one for the egg, or your fingers turn into breaded batons and the coating stops sticking."
+        },
+        {
+          "title": "Air fry",
+          "text": "Lay them out without touching, spray the tops with oil, and air fry at 190\u00b0C, flipping and spraying again halfway. Check at 12 minutes \u2014 cornflakes carry their own sugar and go from golden to burnt fast, which is why this runs cooler than the 200\u00b0C the original calls for.",
+          "timer_seconds": 840
+        },
+        {
+          "title": "Make the sauce",
+          "text": "While they cook, stir the curd, sweet chilli, sriracha and honey together until smooth. Serve as a dip rather than coating the tenders \u2014 sauce poured over hot crumb goes soggy within a minute."
+        }
+      ],
+      "notes": "Sauce is cut down from the original, which called for 20 g honey plus 30 g sweet chilli plus another 5 g smeared on every tender. That came to roughly 50 g of sugar across the batch \u2014 25 g a serving, half a day's limit, on a dish whose entire selling point is being lean. Halving the honey and dropping the per-tender smear keeps the sweetness and takes the sugar to 14 g a serving.\n\nSource macros claim 477 kcal and 50 g protein per 3 fillets. Honest figure is about 507 / 46 / 62 / 8 for the original, so unusually close \u2014 the protein is ~10% optimistic because they costed 300 g of cooked chicken rather than 300 g raw, and the fat ignores the spray oil.\n\nCornflake crumb gives genuine fried-chicken crunch for almost no fat, which is what makes this worth making over a panko version. Chicken tenderloin can be swapped for breast cut into finger-width strips.\n\nThe carbs are mostly coating and sauce, so this sits better on a training day than a rest day.",
+      "pairs_with": ["kachumber-salad", "garlic-herb-wedges"]
     }
   ]
 }

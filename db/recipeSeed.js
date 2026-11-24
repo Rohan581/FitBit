@@ -37,6 +37,7 @@ const ICON_MAP = {
   'air-fried-paneer-tikka': '🧀',
   'crispy-air-fried-tofu': '🍢',
   'rice-paper-chicken-bites': '🥟',
+  'bang-bang-chicken-tenders': '🍗',
 };
 
 function seedRecipes(db) {
