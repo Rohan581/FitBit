@@ -55,6 +55,7 @@ export const api = {
   // Food logs
   getFoodLogs: (date) => req('GET', `/food-logs?${new URLSearchParams({ ...(date && { date }) })}`),
   logFood: (entry) => req('POST', '/food-logs', entry),
+  parseFoodText: (text) => req('POST', '/food-logs/parse', { text }),
   copyYesterday: (meal_type, date) => req('POST', '/food-logs/copy-yesterday', { meal_type, ...(date && { date }) }),
   updateFoodLog: (id, data) => req('PUT', `/food-logs/${id}`, data),
   deleteFoodLog: (id) => req('DELETE', `/food-logs/${id}`),

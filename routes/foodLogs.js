@@ -2,6 +2,8 @@ const express = require('express');
 const router = express.Router();
 const { getDB } = require('../db/database');
 const { todayIST } = require('../dateUtils');
+const { parseLog } = require('../lib/parseLogLine');
+const { dayReview, dayVerdict, contributors } = require('../lib/dayReview');
 
 // GET /api/food-logs?date=YYYY-MM-DD
 router.get('/', (req, res) => {
@@ -25,7 +27,39 @@ router.get('/', (req, res) => {
     sugar_g: acc.sugar_g + (l.sugar_g || 0),
   }), { calories: 0, protein_g: 0, carbs_g: 0, fat_g: 0, fiber_g: 0, sugar_g: 0 });
 
-  res.json({ date, grouped, all: logs, totals });
+  // Day review: what the numbers mean and which items caused them. Computed
+  // server-side so Trends and History can reuse it without duplicating the rules.
+  const goal = db.prepare('SELECT * FROM goal WHERE id = 1').get() || {};
+  const inProgress = date === todayIST();
+  const review = dayReview(logs, goal, { inProgress });
+
+  // Per-macro breakdown, so tapping a macro tile needs no extra round trip.
+  const breakdown = {};
+  for (const m of ['calories', 'protein', 'carbs', 'fat', 'fiber', 'sugar']) {
+    breakdown[m] = contributors(logs, m);
+  }
+
+  res.json({
+    date, grouped, all: logs, totals,
+    review, verdict: dayVerdict(review), breakdown, in_progress: inProgress,
+  });
+});
+
+// POST /api/food-logs/parse — turn pasted text into reviewable entries.
+// Parses only; saves nothing. The client shows editable cards and posts each
+// confirmed entry back through the normal manual-entry path.
+router.post('/parse', (req, res) => {
+  const db = getDB();
+  const text = req.body.text;
+  if (typeof text !== 'string' || !text.trim()) {
+    return res.status(400).json({ error: 'text is required' });
+  }
+  if (text.length > 5000) {
+    return res.status(400).json({ error: 'text is too long (5,000 character limit)' });
+  }
+  const foods = db.prepare('SELECT id, name, calories, protein_g, carbs_g, fat_g, fiber_g, sugar_g FROM foods').all();
+  const { entries, errors } = parseLog(text, { foods });
+  res.json({ entries, errors });
 });
 
 // POST /api/food-logs

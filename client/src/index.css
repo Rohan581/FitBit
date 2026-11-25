@@ -127,6 +127,10 @@ body {
   font-family: 'Hanken Grotesk', system-ui, sans-serif;
   font-weight: 400;
   -webkit-font-smoothing: antialiased;
+  /* Lining tabular figures everywhere. In an app that is mostly numbers which
+     update in place, proportional digits make totals jitter sideways as they
+     count up and stop columns of weights or macros from lining up. */
+  font-variant-numeric: tabular-nums lining-nums;
 }
 
 #root {
