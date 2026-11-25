@@ -101,6 +101,34 @@ function DayReviewCard({ review, verdict }) {
   );
 }
 
+/**
+ * Shrink a photo on the phone before it goes anywhere.
+ *
+ * Three reasons, in order of importance: re-encoding through a canvas drops all
+ * EXIF, which is where the GPS coordinates of your house live; a 1280px JPEG is
+ * a fraction of the upload; and the estimate is no better from a 12-megapixel
+ * original than from this.
+ */
+function shrinkImage(file, maxEdge = 1280, quality = 0.8) {
+  return new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+      const scale = Math.min(1, maxEdge / Math.max(img.width, img.height));
+      const canvas = document.createElement('canvas');
+      canvas.width = Math.round(img.width * scale);
+      canvas.height = Math.round(img.height * scale);
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+      const dataUrl = canvas.toDataURL('image/jpeg', quality);
+      resolve({ base64: dataUrl.split(',')[1], preview: dataUrl });
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('Could not read that image')); };
+    img.src = url;
+  });
+}
+
 function getMealTypeByTime() {
   const h = new Date().getHours();
   if (h < 11) return 'breakfast';
@@ -532,11 +560,17 @@ function FoodSearchSheet({ open, onClose, mealType, onLogged, targetDate }) {
   const [qaSaving, setQaSaving] = useState(false);
   const inputRef = useRef(null);
 
-  // Paste-to-log
+  // Paste-to-log, and the photo/description estimate that feeds the same cards
   const [pasteText, setPasteText] = useState('');
   const [pasteRows, setPasteRows] = useState(null);   // null = not parsed yet
   const [pasteErrors, setPasteErrors] = useState([]);
   const [pasteBusy, setPasteBusy] = useState(false);
+  const [photo, setPhoto] = useState(null);           // { base64, preview }
+  const [photoNote, setPhotoNote] = useState('');
+  const [estimateErr, setEstimateErr] = useState('');
+  const [estimateModel, setEstimateModel] = useState('');
+  const [aiReady, setAiReady] = useState(null);       // null = unknown yet
+  const fileRef = useRef(null);
 
   // When Drinks meal slot is active, only show alcohol + beverage categories
   const drinkCategories = mealType === 'drinks' ? 'alcohol,beverage' : undefined;
@@ -574,8 +608,50 @@ function FoodSearchSheet({ open, onClose, mealType, onLogged, targetDate }) {
       setPasteText('');
       setPasteRows(null);
       setPasteErrors([]);
+      setPhoto(null);
+      setPhotoNote('');
+      setEstimateErr('');
+      setEstimateModel('');
     }
   }, [open]);
+
+  // Only offer the estimate tab if the server actually has a key.
+  useEffect(() => {
+    if (!open || aiReady !== null) return;
+    api.estimateStatus().then(s => setAiReady(!!s.configured)).catch(() => setAiReady(false));
+  }, [open, aiReady]);
+
+  async function handlePickPhoto(e) {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+    setEstimateErr('');
+    try {
+      setPhoto(await shrinkImage(file));
+    } catch (err) {
+      setEstimateErr(err.message);
+    }
+  }
+
+  // Photo and/or description -> Gemini -> the same editable cards as a paste.
+  async function handleEstimate() {
+    if (!photo && !photoNote.trim()) return;
+    setPasteBusy(true);
+    setEstimateErr('');
+    try {
+      const r = await api.estimateMeal({
+        ...(photo ? { image: photo.base64, mime_type: 'image/jpeg' } : {}),
+        ...(photo ? { note: photoNote } : { description: photoNote }),
+      });
+      setPasteRows(r.entries.map((en, i) => ({ ...en, _key: i, meal_type: en.mealGuessed ? mealType : en.meal_type })));
+      setPasteErrors(r.errors || []);
+      setEstimateModel(r.model || '');
+    } catch (err) {
+      setEstimateErr(err.message || 'Could not get an estimate');
+    } finally {
+      setPasteBusy(false);
+    }
+  }
 
   // Parse pasted text into editable rows. Nothing is saved until Save is tapped.
   async function handleParse() {
@@ -740,8 +816,9 @@ function FoodSearchSheet({ open, onClose, mealType, onLogged, targetDate }) {
           <div className="flex rounded-card border border-hair overflow-hidden mb-3">
             {[
               { id: 'search', label: 'Search' },
-              { id: 'quick', label: 'Quick add' },
+              { id: 'quick', label: 'Quick' },
               { id: 'paste', label: 'Paste' },
+              ...(aiReady ? [{ id: 'estimate', label: 'Photo' }] : []),
             ].map(t => (
               <button
                 key={t.id}
@@ -811,9 +888,9 @@ function FoodSearchSheet({ open, onClose, mealType, onLogged, targetDate }) {
 
         {/* Paste a line of macros — from a chat, a message, a label you typed out.
             Parsed by plain code on the server; nothing saves until Save is tapped. */}
-        {mode === 'paste' && (
+        {(mode === 'paste' || mode === 'estimate') && (
           <div className="mx-4 mb-3 flex-1 min-h-0 overflow-y-auto">
-            {!pasteRows && (
+            {!pasteRows && mode === 'paste' && (
               <>
                 <textarea
                   value={pasteText}
@@ -836,6 +913,57 @@ function FoodSearchSheet({ open, onClose, mealType, onLogged, targetDate }) {
                 >
                   {pasteBusy ? 'Reading…' : 'Read it'}
                 </button>
+              </>
+            )}
+
+            {/* Photo or description estimate. A first draft you correct — it goes
+                through the same editable cards and saves nothing on its own. */}
+            {!pasteRows && mode === 'estimate' && (
+              <>
+                <input ref={fileRef} type="file" accept="image/*" capture="environment" onChange={handlePickPhoto} className="hidden" />
+
+                {photo ? (
+                  <div className="relative">
+                    <img src={photo.preview} alt="" className="w-full max-h-52 object-cover rounded-card" />
+                    <button
+                      onClick={() => setPhoto(null)}
+                      className="absolute top-2 right-2 w-8 h-8 rounded-full bg-black/60 text-white text-lg leading-none press-scale"
+                      aria-label="Remove photo"
+                    >×</button>
+                  </div>
+                ) : (
+                  <button
+                    onClick={() => fileRef.current?.click()}
+                    className="w-full py-8 rounded-card border border-dashed border-hair text-sm text-tx-3 press-scale"
+                  >
+                    Take or choose a photo
+                  </button>
+                )}
+
+                <textarea
+                  value={photoNote}
+                  onChange={e => setPhotoNote(e.target.value)}
+                  rows={2}
+                  placeholder={photo ? 'Optional: "I only ate half", "no oil"' : 'Or just describe it: "2 rotis, dal, half a bowl of curd"'}
+                  className="w-full mt-2 px-3 py-2.5 rounded-card border border-hair text-sm text-tx bg-card-2 focus:outline-none resize-none"
+                />
+
+                {estimateErr && <p className="text-xs mt-2" style={{ color: 'var(--danger)' }}>{estimateErr}</p>}
+
+                <button
+                  onClick={handleEstimate}
+                  disabled={(!photo && !photoNote.trim()) || pasteBusy}
+                  className="w-full mt-3 py-2.5 rounded-card text-sm text-white disabled:opacity-40 press-scale"
+                  style={{ backgroundColor: mealColor }}
+                >
+                  {pasteBusy ? 'Estimating…' : 'Estimate'}
+                </button>
+
+                <p className="text-[11px] text-tx-3 mt-2 leading-relaxed">
+                  Shrunk on your phone and stripped of location data before it is sent to Google for
+                  an estimate. On the free tier Google may use it to improve their products. Portion
+                  size and oil are guesses — check the numbers before saving.
+                </p>
               </>
             )}
 
@@ -905,9 +1033,13 @@ function FoodSearchSheet({ open, onClose, mealType, onLogged, targetDate }) {
                   ))}
                 </div>
 
+                {estimateModel && (
+                  <p className="text-[10px] text-tx-3 mt-2">Estimated by {estimateModel} — check before saving.</p>
+                )}
+
                 <div className="flex gap-2 mt-3 pb-2">
                   <button
-                    onClick={() => { setPasteRows(null); setPasteErrors([]); }}
+                    onClick={() => { setPasteRows(null); setPasteErrors([]); setEstimateModel(''); }}
                     className="px-4 py-2.5 rounded-card text-sm text-tx-2 bg-card-2 border border-hair press-scale"
                   >
                     Back
@@ -998,7 +1130,7 @@ function FoodSearchSheet({ open, onClose, mealType, onLogged, targetDate }) {
           </div>
         )}
 
-        <div className={`flex-1 overflow-y-auto px-4 pb-4 ${mode === 'paste' ? 'hidden' : ''}`}>
+        <div className={`flex-1 overflow-y-auto px-4 pb-4 ${mode === 'paste' || mode === 'estimate' ? 'hidden' : ''}`}>
           {showFavsRecents && favorites.length > 0 && (
             <div className="mb-3">
               <p className="text-[11px] text-tx-3 mb-1.5 px-1">Favorites</p>

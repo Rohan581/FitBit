@@ -4,6 +4,7 @@ const { getDB } = require('../db/database');
 const { todayIST } = require('../dateUtils');
 const { parseLog } = require('../lib/parseLogLine');
 const { dayReview, dayVerdict, contributors } = require('../lib/dayReview');
+const { estimateMeal, EstimateError, MAX_DESCRIPTION_CHARS } = require('../lib/geminiEstimate');
 
 // GET /api/food-logs?date=YYYY-MM-DD
 router.get('/', (req, res) => {
@@ -60,6 +61,65 @@ router.post('/parse', (req, res) => {
   const foods = db.prepare('SELECT id, name, calories, protein_g, carbs_g, fat_g, fiber_g, sugar_g FROM foods').all();
   const { entries, errors } = parseLog(text, { foods });
   res.json({ entries, errors });
+});
+
+// GET /api/food-logs/estimate/status — is the photo estimate usable right now?
+// Lets Settings and the Add sheet say "not configured" instead of failing on tap.
+router.get('/estimate/status', (req, res) => {
+  res.json({
+    configured: Boolean(process.env.GEMINI_API_KEY),
+    models: (process.env.GEMINI_MODEL || '').split(',').map(s => s.trim()).filter(Boolean),
+  });
+});
+
+// POST /api/food-logs/estimate — a photo or a description in, reviewable entries out.
+// Estimates only; saves nothing. The result goes through the same parser and the
+// same editable preview cards as a pasted line, because an estimate from one
+// photo is a first draft, not a measurement.
+router.post('/estimate', async (req, res) => {
+  const { image, mime_type, description = '', note = '' } = req.body || {};
+
+  if (!image && !String(description).trim()) {
+    return res.status(400).json({ error: 'Send a photo or a description' });
+  }
+  if (String(description).length > MAX_DESCRIPTION_CHARS * 2) {
+    return res.status(400).json({ error: 'Description is too long' });
+  }
+
+  const models = (process.env.GEMINI_MODEL || '')
+    .split(',').map(s => s.trim()).filter(Boolean);
+
+  try {
+    const { text, model } = await estimateMeal({
+      apiKey: process.env.GEMINI_API_KEY,
+      image: typeof image === 'string' ? image.replace(/^data:[^,]+,/, '') : null,
+      mimeType: mime_type || 'image/jpeg',
+      description: String(description),
+      note: String(note),
+      ...(models.length ? { models } : {}),
+    });
+
+    const db = getDB();
+    const foods = db.prepare('SELECT id, name, calories, protein_g, carbs_g, fat_g, fiber_g, sugar_g FROM foods').all();
+    const { entries, errors } = parseLog(text, { foods });
+
+    if (!entries.length) {
+      // The model answered but not in the format the parser reads. Hand back the
+      // raw text so it can still be corrected by hand rather than lost.
+      return res.status(502).json({
+        error: 'The estimate came back in an unexpected format',
+        raw: text,
+        errors,
+      });
+    }
+    res.json({ entries, errors, model, raw: text });
+  } catch (err) {
+    if (err instanceof EstimateError) {
+      const status = { no_key: 503, auth: 503, quota: 429, timeout: 504 }[err.kind] || 502;
+      return res.status(status).json({ error: err.message, kind: err.kind });
+    }
+    res.status(500).json({ error: 'Estimate failed' });
+  }
 });
 
 // POST /api/food-logs
