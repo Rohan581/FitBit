@@ -643,7 +643,10 @@ function FoodSearchSheet({ open, onClose, mealType, onLogged, targetDate }) {
         ...(photo ? { image: photo.base64, mime_type: 'image/jpeg' } : {}),
         ...(photo ? { note: photoNote } : { description: photoNote }),
       });
-      setPasteRows(r.entries.map((en, i) => ({ ...en, _key: i, meal_type: en.mealGuessed ? mealType : en.meal_type })));
+      // The sheet was opened from a specific meal. Whatever the model inferred,
+      // the user's own tap is the stronger signal — an egg roll is a snack in
+      // general and lunch today if that is where they put it.
+      setPasteRows(r.entries.map((en, i) => ({ ...en, _key: i, meal_type: mealType })));
       setPasteErrors(r.errors || []);
       setEstimateModel(r.model || '');
     } catch (err) {
@@ -659,7 +662,7 @@ function FoodSearchSheet({ open, onClose, mealType, onLogged, targetDate }) {
     setPasteBusy(true);
     try {
       const { entries, errors } = await api.parseFoodText(pasteText);
-      setPasteRows(entries.map((e, i) => ({ ...e, _key: i, meal_type: e.mealGuessed ? mealType : e.meal_type })));
+      setPasteRows(entries.map((e, i) => ({ ...e, _key: i, meal_type: e.mealGuessed ? mealType : e.meal_type })));  // a meal typed into the line is explicit; a guessed one defers to the sheet
       setPasteErrors(errors);
     } catch (err) {
       setPasteErrors([{ line: 0, raw: '', error: err.message || 'Could not parse that' }]);
@@ -809,7 +812,30 @@ function FoodSearchSheet({ open, onClose, mealType, onLogged, targetDate }) {
   }
 
   return (
-    <Sheet open={open} onClose={onClose} title={`Add to ${MEAL_LABELS[mealType]}`} height="full">
+    <Sheet
+      open={open}
+      onClose={onClose}
+      title={`Add to ${MEAL_LABELS[mealType]}`}
+      height="full"
+      footer={pasteRows ? (
+        <div className="flex gap-2">
+          <button
+            onClick={() => { setPasteRows(null); setPasteErrors([]); setEstimateModel(''); }}
+            className="px-4 py-3 rounded-card text-sm text-tx-2 bg-card-2 border border-hair press-scale"
+          >
+            Back
+          </button>
+          <button
+            onClick={handleSavePasted}
+            disabled={!pasteRows.length || pasteBusy}
+            className="flex-1 py-3 rounded-card text-sm font-semibold text-white disabled:opacity-40 press-scale"
+            style={{ backgroundColor: mealColor }}
+          >
+            {pasteBusy ? 'Saving…' : `Save ${pasteRows.length} item${pasteRows.length === 1 ? '' : 's'}`}
+          </button>
+        </div>
+      ) : null}
+    >
       <div className="flex flex-col h-full">
         {/* Tab strip: Search / Quick add / Paste */}
         <div className="px-4 pb-3 flex-shrink-0">
@@ -1037,22 +1063,6 @@ function FoodSearchSheet({ open, onClose, mealType, onLogged, targetDate }) {
                   <p className="text-[10px] text-tx-3 mt-2">Estimated by {estimateModel} — check before saving.</p>
                 )}
 
-                <div className="flex gap-2 mt-3 pb-2">
-                  <button
-                    onClick={() => { setPasteRows(null); setPasteErrors([]); setEstimateModel(''); }}
-                    className="px-4 py-2.5 rounded-card text-sm text-tx-2 bg-card-2 border border-hair press-scale"
-                  >
-                    Back
-                  </button>
-                  <button
-                    onClick={handleSavePasted}
-                    disabled={!pasteRows.length || pasteBusy}
-                    className="flex-1 py-2.5 rounded-card text-sm text-white disabled:opacity-40 press-scale"
-                    style={{ backgroundColor: mealColor }}
-                  >
-                    {pasteBusy ? 'Saving…' : `Save ${pasteRows.length} item${pasteRows.length === 1 ? '' : 's'}`}
-                  </button>
-                </div>
               </>
             )}
           </div>

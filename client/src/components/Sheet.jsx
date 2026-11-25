@@ -1,6 +1,26 @@
 import { useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 
-export default function Sheet({ open, onClose, title, children, height = 'auto' }) {
+/**
+ * Bottom sheet.
+ *
+ * Two things here are load-bearing and easy to break again:
+ *
+ * 1. It renders in a portal on <body>. Rendered inline it is a descendant of
+ *    the scrolling page, and any ancestor with a transform, filter or
+ *    backdrop-filter turns `position: fixed` into "fixed to that ancestor",
+ *    which clips the sheet. The bottom nav uses backdrop-filter, so this was
+ *    not hypothetical.
+ *
+ * 2. z-index sits above the nav (z-50) and the sidebar (z-60). A modal that
+ *    the navigation paints on top of is not just ugly — the nav stays tappable
+ *    underneath a dialog that claims aria-modal.
+ *
+ * `footer` renders outside the scroll area, so primary actions stay on screen
+ * no matter how long the content is. Put Save there, not at the end of
+ * children, or it scrolls out of reach on a small phone.
+ */
+export default function Sheet({ open, onClose, title, children, footer, height = 'auto' }) {
   const sheetRef = useRef(null);
   const startY = useRef(null);
 
@@ -32,8 +52,8 @@ export default function Sheet({ open, onClose, title, children, height = 'auto' 
     ? 'max-h-[80vh]'
     : 'max-h-[70vh]';
 
-  return (
-    <div className="fixed inset-0 z-50 flex flex-col justify-end" role="dialog" aria-modal="true">
+  return createPortal(
+    <div className="fixed inset-0 z-[70] flex flex-col justify-end" role="dialog" aria-modal="true">
       <div
         className="absolute inset-0 bg-black/40 backdrop-enter"
         onClick={onClose}
@@ -63,10 +83,16 @@ export default function Sheet({ open, onClose, title, children, height = 'auto' 
             </button>
           </div>
         )}
-        <div className="flex-1 overflow-y-auto">
+        <div className="flex-1 overflow-y-auto min-h-0">
           {children}
         </div>
+        {footer && (
+          <div className="flex-shrink-0 px-4 pt-3 border-t border-hair bg-card">
+            {footer}
+          </div>
+        )}
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
