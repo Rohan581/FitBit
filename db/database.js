@@ -1301,6 +1301,30 @@ function runMigrations(db) {
     console.error('[v49 migration] session re-materialise failed:', e.message);
   }
 
+  // ── v50: Apple Health imports ───────────────────────────────
+  // Deliberately NOT workout_sessions. That table drives the lifting rotation —
+  // its workout_type decides what getNextWorkoutType() serves tomorrow, so a
+  // swim or a walk landing in it would corrupt the programme. Imported activity
+  // is a separate record with no influence on training or on TDEE.
+  //
+  // apple_id is the HealthKit UUID, so re-running the sync over a day already
+  // imported is a no-op rather than a duplicate.
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS health_workouts (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      apple_id TEXT UNIQUE,
+      date TEXT NOT NULL,
+      type TEXT,
+      started_at TEXT,
+      duration_min REAL,
+      active_kcal REAL,
+      distance_km REAL,
+      source TEXT DEFAULT 'apple_health',
+      created_at TEXT DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_health_workouts_date ON health_workouts(date);
+  `);
+
   // Seed exercises
   seedExercises(db);
 

@@ -84,7 +84,11 @@ function mountAuth(app) {
 
 // Paths that never need a session: version (health check), auth itself, and the
 // email ingest endpoint, which has its own key.
-const OPEN = ['/api/version', '/api/auth/', '/api/money/ingest'];
+// /api/ingest/* is reached by an iOS Shortcut, which cannot hold a session
+// cookie. Those routes check their own HEALTH_INGEST_KEY header instead and
+// refuse everything when it is unset, so opening the path here grants nothing
+// on its own.
+const OPEN = ['/api/version', '/api/auth/', '/api/money/ingest', '/api/ingest/'];
 
 function requireAuth(req, res, next) {
   if (!req.path.startsWith('/api/')) return next();

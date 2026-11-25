@@ -60,6 +60,7 @@ function useRoute(path, mod) {
   }
 }
 
+useRoute('/api/ingest', './routes/healthIngest');
 useRoute('/api/foods', './routes/foods');
 useRoute('/api/saved-meals', './routes/savedMeals');
 useRoute('/api/food-logs', './routes/foodLogs');
