@@ -948,6 +948,20 @@ function FoodSearchSheet({ open, onClose, mealType, onLogged, targetDate }) {
               <>
                 <input ref={fileRef} type="file" accept="image/*" capture="environment" onChange={handlePickPhoto} className="hidden" />
 
+                <label className="block text-xs font-semibold text-tx mb-1.5">What is it?</label>
+                <textarea
+                  value={photoNote}
+                  onChange={e => setPhotoNote(e.target.value)}
+                  rows={2}
+                  autoFocus
+                  placeholder={'e.g. "air fried chicken breast in a tortilla, about 150 g chicken"'}
+                  className="w-full px-3 py-2.5 rounded-card border border-hair text-sm text-tx bg-card-2 focus:outline-none resize-none"
+                />
+                <p className="text-[11px] text-tx-3 mt-1.5 mb-3">
+                  Naming the dish matters more than the photo — a picture alone gets dishes wrong, and
+                  a wrong dish means wrong protein. Quantities you state are taken as fact.
+                </p>
+
                 {photo ? (
                   <div className="relative">
                     <img src={photo.preview} alt="" className="w-full max-h-52 object-cover rounded-card" />
@@ -960,19 +974,11 @@ function FoodSearchSheet({ open, onClose, mealType, onLogged, targetDate }) {
                 ) : (
                   <button
                     onClick={() => fileRef.current?.click()}
-                    className="w-full py-8 rounded-card border border-dashed border-hair text-sm text-tx-3 press-scale"
+                    className="w-full py-6 rounded-card border border-dashed border-hair text-sm text-tx-3 press-scale"
                   >
-                    Take or choose a photo
+                    Add a photo too (optional)
                   </button>
                 )}
-
-                <textarea
-                  value={photoNote}
-                  onChange={e => setPhotoNote(e.target.value)}
-                  rows={2}
-                  placeholder={photo ? 'Optional: "I only ate half", "no oil"' : 'Or just describe it: "2 rotis, dal, half a bowl of curd"'}
-                  className="w-full mt-2 px-3 py-2.5 rounded-card border border-hair text-sm text-tx bg-card-2 focus:outline-none resize-none"
-                />
 
                 {estimateErr && <p className="text-xs mt-2" style={{ color: 'var(--danger)' }}>{estimateErr}</p>}
 
