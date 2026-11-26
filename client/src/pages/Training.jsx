@@ -991,18 +991,24 @@ export default function Training() {
                       </div>
                     );
                   }
+                  // The bonus slot is optional by design — it holds only work
+                  // that costs little if skipped. Showing it dashed and labelled
+                  // means the card answers "is there a fifth exercise?" without
+                  // having to start the session to find out.
                   return (
                     <span
                       key={i}
-                      className="text-[12.5px] font-semibold text-tx-2 rounded-full px-2.5 py-1"
+                      className="text-[12.5px] font-semibold rounded-full px-2.5 py-1"
                       style={{
                         background: ex.is_catchup
                           ? 'color-mix(in oklab, var(--points) 20%, transparent)'
-                          : 'var(--card-2)',
-                        color: ex.is_catchup ? 'var(--points)' : undefined,
+                          : ex.is_bonus ? 'transparent' : 'var(--card-2)',
+                        border: ex.is_bonus ? '1px dashed var(--hairline)' : undefined,
+                        color: ex.is_catchup ? 'var(--points)' : ex.is_bonus ? 'var(--text-3)' : 'var(--text-2)',
                       }}
                     >
                       {ex.name}{ex.is_catchup ? ' ↺' : ''}
+                      {ex.is_bonus && <span className="ml-1.5 text-[10.5px] font-medium opacity-70">bonus</span>}
                     </span>
                   );
                 })}

@@ -6,7 +6,13 @@ const { getNextWorkoutType, getWorkoutByType, ROTATION, SUCCESSOR_MAP, KB_ROTATI
 const { EQUIPMENT_CATALOG } = require('../db/equipmentData');
 
 // ─── Constants ───────────────────────────────────────────────
-const SESSION_CAP = 4; // hard cap: 4 exercises per session, no exceptions
+// Hard caps per session: 4 core exercises, plus the one optional bonus slot.
+// These were a single SESSION_CAP = 4 before v49 added a bonus slot to every
+// template. Because the bonus is always last, a flat cap of 4 silently sliced it
+// off the /next preview — the session itself still materialised 5 slots, so the
+// bonus existed but was invisible until you started the workout.
+const CORE_CAP = 4;
+const BONUS_CAP = 1;
 
 // Fine-grained muscle → coarse volume-readout group.
 // Every primary_muscles value in the exercises table must resolve here.
@@ -50,14 +56,19 @@ const CATCH_UP_EXERCISES = {
 // ─── Slot counting ─────────────────────────────────────────
 // One exercise = one slot. No pairing.
 function countSlots(exercises) {
-  return exercises.length;
+  // Core only — the bonus slot is not part of the cap it is checked against.
+  return exercises.filter(e => !e.is_bonus).length;
 }
 
-// Hard-truncate to SESSION_CAP — last step in the pipeline.
+// Hard-truncate to the caps — last step in the pipeline.
+// Core and bonus are capped separately so a full core session can never push
+// the bonus out, and extra core work can never arrive disguised as a bonus.
 function enforceSlotCap(exercises) {
-  if (exercises.length <= SESSION_CAP) return exercises;
-  console.warn(`[SLOT CAP] Session generated with ${exercises.length} exercises (cap: ${SESSION_CAP}). Truncating. Exercises: ${exercises.map(e => e.name).join(', ')}`);
-  return exercises.slice(0, SESSION_CAP);
+  const core = exercises.filter(e => !e.is_bonus);
+  const bonus = exercises.filter(e => e.is_bonus);
+  if (core.length <= CORE_CAP && bonus.length <= BONUS_CAP) return exercises;
+  console.warn(`[SLOT CAP] Session generated with ${core.length} core + ${bonus.length} bonus (caps: ${CORE_CAP} + ${BONUS_CAP}). Truncating. Exercises: ${exercises.map(e => e.name).join(', ')}`);
+  return [...core.slice(0, CORE_CAP), ...bonus.slice(0, BONUS_CAP)];
 }
 
 // ─── Equipment availability ─────────────────────────────────
@@ -861,7 +872,7 @@ router.get('/', (req, res) => {
 
   // Dev assertion: log if generation produced >5 slots before truncation
   const preTruncSlots = countSlots(finalExercises);
-  if (preTruncSlots > SESSION_CAP) {
+  if (preTruncSlots > CORE_CAP) {
     console.warn(`[SLOT CAP VIOLATION] ${nextWorkout.type} produced ${preTruncSlots} slots before enforceSlotCap. Exercises: ${finalExercises.map(e => e.name).join(', ')}`);
   }
   // Hard-truncate — no code path bypasses this
